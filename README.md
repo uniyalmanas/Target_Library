@@ -1,75 +1,85 @@
-# The Target Library — Management System
+# 🏛️ The Target Library — Management System
 
-Replaces the register/Excel workflow with a seat map, receipt system,
-member history, dashboard, and bulk Excel import.
+A premium, modern web application designed to replace manual register logs and Excel sheets for **The Target Library** (Dehradun). Built with Next.js, Tailwind CSS v4, and Supabase, it features an elegant, Apple-inspired interface, support for up to 1000 seats, live seat booking states, custom passes, and automated WhatsApp delivery.
 
-## 1. Set up the database
+## 🔗 Production URL
+*   **Live Web App:** [https://library-ms-three.vercel.app](https://library-ms-three.vercel.app)
+*   **GitHub Codebase:** [https://github.com/uniyalmanas/Target_Library](https://github.com/uniyalmanas/Target_Library)
 
-1. Go to your Supabase project (LibraryMS) → **SQL Editor** → New Query.
-2. Paste the entire contents of `supabase/migration.sql` and click **Run**.
-   This creates the `members`, `seats`, and `receipts` tables and seeds
-   500 seats. Safe to re-run — it won't duplicate data.
+---
 
-## 2. Configure environment variables
+## ✨ Key Features
 
-A `.env.local` file is already included with your Project URL and
-publishable key. If you regenerate keys later, update:
+1.  **Cinema-Style Seat Map (`/`)**
+    *   Interactive grid layout showing **1000 seats** with real-time status.
+    *   🟢 **Green:** Free/Available.
+    *   🔴 **Red:** Occupied (Full-day subscription).
+    *   🟡 **Yellow:** Occupied (Half-day morning/evening shifts).
+    *   Clicking any occupied seat slides open a premium details panel displaying the student's name, active shift timing, validity date, and quick action shortcuts.
 
-```
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
-```
+2.  **New Receipt & Booking Form (`/new-receipt`)**
+    *   Register new members or book seats for existing members using custom Member IDs (e.g. `1287`).
+    *   Automatically calculates subscription pricing:
+        *   **Full Day (6am - 12am):** ₹900/month (₹1200 with sheet/desk space addon).
+        *   **Half Day (6am - 2pm / 2pm - 12am):** ₹600/month (₹900 with sheet/desk space addon).
+    *   Allows custom overrides for amounts paid.
 
-Both values are safe to use client-side — they are NOT the service role
-key, so nothing sensitive is exposed here. If you ever see a "service
-role key" or a raw DB password, keep those private and never put them
-in this file.
+3.  **🎟️ High-Class Wallet Card & Invoice Receipt (`/receipts/[id]`)**
+    *   **Membership Card:** An Obsidian-black, glassmorphic card (inspired by Apple Wallet passes) featuring the library branding, student details, seat allocation, validity status, and a verification QR code.
+    *   **E-Invoice:** A clean, professional billing receipt ready to print or save as a PDF.
 
-## 3. Install and run locally
+4.  **⚡ Automated Background WhatsApp Delivery (`/api/send-whatsapp`)**
+    *   When a booking is confirmed, the system automatically tries to send the receipt details and digital pass link directly to the student's phone number on WhatsApp in the background.
+    *   **Provider Integration:** Wire up pre-configured **UltraMsg** instance credentials in `.env.local` to enable completely automated background delivery.
+    *   **Manual Fallback:** Shows a manual **📲 Open WhatsApp Send** button if background credentials are not configured.
 
-```bash
-npm install
-npm run dev
-```
+5.  **📊 Member History Timeline (`/members/[id]`)**
+    *   Full historic log of all payments, seat leases, and expired subscriptions per student.
+    *   Instant **"💬 Share Pass"** and **"🎟️ View Pass"** buttons on past billing entries.
 
-Open http://localhost:3000 — you should see the seat grid.
+6.  **📥 Bulk Excel Import (`/import`)**
+    *   Allows uploading legacy registration data from registers/spreadsheets in bulk.
+    *   Features an interactive review grid where errors (e.g., unavailable seats) are highlighted and skipped while clean data is loaded cleanly.
 
-## 4. What's included
+---
 
-- **Seats (`/`)** — 500-seat grid, green = free, red = full-day occupied,
-  yellow = half-day occupied. Click any seat for details or to assign it.
-- **New Receipt (`/new-receipt`)** — the core data-entry form. Creates a
-  new member (or attaches to an existing Member ID), assigns a seat,
-  sets subscription type/shift/sheet add-on, and generates a WhatsApp
-  send-link if a phone number is provided.
-- **Dashboard (`/dashboard`)** — total/free/occupied seat counts,
-  seats expiring within 7 days, and this month's revenue.
-- **Members (`/members`)** — search by name or Member ID, view full
-  payment history per member (mirrors the old paper tracking card).
-- **Bulk Import (`/import`)** — upload an Excel file of existing
-  register data. Download the template first, fill it in, upload,
-  review the parsed preview (bad rows are flagged and skipped), then
-  commit.
+## 🛠️ Technical Stack
+*   **Frontend:** React, Next.js (App Router, Turbopack)
+*   **Styling:** Tailwind CSS v4, Vanilla CSS Custom Variables (Apple-style system)
+*   **Database:** Supabase (PostgreSQL)
+*   **Hosting & CI/CD:** Vercel
 
-## 5. Deploying
+---
 
-This is a standard Next.js app — deploys cleanly to Vercel:
+## 🚀 Local Development Setup
 
-```bash
-npx vercel
-```
+1.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/uniyalmanas/Target_Library.git
+    cd Target_Library
+    ```
 
-Add the same two environment variables in the Vercel project settings
-before deploying.
+2.  **Configure `.env.local`:**
+    Create a `.env.local` file in the root directory:
+    ```env
+    NEXT_PUBLIC_SUPABASE_URL=https://yokxobybxdhmqijnipyx.supabase.co
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_eFb_J4TDzQqY6UTjUsX5og_UKrcJqa3
 
-## Notes / known simplifications for v1
+    # Optional: Configure UltraMsg for live background WhatsApp delivery
+    ULTRAMSG_INSTANCE_ID=your_instance_id
+    ULTRAMSG_TOKEN=your_token
+    ```
 
-- Single shared login is assumed for staff — no auth/roles are wired up
-  yet. Add this if the owner wants staff-level permission separation.
-- WhatsApp sending uses the free `wa.me` click-to-chat link (staff taps
-  a button, WhatsApp opens pre-filled, they hit send). No paid API
-  integration needed for this scale.
-- Renewals: currently done by creating a fresh receipt against the same
-  seat number via the New Receipt form. A dedicated one-click "Renew"
-  button (pre-filling the previous subscription's details) is a natural
-  next iteration once this is in daily use.
+3.  **Install Dependencies & Run:**
+    ```bash
+    npm install
+    npm run dev
+    ```
+    Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## 📦 Database Migrations
+The database schema and seeds are stored in `supabase/migration.sql`. To set up a new Supabase environment:
+1. Paste the content of `supabase/migration.sql` into the Supabase SQL editor.
+2. Run the migration to define tables, setup constraint rules (supporting 1000 seats), and seed initial seat maps.
