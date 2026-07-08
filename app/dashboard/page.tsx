@@ -9,6 +9,9 @@ interface Stats {
   free: number;
   expiringSoon: number;
   monthRevenue: number;
+  revenueTrend: { month: string; revenue: number }[];
+  shiftCounts: { full_day: number; shift_1: number; shift_2: number; shift_3: number };
+  hourlyOccupancy: { period: string; count: number }[];
 }
 
 export default function DashboardPage() {
@@ -16,6 +19,7 @@ export default function DashboardPage() {
   const [seats, setSeats] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"free" | "partial" | "full">("free");
   const [loadingSeats, setLoadingSeats] = useState(true);
+  const [hoveredPoint, setHoveredPoint] = useState<any | null>(null);
 
   useEffect(() => {
     fetch("/api/dashboard")
@@ -83,6 +87,34 @@ export default function DashboardPage() {
       (s.receipts?.some((r: any) => r.subscription_type === "full_day") || s.receipts?.length === 2)
   );
 
+  // SVG Area Chart Calculations (Rolling 6-month trends)
+  const trend = stats.revenueTrend || [];
+  const maxRevenue = Math.max(...trend.map((t) => t.revenue), 1000);
+  const chartHeight = 160;
+  const chartWidth = 460;
+  
+  const points = trend.map((t, idx) => {
+    const x = trend.length > 1 ? (idx / (trend.length - 1)) * (chartWidth - 80) + 50 : 50;
+    const y = chartHeight - (t.revenue / maxRevenue) * 110 - 20;
+    return { x, y, label: t.month, value: t.revenue };
+  });
+
+  const pathD = points.length > 0 ? `M ${points.map((p) => `${p.x},${p.y}`).join(" L ")}` : "";
+  const fillD = points.length > 0 ? `${pathD} L ${points[points.length - 1].x},${chartHeight - 10} L ${points[0].x},${chartHeight - 10} Z` : "";
+
+  // Shift counts progress items
+  const shiftList = [
+    { name: "Full Day Pass", count: stats.shiftCounts?.full_day || 0, color: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" },
+    { name: "Shift 1 (6am - 2pm)", count: stats.shiftCounts?.shift_1 || 0, color: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
+    { name: "Shift 2 (2pm - 12am)", count: stats.shiftCounts?.shift_2 || 0, color: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
+    { name: "Shift 3 (4pm - 12am)", count: stats.shiftCounts?.shift_3 || 0, color: "bg-blue-500", text: "text-blue-600 dark:text-blue-400" },
+  ];
+  const maxShiftCount = Math.max(...shiftList.map((s) => s.count), 1);
+
+  // Hourly load Timeline variables
+  const occupancyList = stats.hourlyOccupancy || [];
+  const maxOccupancyCount = stats.totalSeats || 500;
+
   return (
     <div className="space-y-8">
       {/* Metrics Section */}
@@ -101,13 +133,132 @@ export default function DashboardPage() {
               key={c.label}
               className={`bg-card-bg border ${c.borderColor} rounded-2xl p-6 relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/10`}
             >
-              {/* Top-right corner gradient glow */}
               <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl ${c.bgGlow} pointer-events-none`} />
-
               <p className="text-text-muted text-xs font-semibold tracking-wider uppercase mb-2">{c.label}</p>
               <p className={`text-3xl font-extrabold tracking-tight ${c.color}`}>{c.value}</p>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Analytics Visual Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Growth Trend Chart */}
+        <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md flex flex-col justify-between relative overflow-hidden min-h-[300px]">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-radial from-blue-500/5 to-transparent pointer-events-none" />
+          <div className="mb-4">
+            <h2 className="text-base font-bold text-foreground">Revenue Performance &amp; Growth</h2>
+            <p className="text-[10px] text-text-muted mt-0.5">Rolling 6-month monthly collections trend.</p>
+          </div>
+
+          <div className="relative w-full flex-1 min-h-[160px] flex items-center justify-center">
+            {points.length > 0 ? (
+              <svg className="w-full h-[160px] overflow-visible" viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
+                <defs>
+                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25"/>
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0"/>
+                  </linearGradient>
+                </defs>
+                {/* Horizontal reference grid lines */}
+                <line x1="40" y1="30" x2={chartWidth - 20} y2="30" className="stroke-panel-border/40" strokeDasharray="3 3" />
+                <line x1="40" y1="85" x2={chartWidth - 20} y2="85" className="stroke-panel-border/40" strokeDasharray="3 3" />
+                <line x1="40" y1="140" x2={chartWidth - 20} y2="140" className="stroke-panel-border" />
+
+                {/* Y-Axis Labels */}
+                <text x="30" y="34" className="text-[8px] font-bold text-text-muted fill-current text-right" textAnchor="end">₹{maxRevenue}</text>
+                <text x="30" y="89" className="text-[8px] font-bold text-text-muted fill-current text-right" textAnchor="end">₹{Math.round(maxRevenue / 2)}</text>
+                <text x="30" y="144" className="text-[8px] font-bold text-text-muted fill-current text-right" textAnchor="end">₹0</text>
+
+                {/* Gradient Area Fill */}
+                {fillD && <path d={fillD} fill="url(#areaGrad)" />}
+                {/* Stroke Line */}
+                {pathD && <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+
+                {/* Interactive circles */}
+                {points.map((p, idx) => (
+                  <g key={idx}>
+                    <circle
+                      cx={p.x}
+                      cy={p.y}
+                      r="4"
+                      className="fill-blue-500 stroke-card-bg stroke-2 cursor-pointer transition-all duration-150 hover:r-6"
+                      onMouseEnter={() => setHoveredPoint(p)}
+                      onMouseLeave={() => setHoveredPoint(null)}
+                    />
+                    <text
+                      x={p.x}
+                      y="155"
+                      className="text-[8px] font-bold text-text-muted fill-current text-center"
+                      textAnchor="middle"
+                    >
+                      {p.label.split(" ")[0]}
+                    </text>
+                  </g>
+                ))}
+              </svg>
+            ) : (
+              <p className="text-xs text-text-muted">No historical transactions available.</p>
+            )}
+
+            {/* Hover values tooltip */}
+            {hoveredPoint && (
+              <div
+                className="absolute bg-neutral-900 border border-neutral-800 text-white rounded-lg p-2 text-[10px] pointer-events-none shadow-xl flex flex-col font-semibold gap-0.5"
+                style={{
+                  left: `${(hoveredPoint.x / chartWidth) * 90}%`,
+                  top: `${(hoveredPoint.y / chartHeight) * 50}%`,
+                }}
+              >
+                <span>{hoveredPoint.label}</span>
+                <span className="text-blue-400 font-extrabold">₹{hoveredPoint.value}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Occupancy Shifts & Timeline Peak */}
+        <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md flex flex-col justify-between min-h-[300px]">
+          <div>
+            <h2 className="text-base font-bold text-foreground">Shift Popularity &amp; Allocations</h2>
+            <p className="text-[10px] text-text-muted mt-0.5">Ratio of active study slots booked per shift.</p>
+          </div>
+
+          <div className="space-y-4 my-auto">
+            {shiftList.map((s) => (
+              <div key={s.name} className="space-y-1">
+                <div className="flex justify-between text-xs font-semibold">
+                  <span className="text-text-details">{s.name}</span>
+                  <span className={`${s.text} font-bold`}>{s.count} active</span>
+                </div>
+                <div className="h-2 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${s.color} transition-all duration-700 ease-out rounded-full`}
+                    style={{ width: `${(s.count / maxShiftCount) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-4 border-t border-panel-border">
+            <p className="text-[9px] uppercase font-bold tracking-widest text-text-muted mb-2.5">Hourly Peak Occupancy timeline</p>
+            <div className="grid grid-cols-3 gap-2.5">
+              {occupancyList.map((o) => {
+                const percentage = Math.round((o.count / maxOccupancyCount) * 100);
+                return (
+                  <div key={o.period} className="bg-background border border-card-border p-3.5 rounded-xl flex flex-col justify-between shadow-sm relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 h-[2px] bg-gradient-to-r from-blue-500 to-rose-500 transition-all duration-300" style={{ width: `${percentage}%` }} />
+                    <p className="text-[9px] font-bold text-foreground truncate">{o.period.split(" ")[0]}</p>
+                    <div className="mt-2.5 flex justify-between items-baseline">
+                      <span className="text-base font-extrabold tracking-tight text-foreground">{percentage}%</span>
+                      <span className="text-[8px] text-text-muted font-bold font-mono">{o.count}/{maxOccupancyCount}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -140,7 +291,7 @@ export default function DashboardPage() {
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-amber-500" />
-            Half-Day Occupied ({partialSeatsList.length})
+            Half-day Occupied ({partialSeatsList.length})
           </button>
           <button
             onClick={() => setActiveTab("full")}
@@ -150,30 +301,31 @@ export default function DashboardPage() {
                 : "border-transparent text-text-muted hover:text-foreground"
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-            Fully Occupied ({fullSeatsList.length})
+            <span className="w-2 h-2 rounded-full bg-rose-500" />
+            Fully Blocked ({fullSeatsList.length})
           </button>
         </div>
 
+        {/* Tab Panels */}
         {loadingSeats ? (
-          <p className="text-xs text-text-muted animate-pulse">Loading seat status directory...</p>
+          <p className="text-xs text-text-muted animate-pulse">Loading seat status index...</p>
         ) : (
-          <div>
+          <div className="pt-2">
             {activeTab === "free" && (
-              <div className="space-y-2">
-                <p className="text-[10px] uppercase font-extrabold tracking-wider text-text-muted">Available Seats</p>
-                <div className="grid grid-cols-8 sm:grid-cols-12 md:grid-cols-16 gap-2 max-h-[400px] overflow-y-auto p-1">
+              <div className="space-y-4">
+                <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Unoccupied Seats (Available for all shifts)</p>
+                <div className="flex flex-wrap gap-2 max-h-[400px] overflow-y-auto p-1">
                   {freeSeatsList.map((s) => (
                     <Link
                       key={s.seat_id}
-                      href={`/?seat=${s.seat_number}`}
-                      className="text-center font-mono text-xs font-semibold p-2 rounded-lg bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/15 text-emerald-600 dark:text-emerald-400 cursor-pointer transition-all hover:scale-105"
+                      href={`/new-receipt?seat_number=${s.seat_number}`}
+                      className="bg-card-bg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-details border border-card-border hover:border-emerald-500/40 text-xs px-3 py-2 rounded-lg font-bold transition-all hover:-translate-y-0.5 shadow-xs cursor-pointer"
                     >
-                      {s.seat_number}
+                      Seat {s.seat_number}
                     </Link>
                   ))}
                   {freeSeatsList.length === 0 && (
-                    <p className="text-xs text-text-muted py-4 col-span-full">No available seats left.</p>
+                    <p className="text-xs text-text-muted py-4">No available seats left!</p>
                   )}
                 </div>
               </div>
@@ -181,7 +333,7 @@ export default function DashboardPage() {
 
             {activeTab === "partial" && (
               <div className="space-y-4">
-                <p className="text-[10px] uppercase font-extrabold tracking-wider text-text-muted">Half-Day Seats (1 Active Subscription)</p>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Partially Blocked Seats (Only 1 Shift Occupied)</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto p-1">
                   {partialSeatsList.map((s) => {
                     const r = s.receipts[0];
@@ -244,7 +396,7 @@ export default function DashboardPage() {
                               </div>
                               {isBothShifts && (
                                 <p className="text-[9px] text-text-muted mt-1 uppercase font-bold tracking-wider">
-                                  Shift: {r.shift_type}
+                                  Shift: {r.shift_type === "shift_1" || r.shift_type === "morning" ? "Shift 1" : r.shift_type === "shift_2" || r.shift_type === "evening" ? "Shift 2" : "Shift 3"}
                                 </p>
                               )}
                             </Link>
