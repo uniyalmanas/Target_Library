@@ -3,9 +3,17 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
-const PRICING: Record<string, { base: number; with_sheet: number }> = {
-  full_day: { base: 900, with_sheet: 1200 },
-  half_day: { base: 600, with_sheet: 900 },
+const PRICING: any = {
+  full_day: {
+    default: { base: 900, with_sheet: 1200 }
+  },
+  half_day: {
+    shift_1: { base: 600, with_sheet: 900 },
+    morning: { base: 600, with_sheet: 900 },
+    shift_2: { base: 600, with_sheet: 900 },
+    evening: { base: 600, with_sheet: 900 },
+    shift_3: { base: 500, with_sheet: 800 },
+  }
 };
 
 function NewReceiptForm() {
@@ -16,7 +24,7 @@ function NewReceiptForm() {
   const presetSeat = params.get("seat_number") || "";
   const presetStudentId = params.get("student_id") || "";
   const presetSubscriptionType = params.get("subscription_type") as "full_day" | "half_day" | null;
-  const presetShiftType = params.get("shift_type") as "morning" | "evening" | null;
+  const presetShiftType = params.get("shift_type") || "";
   const presetHasSheet = params.get("has_sheet") === "true";
   const presetAmount = params.get("amount") ? Number(params.get("amount")) : null;
   const presetStartDate = params.get("start_date") || "";
@@ -28,13 +36,21 @@ function NewReceiptForm() {
   const [subscriptionType, setSubscriptionType] = useState<"full_day" | "half_day">(
     presetSubscriptionType || "full_day"
   );
-  const [shiftType, setShiftType] = useState<"morning" | "evening">(
-    presetShiftType || "morning"
+  const [shiftType, setShiftType] = useState<"shift_1" | "shift_2" | "shift_3" | "morning" | "evening">(
+    (presetShiftType as any) || "shift_1"
   );
   const [hasSheet, setHasSheet] = useState(presetHasSheet);
-  const [amount, setAmount] = useState<number>(
-    presetAmount ?? PRICING[presetSubscriptionType || "full_day"][presetHasSheet ? "with_sheet" : "base"]
-  );
+  const [amount, setAmount] = useState<number>(() => {
+    if (presetAmount !== null) return presetAmount;
+    const subType = presetSubscriptionType || "full_day";
+    const sType = presetShiftType || "shift_1";
+    if (subType === "full_day") {
+      return PRICING.full_day.default[presetHasSheet ? "with_sheet" : "base"];
+    } else {
+      const pricingObj = PRICING.half_day[sType] || PRICING.half_day.shift_1;
+      return pricingObj[presetHasSheet ? "with_sheet" : "base"];
+    }
+  });
   const [startDate, setStartDate] = useState(
     presetStartDate || new Date().toISOString().split("T")[0]
   );
@@ -56,8 +72,13 @@ function NewReceiptForm() {
       setIsInitialMount(false);
       return;
     }
-    setAmount(PRICING[subscriptionType][hasSheet ? "with_sheet" : "base"]);
-  }, [subscriptionType, hasSheet]);
+    if (subscriptionType === "full_day") {
+      setAmount(PRICING.full_day.default[hasSheet ? "with_sheet" : "base"]);
+    } else {
+      const pricingObj = PRICING.half_day[shiftType] || PRICING.half_day.shift_1;
+      setAmount(pricingObj[hasSheet ? "with_sheet" : "base"]);
+    }
+  }, [subscriptionType, shiftType, hasSheet]);
 
   // Fetch member preview when existing student ID is typed/passed
   useEffect(() => {
@@ -160,9 +181,11 @@ function NewReceiptForm() {
     end.setDate(end.getDate() + 30);
     const shiftLabel =
       subscriptionType === "half_day"
-        ? shiftType === "morning"
-          ? "6am–2pm"
-          : "2pm–12am"
+        ? shiftType === "shift_1" || shiftType === "morning"
+          ? "Shift 1 (6am–2pm)"
+          : shiftType === "shift_2" || shiftType === "evening"
+            ? "Shift 2 (2pm–12am)"
+            : "Shift 3 (4pm–12am)"
         : "Full day (6am–12am)";
 
     setResult({
@@ -328,24 +351,33 @@ function NewReceiptForm() {
           {subscriptionType === "half_day" && (
             <div className="bg-background border border-panel-border rounded-lg p-3 space-y-2">
               <label className="block text-[10px] font-extrabold uppercase tracking-wider text-text-muted">Shift Select</label>
-              <div className="flex gap-6">
+              <div className="flex gap-6 flex-wrap">
                 <label className="flex items-center gap-2 text-sm cursor-pointer select-none text-text-details hover:text-foreground transition-colors">
                   <input
                     type="radio"
-                    checked={shiftType === "morning"}
-                    onChange={() => setShiftType("morning")}
+                    checked={shiftType === "shift_1" || shiftType === "morning"}
+                    onChange={() => setShiftType("shift_1")}
                     className="accent-rose-600 w-4 h-4"
                   />
-                  Morning (6am–2pm)
+                  Shift 1 (6am–2pm)
                 </label>
                 <label className="flex items-center gap-2 text-sm cursor-pointer select-none text-text-details hover:text-foreground transition-colors">
                   <input
                     type="radio"
-                    checked={shiftType === "evening"}
-                    onChange={() => setShiftType("evening")}
+                    checked={shiftType === "shift_2" || shiftType === "evening"}
+                    onChange={() => setShiftType("shift_2")}
                     className="accent-rose-600 w-4 h-4"
                   />
-                  Evening (2pm–12am)
+                  Shift 2 (2pm–12am)
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none text-text-details hover:text-foreground transition-colors">
+                  <input
+                    type="radio"
+                    checked={shiftType === "shift_3"}
+                    onChange={() => setShiftType("shift_3")}
+                    className="accent-rose-600 w-4 h-4"
+                  />
+                  Shift 3 (4pm–12am)
                 </label>
               </div>
             </div>

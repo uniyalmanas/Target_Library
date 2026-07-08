@@ -76,7 +76,24 @@ export async function POST(req: Request) {
 
   const conflict = (activeOnSeat ?? []).some((r) => {
     if (r.subscription_type === "full_day" || subscription_type === "full_day") return true;
-    return r.shift_type === shift_type;
+    
+    const rShift = r.shift_type;
+    const newShift = shift_type;
+
+    // Direct match (same shift)
+    if (rShift === newShift) return true;
+    if ((rShift === "morning" && newShift === "shift_1") || (rShift === "shift_1" && newShift === "morning")) return true;
+    if ((rShift === "evening" && newShift === "shift_2") || (rShift === "shift_2" && newShift === "evening")) return true;
+
+    // Overlap checks: Shift 2 (or legacy "evening") overlaps with Shift 3
+    const isRShift2 = rShift === "shift_2" || rShift === "evening";
+    const isNewShift2 = newShift === "shift_2" || newShift === "evening";
+    const isRShift3 = rShift === "shift_3";
+    const isNewShift3 = newShift === "shift_3";
+
+    if ((isRShift2 && isNewShift3) || (isRShift3 && isNewShift2)) return true;
+
+    return false;
   });
 
   if (conflict) {

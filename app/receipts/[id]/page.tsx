@@ -59,7 +59,13 @@ function ReceiptDetails() {
   const shiftLabel =
     data.subscription_type === "full_day"
       ? "Full day (6am–12am)"
-      : `Half day (${data.shift_type === "morning" ? "Morning: 6am–2pm" : "Evening: 2pm–12am"})`;
+      : `Half day (${
+          data.shift_type === "shift_1" || data.shift_type === "morning"
+            ? "Shift 1 (6am–2pm)"
+            : data.shift_type === "shift_2" || data.shift_type === "evening"
+              ? "Shift 2 (2pm–12am)"
+              : "Shift 3 (4pm–12am)"
+        })`;
 
   const handlePrint = () => {
     window.print();

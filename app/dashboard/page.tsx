@@ -198,7 +198,7 @@ export default function DashboardPage() {
                           </p>
                         </div>
                         <span className="text-[10px] font-extrabold uppercase bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">
-                          {r.shift_type === "morning" ? "Morning" : "Evening"}
+                          {r.shift_type === "shift_1" || r.shift_type === "morning" ? "Shift 1" : r.shift_type === "shift_2" || r.shift_type === "evening" ? "Shift 2" : "Shift 3"}
                         </span>
                       </Link>
                     );

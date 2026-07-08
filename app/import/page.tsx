@@ -9,7 +9,7 @@ interface ParsedRow {
   phone?: string;
   seat_number: number;
   subscription_type: "full_day" | "half_day";
-  shift_type?: "morning" | "evening";
+  shift_type?: "shift_1" | "shift_2" | "shift_3" | "morning" | "evening";
   has_sheet?: boolean;
   amount_paid: number;
   start_date: string;

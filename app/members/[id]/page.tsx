@@ -24,7 +24,13 @@ export default function MemberProfilePage() {
   const activeReceipt = receipts.find((r) => r.end_date >= today);
 
   const shiftLabel = (shift: string | null) =>
-    shift === "morning" ? "6am–2pm" : shift === "evening" ? "2pm–12am" : "Full day";
+    shift === "shift_1" || shift === "morning"
+      ? "Shift 1 (6am–2pm)"
+      : shift === "shift_2" || shift === "evening"
+        ? "Shift 2 (2pm–12am)"
+        : shift === "shift_3"
+          ? "Shift 3 (4pm–12am)"
+          : "Full day";
 
   const phone = member.phone;
   let activeWaUrl = "";

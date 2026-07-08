@@ -13,7 +13,7 @@ interface ReceiptData {
   receipt_no: number;
   student_id: number;
   subscription_type: "full_day" | "half_day";
-  shift_type: "morning" | "evening" | null;
+  shift_type: "shift_1" | "shift_2" | "shift_3" | "morning" | "evening" | null;
   has_sheet: boolean;
   amount_paid: number;
   start_date: string;
@@ -60,7 +60,13 @@ export default function SeatsPage() {
   ).length;
 
   const shiftLabel = (shift: string | null) =>
-    shift === "morning" ? "6am–2pm" : shift === "evening" ? "2pm–12am" : "";
+    shift === "shift_1" || shift === "morning"
+      ? "Shift 1 (6am–2pm)"
+      : shift === "shift_2" || shift === "evening"
+        ? "Shift 2 (2pm–12am)"
+        : shift === "shift_3"
+          ? "Shift 3 (4pm–12am)"
+          : "";
 
   const seatColor = (s: SeatData) => {
     if (!s.occupied) {
@@ -204,7 +210,7 @@ export default function SeatsPage() {
                     ? "Full Day"
                     : selected.receipts?.length === 2
                       ? "Fully Occupied"
-                      : `${selected.receipts[0].shift_type === 'morning' ? 'Morning occupied' : 'Evening occupied'}`
+                      : `${shiftLabel(selected.receipts[0].shift_type)} Occupied`
               }
               </span>
             </div>
@@ -216,7 +222,7 @@ export default function SeatsPage() {
                     {selected.receipts.length > 1 && (
                       <div className="text-[9px] text-rose-600 dark:text-rose-400 font-extrabold uppercase tracking-widest mb-3 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block animate-pulse" />
-                        Occupant {idx + 1} &middot; {r.shift_type === "morning" ? "Morning Shift" : "Evening Shift"}
+                        Occupant {idx + 1} &middot; {shiftLabel(r.shift_type)}
                       </div>
                     )}
                     <div className="space-y-2 text-sm text-text-details">
@@ -282,24 +288,37 @@ export default function SeatsPage() {
                   </div>
                 ))}
 
-                {/* If seat is half_day and only one shift is occupied, allow staff to assign the empty shift */}
+                {/* If seat is half_day and has room for another shift */}
                 {selected.receipts?.length === 1 && selected.receipts[0].subscription_type === "half_day" && (
-                  <div className="bg-panel-bg/35 border border-panel-border border-dashed rounded-xl p-4 text-center">
-                    <p className="text-xs text-text-muted mb-3">
-                      The{" "}
-                      <span className="text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">
-                        {selected.receipts[0].shift_type === "morning" ? "evening" : "morning"}
-                      </span>{" "}
-                      shift is currently free.
+                  <div className="bg-panel-bg/35 border border-panel-border border-dashed rounded-xl p-4 text-center space-y-2">
+                    <p className="text-xs text-text-muted">
+                      Assign another non-overlapping shift to this seat:
                     </p>
-                    <Link
-                      href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=${
-                        selected.receipts[0].shift_type === "morning" ? "evening" : "morning"
-                      }`}
-                      className="inline-block bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2 rounded-lg font-semibold transition-all shadow-md shadow-emerald-600/10 cursor-pointer hover:-translate-y-0.5"
-                    >
-                      Assign {selected.receipts[0].shift_type === "morning" ? "Evening" : "Morning"} Shift
-                    </Link>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {selected.receipts[0].shift_type === "shift_1" || selected.receipts[0].shift_type === "morning" ? (
+                        <>
+                          <Link
+                            href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_2`}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-3 py-1.5 rounded-lg font-semibold transition-all shadow-md shadow-emerald-600/10 cursor-pointer"
+                          >
+                            + Shift 2 (2pm-12am)
+                          </Link>
+                          <Link
+                            href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_3`}
+                            className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] px-3 py-1.5 rounded-lg font-semibold transition-all shadow-md shadow-blue-600/10 cursor-pointer"
+                          >
+                            + Shift 3 (4pm-12am)
+                          </Link>
+                        </>
+                      ) : (
+                        <Link
+                          href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_1`}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-4 py-2 rounded-lg font-semibold transition-all shadow-md shadow-emerald-600/10 cursor-pointer"
+                        >
+                          + Shift 1 (6am-2pm)
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -313,18 +332,24 @@ export default function SeatsPage() {
                   >
                     Assign Full Day (₹900 / ₹1200)
                   </Link>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-1.5">
                     <Link
-                      href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=morning`}
-                      className="block text-center bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-2 rounded-lg font-semibold shadow-md shadow-emerald-600/15 transition-all cursor-pointer hover:-translate-y-0.5"
+                      href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_1`}
+                      className="block text-center bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] py-2 rounded-lg font-semibold shadow-md shadow-emerald-600/15 transition-all cursor-pointer hover:-translate-y-0.5"
                     >
-                      Assign Morning (₹600)
+                      Shift 1 (₹600)
                     </Link>
                     <Link
-                      href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=evening`}
-                      className="block text-center bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs px-3 py-2 rounded-lg font-semibold shadow-md shadow-amber-500/15 transition-all cursor-pointer hover:-translate-y-0.5"
+                      href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_2`}
+                      className="block text-center bg-amber-500 hover:bg-amber-400 text-neutral-955 text-[10px] py-2 rounded-lg font-semibold shadow-md shadow-amber-500/15 transition-all cursor-pointer hover:-translate-y-0.5"
                     >
-                      Assign Evening (₹600)
+                      Shift 2 (₹600)
+                    </Link>
+                    <Link
+                      href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_3`}
+                      className="block text-center bg-blue-600 hover:bg-blue-500 text-white text-[10px] py-2 rounded-lg font-semibold shadow-md shadow-blue-500/15 transition-all cursor-pointer hover:-translate-y-0.5"
+                    >
+                      Shift 3 (₹500)
                     </Link>
                   </div>
                 </div>

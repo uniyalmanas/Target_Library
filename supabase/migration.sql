@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS receipts (
     student_id        BIGINT NOT NULL REFERENCES members(student_id) ON DELETE CASCADE,
     seat_id           INT NOT NULL REFERENCES seats(seat_id),
     subscription_type VARCHAR(20) NOT NULL CHECK (subscription_type IN ('full_day','half_day')),
-    shift_type        VARCHAR(20) CHECK (shift_type IN ('morning','evening')),
+    shift_type        VARCHAR(20) CHECK (shift_type IN ('shift_1','shift_2','shift_3','morning','evening')),
     has_sheet         BOOLEAN NOT NULL DEFAULT FALSE,
     amount_paid       NUMERIC(10,2) NOT NULL,
     start_date        DATE NOT NULL,
