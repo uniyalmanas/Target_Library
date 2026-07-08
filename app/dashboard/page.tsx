@@ -314,18 +314,18 @@ export default function DashboardPage() {
             {activeTab === "free" && (
               <div className="space-y-4">
                 <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Unoccupied Seats (Available for all shifts)</p>
-                <div className="flex flex-wrap gap-2 max-h-[400px] overflow-y-auto p-1">
+                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2.5 max-h-[350px] overflow-y-auto p-1">
                   {freeSeatsList.map((s) => (
                     <Link
                       key={s.seat_id}
                       href={`/new-receipt?seat_number=${s.seat_number}`}
-                      className="bg-card-bg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-details border border-card-border hover:border-emerald-500/40 text-xs px-3 py-2 rounded-lg font-bold transition-all hover:-translate-y-0.5 shadow-xs cursor-pointer"
+                      className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40 px-3 py-2.5 rounded-xl font-bold text-center text-xs transition-all hover:-translate-y-0.5 shadow-sm hover:shadow-emerald-500/10 flex items-center justify-center gap-1 cursor-pointer"
                     >
-                      Seat {s.seat_number}
+                      <span className="text-[10px]">🪑</span> Seat {s.seat_number}
                     </Link>
                   ))}
                   {freeSeatsList.length === 0 && (
-                    <p className="text-xs text-text-muted py-4">No available seats left!</p>
+                    <p className="text-xs text-text-muted py-4 col-span-full">No available seats left!</p>
                   )}
                 </div>
               </div>
@@ -334,22 +334,25 @@ export default function DashboardPage() {
             {activeTab === "partial" && (
               <div className="space-y-4">
                 <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Partially Blocked Seats (Only 1 Shift Occupied)</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto p-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 max-h-[350px] overflow-y-auto p-1">
                   {partialSeatsList.map((s) => {
                     const r = s.receipts[0];
                     return (
                       <Link
                         key={s.seat_id}
                         href={`/members/${r.student_id}`}
-                        className="bg-card-bg border border-card-border hover:border-amber-500/40 p-4 rounded-xl flex justify-between items-center transition-all hover:-translate-y-0.5 shadow-sm group cursor-pointer"
+                        className="bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/15 hover:border-amber-500/35 p-4 rounded-2xl flex justify-between items-center transition-all hover:-translate-y-0.5 shadow-sm hover:shadow-amber-500/5 group cursor-pointer"
                       >
-                        <div>
-                          <p className="text-sm font-bold text-foreground">Seat {s.seat_number}</p>
-                          <p className="text-xs text-text-muted mt-1">
-                            Occupant: <span className="font-semibold text-foreground group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">{r.member?.name}</span>
+                        <div className="space-y-1">
+                          <p className="text-xs text-text-muted">Seat number</p>
+                          <p className="text-base font-extrabold text-foreground flex items-center gap-1.5">
+                            <span className="text-sm">🪑</span> {s.seat_number}
+                          </p>
+                          <p className="text-[11px] text-text-details font-medium mt-1">
+                            Occupant: <span className="font-semibold text-foreground group-hover:text-amber-500 transition-colors">{r.member?.name}</span>
                           </p>
                         </div>
-                        <span className="text-[10px] font-extrabold uppercase bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">
+                        <span className="text-[9px] font-extrabold uppercase bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25 px-2.5 py-1 rounded-full tracking-wider">
                           {r.shift_type === "shift_1" || r.shift_type === "morning" ? "Shift 1" : r.shift_type === "shift_2" || r.shift_type === "evening" ? "Shift 2" : "Shift 3"}
                         </span>
                       </Link>
@@ -365,17 +368,19 @@ export default function DashboardPage() {
             {activeTab === "full" && (
               <div className="space-y-4">
                 <p className="text-[10px] uppercase font-extrabold tracking-wider text-text-muted">Fully Blocked Seats (Full-Day or 2 Shifts Booked)</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto p-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 max-h-[350px] overflow-y-auto p-1">
                   {fullSeatsList.map((s) => {
                     const isBothShifts = s.receipts?.length === 2;
                     return (
                       <div
                         key={s.seat_id}
-                        className="bg-card-bg border border-card-border p-4 rounded-xl flex flex-col justify-between gap-3 shadow-sm hover:shadow-md transition-all"
+                        className="bg-rose-500/5 border border-rose-500/15 p-4 rounded-2xl flex flex-col justify-between gap-3.5 shadow-sm"
                       >
                         <div className="flex justify-between items-center">
-                          <p className="text-sm font-bold text-foreground">Seat {s.seat_number}</p>
-                          <span className="text-[9px] font-extrabold uppercase bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded tracking-wider">
+                          <p className="text-base font-extrabold text-foreground flex items-center gap-1.5">
+                            <span className="text-sm">🪑</span> Seat {s.seat_number}
+                          </p>
+                          <span className="text-[9px] font-extrabold uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 px-2.5 py-1 rounded-full tracking-wider">
                             {isBothShifts ? "2 Shifts Booked" : "Full Day"}
                           </span>
                         </div>
@@ -384,10 +389,10 @@ export default function DashboardPage() {
                             <Link
                               key={r.receipt_no}
                               href={`/members/${r.student_id}`}
-                              className="block text-xs p-2 rounded-lg bg-background hover:bg-panel-bg border border-panel-border transition group cursor-pointer"
+                              className="block text-xs p-3 rounded-xl bg-background/50 hover:bg-rose-500/5 border border-panel-border hover:border-rose-500/25 transition group cursor-pointer"
                             >
                               <div className="flex justify-between">
-                                <span className="font-semibold text-foreground group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
+                                <span className="font-bold text-foreground group-hover:text-rose-500 transition-colors">
                                   {r.member?.name}
                                 </span>
                                 <span className="text-[10px] text-text-muted font-mono">
@@ -395,7 +400,7 @@ export default function DashboardPage() {
                                 </span>
                               </div>
                               {isBothShifts && (
-                                <p className="text-[9px] text-text-muted mt-1 uppercase font-bold tracking-wider">
+                                <p className="text-[9px] text-text-muted mt-1.5 uppercase font-bold tracking-wider">
                                   Shift: {r.shift_type === "shift_1" || r.shift_type === "morning" ? "Shift 1" : r.shift_type === "shift_2" || r.shift_type === "evening" ? "Shift 2" : "Shift 3"}
                                 </p>
                               )}
