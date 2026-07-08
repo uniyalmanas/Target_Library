@@ -293,10 +293,10 @@ function NewReceiptForm() {
               required
               type="number"
               min={1}
-              max={1000}
+              max={500}
               value={seatNumber}
               onChange={(e) => setSeatNumber(e.target.value)}
-              placeholder="e.g. 784"
+              placeholder="e.g. 154"
               className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder-text-muted transition-all duration-200 outline-none"
             />
           </div>

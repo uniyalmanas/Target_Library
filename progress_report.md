@@ -9,7 +9,7 @@
 
 ## 🛠️ Summary of Milestones Achieved
 
-1.  **Database & Seeding Expansion (1000 Seats):** Applied migrations and constraints in Supabase, allowing seat bookings to scale up to **1000 seats** and seeded seats 501–1000.
+1.  **Database & Seeding (500 Seats):** Applied migrations and constraints in Supabase, allowing seat bookings to scale up to **500 seats**.
 2.  **High-Class Digital Wallet Passes & Invoices:** Created a dynamic route at `/receipts/[id]` generating glassmorphic digital wallet cards (inspired by Apple Wallet) with verification QR codes and professional invoices.
 3.  **Automated & Manual WhatsApp Dispatch:** Built `/api/send-whatsapp` to send pass/invoice links directly. Added manual sharing buttons on the seat details map, active subscription panels, and historic timelines.
 4.  **Apple-inspired Theme Layout & Styles:** Integrated a clean, minimalist Apple-style layout for Light and Dark modes. Repaired invalid Tailwind CSS classes to prevent generic color rendering.
@@ -24,7 +24,7 @@ Below is the chronological sequence of requests and implemented solutions during
 
 ### 👤 Step 1 — Project Requirements & Scope Definition
 *   **User Request:** The user described their register/Excel library workflow in Dehradun. They wanted to build a proper library management system. They needed:
-    *   Support for **1000 seats** matching a cinema seat grid layout (Green = Free, Red = Occupied Full Day, Yellow = Occupied Half Day).
+    *   Support for **500 seats** matching a cinema seat grid layout (Green = Free, Red = Occupied Full Day, Yellow = Occupied Half Day).
     *   Pricing rules: ₹900/month for full day, ₹600/month for half day, plus ₹300/month sheet addon.
     *   Generation of receipt, membership pass, and sharing them to WhatsApp.
 *   **Solution:** Built a Next.js App Router codebase with a modular responsive layout map, Supabase DB API routes, and a new booking form layout.

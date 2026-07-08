@@ -13,10 +13,10 @@ CREATE TABLE IF NOT EXISTS members (
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Seats: static seats 1-1000
+-- Seats: static seats 1-500
 CREATE TABLE IF NOT EXISTS seats (
     seat_id     SERIAL PRIMARY KEY,
-    seat_number INT UNIQUE NOT NULL CHECK (seat_number BETWEEN 1 AND 1000)
+    seat_number INT UNIQUE NOT NULL CHECK (seat_number BETWEEN 1 AND 500)
 );
 
 -- Receipts: one row per transaction (signup or renewal).
@@ -44,9 +44,9 @@ CREATE INDEX IF NOT EXISTS idx_receipts_enddate ON receipts(end_date);
 CREATE INDEX IF NOT EXISTS idx_receipts_seat ON receipts(seat_id);
 CREATE INDEX IF NOT EXISTS idx_receipts_student ON receipts(student_id);
 
--- Seed 1000 seats (safe to re-run, does nothing if already seeded)
+-- Seed 500 seats (safe to re-run, does nothing if already seeded)
 INSERT INTO seats (seat_number)
-SELECT generate_series(1, 1000)
+SELECT generate_series(1, 500)
 ON CONFLICT (seat_number) DO NOTHING;
 
 -- ============================================

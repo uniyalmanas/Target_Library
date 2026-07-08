@@ -1,6 +1,6 @@
 # 🏛️ The Target Library — Management System
 
-A premium, modern web application designed to replace manual register logs and Excel sheets for **The Target Library** (Dehradun). Built with Next.js, Tailwind CSS v4, and Supabase, it features an elegant, Apple-inspired interface, support for up to 1000 seats, live seat booking states, custom passes, and automated WhatsApp delivery.
+A premium, modern web application designed to replace manual register logs and Excel sheets for **The Target Library** (Dehradun). Built with Next.js, Tailwind CSS v4, and Supabase, it features an elegant, Apple-inspired interface, support for up to 500 seats, live seat booking states, custom passes, and automated WhatsApp delivery.
 
 ## 🔗 Production URL
 *   **Live Web App:** [https://library-ms-three.vercel.app](https://library-ms-three.vercel.app)
@@ -11,7 +11,7 @@ A premium, modern web application designed to replace manual register logs and E
 ## ✨ Key Features
 
 1.  **Cinema-Style Seat Map (`/`)**
-    *   Interactive grid layout showing **1000 seats** with real-time status.
+    *   Interactive grid layout showing **500 seats** with real-time status.
     *   🟢 **Green:** Free/Available.
     *   🔴 **Red:** Occupied (Full-day subscription).
     *   🟡 **Yellow:** Occupied (Half-day morning/evening shifts).
@@ -82,4 +82,4 @@ A premium, modern web application designed to replace manual register logs and E
 ## 📦 Database Migrations
 The database schema and seeds are stored in `supabase/migration.sql`. To set up a new Supabase environment:
 1. Paste the content of `supabase/migration.sql` into the Supabase SQL editor.
-2. Run the migration to define tables, setup constraint rules (supporting 1000 seats), and seed initial seat maps.
+2. Run the migration to define tables, setup constraint rules (supporting 500 seats), and seed initial seat maps.
