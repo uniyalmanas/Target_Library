@@ -13,16 +13,18 @@ A premium, modern web application designed to replace manual register logs and E
 1.  **Cinema-Style Seat Map (`/`)**
     *   Interactive grid layout showing **500 seats** with real-time status.
     *   🟢 **Green:** Free/Available.
-    *   🔴 **Red:** Occupied (Full-day subscription).
-    *   🟡 **Yellow:** Occupied (Half-day morning/evening shifts).
-    *   Clicking any occupied seat slides open a premium details panel displaying the student's name, active shift timing, validity date, and quick action shortcuts.
+    *   🔴 **Red:** Occupied (Full-day subscription or both shifts booked).
+    *   🟡 **Yellow:** Partially Occupied (Only 1 shift booked).
+    *   Clicking any occupied seat slides open a details panel displaying the student's name, active shift timing, validity date, and quick action shortcuts.
 
 2.  **New Receipt & Booking Form (`/new-receipt`)**
     *   Register new members or book seats for existing members using custom Member IDs (e.g. `1287`).
     *   Automatically calculates subscription pricing:
-        *   **Full Day (6am - 12am):** ₹900/month (₹1200 with sheet/desk space addon).
-        *   **Half Day (6am - 2pm / 2pm - 12am):** ₹600/month (₹900 with sheet/desk space addon).
-    *   Allows custom overrides for amounts paid.
+        *   **Full Day (6AM - 12AM):** ₹900/month (₹1200 with sheet/desk space addon).
+        *   **Shift 1 (6AM - 2PM):** ₹600/month (₹900 with sheet/desk space addon).
+        *   **Shift 2 (2PM - 12AM):** ₹600/month (₹900 with sheet/desk space addon).
+        *   **Shift 3 (4PM - 12AM):** ₹500/month (₹800 with sheet/desk space addon).
+    *   **Double-Booking Prevention:** The database and backend API block overlapping bookings (e.g., preventing booking both Shift 2 and Shift 3 on the same seat).
 
 3.  **🎟️ High-Class Wallet Card & Invoice Receipt (`/receipts/[id]`)**
     *   **Membership Card:** An Obsidian-black, glassmorphic card (inspired by Apple Wallet passes) featuring the library branding, student details, seat allocation, validity status, and a verification QR code.
@@ -39,7 +41,14 @@ A premium, modern web application designed to replace manual register logs and E
 
 6.  **📥 Bulk Excel Import (`/import`)**
     *   Allows uploading legacy registration data from registers/spreadsheets in bulk.
-    *   Features an interactive review grid where errors (e.g., unavailable seats) are highlighted and skipped while clean data is loaded cleanly.
+    *   Supports parsing of all three shifts (`shift_1`, `shift_2`, `shift_3`) as well as legacy parameters.
+    *   Features an interactive review grid where errors are highlighted and skipped.
+
+7.  **📈 Executive Dashboard & Analytics (`/dashboard`)**
+    *   **Revenue Growth Trends:** Custom SVG line/area chart showing rolling 6-month collection growth with hover tooltips.
+    *   **Shift Popularity:** Progress meters comparing active bookings across Full Day, Shift 1, Shift 2, and Shift 3.
+    *   **Hourly Peak Occupancy:** Timeline displaying active seat counts during Morning, Afternoon, and Evening peaks.
+    *   **Seat Inventory Browser:** Tabs listing available, half-day, and fully blocked seats (color-coded in green/yellow/red).
 
 ---
 
