@@ -9,11 +9,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized access to financial data" }, { status: 401 });
     }
 
+    // Timezone-safe date calculations
     const today = new Date();
-    const todayStr = today.toISOString().split("T")[0];
+    const todayYear = today.getFullYear();
+    const todayMonth = String(today.getMonth() + 1).padStart(2, "0");
+    const todayStr = `${todayYear}-${todayMonth}-${String(today.getDate()).padStart(2, "0")}`;
+
     const in7 = new Date(today);
     in7.setDate(in7.getDate() + 7);
-    const in7Str = in7.toISOString().split("T")[0];
+    const in7Year = in7.getFullYear();
+    const in7Month = String(in7.getMonth() + 1).padStart(2, "0");
+    const in7Str = `${in7Year}-${in7Month}-${String(in7.getDate()).padStart(2, "0")}`;
 
     // Get total seat capacity
     const { count: totalSeats, error: seatsError } = await supabase
@@ -22,57 +28,46 @@ export async function GET(req: Request) {
 
     if (seatsError) return NextResponse.json({ error: seatsError.message }, { status: 500 });
 
-    // Fetch active receipts
-    const { data: activeReceipts, error: activeError } = await supabase
+    // Fetch all receipts to compute metrics in a single database round-trip
+    const { data: receipts, error: receiptsError } = await supabase
       .from("receipts")
-      .select("seat_id, amount_paid, end_date, subscription_type, shift_type")
-      .gte("end_date", todayStr);
+      .select("seat_id, amount_paid, start_date, end_date, subscription_type, shift_type");
 
-    if (activeError) return NextResponse.json({ error: activeError.message }, { status: 500 });
+    if (receiptsError) return NextResponse.json({ error: receiptsError.message }, { status: 500 });
 
-    const occupiedSeatIds = new Set((activeReceipts ?? []).map((r) => r.seat_id));
+    const safeReceipts = receipts ?? [];
+
+    // 1. Active receipts
+    const activeReceipts = safeReceipts.filter((r) => r.end_date >= todayStr);
+    const occupiedSeatIds = new Set(activeReceipts.map((r) => r.seat_id));
     const occupied = occupiedSeatIds.size;
     const free = Math.max(0, (totalSeats ?? 0) - occupied);
 
-    const expiringSoon = (activeReceipts ?? []).filter(
-      (r) => r.end_date <= in7Str
-    ).length;
+    // 2. Expiring in 7 Days
+    const expiringSoon = activeReceipts.filter((r) => r.end_date <= in7Str).length;
 
-    // Current month revenue
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-      .toISOString()
-      .split("T")[0];
+    // 3. Current month revenue (First day of month of current year)
+    const monthStart = `${todayYear}-${todayMonth}-01`;
+    const monthReceipts = safeReceipts.filter((r) => r.start_date >= monthStart);
+    const monthRevenue = monthReceipts.reduce((sum, r) => sum + Number(r.amount_paid), 0);
 
-    const { data: monthReceipts, error: monthError } = await supabase
-      .from("receipts")
-      .select("amount_paid")
-      .gte("start_date", monthStart);
+    // 4. Lifetime collections
+    const lifetimeRevenue = safeReceipts.reduce((sum, r) => sum + Number(r.amount_paid), 0);
 
-    if (monthError) return NextResponse.json({ error: monthError.message }, { status: 500 });
+    // 5. Active monthly run rate
+    const activeMonthlyRevenue = activeReceipts.reduce((sum, r) => sum + Number(r.amount_paid), 0);
 
-    const monthRevenue = (monthReceipts ?? []).reduce(
-      (sum, r) => sum + Number(r.amount_paid),
-      0
-    );
-
-    // --- REVENUE TREND: Group by Month for Last 6 Months ---
+    // 6. Revenue trend (Last 6 Months)
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-    const sixMonthsAgoStart = new Date(sixMonthsAgo.getFullYear(), sixMonthsAgo.getMonth(), 1)
-      .toISOString()
-      .split("T")[0];
-
-    const { data: trendReceipts, error: trendError } = await supabase
-      .from("receipts")
-      .select("amount_paid, start_date")
-      .gte("start_date", sixMonthsAgoStart);
-
-    if (trendError) return NextResponse.json({ error: trendError.message }, { status: 500 });
+    const sixMonthsAgoYear = sixMonthsAgo.getFullYear();
+    const sixMonthsAgoMonth = String(sixMonthsAgo.getMonth() + 1).padStart(2, "0");
+    const sixMonthsAgoStart = `${sixMonthsAgoYear}-${sixMonthsAgoMonth}-01`;
 
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const revenueTrendMap = new Map<string, number>();
 
-    // Pre-populate last 6 months keys
+    // Pre-populate trend months keys
     for (let i = 5; i >= 0; i--) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
@@ -80,7 +75,8 @@ export async function GET(req: Request) {
       revenueTrendMap.set(key, 0);
     }
 
-    for (const r of trendReceipts ?? []) {
+    const trendReceipts = safeReceipts.filter((r) => r.start_date >= sixMonthsAgoStart);
+    for (const r of trendReceipts) {
       const parts = r.start_date.split("-");
       if (parts.length >= 2) {
         const monthIndex = Number(parts[1]) - 1;
@@ -97,13 +93,40 @@ export async function GET(req: Request) {
       revenue,
     }));
 
-    // --- SHIFT COUNTS: Active occupancy per shift ---
+    // 7. Monthly detailed breakdown table
+    const monthlyBreakdownMap = new Map<string, { total: number; count: number; sortKey: string }>();
+    for (const r of safeReceipts) {
+      const parts = r.start_date.split("-");
+      if (parts.length >= 2) {
+        const monthIndex = Number(parts[1]) - 1;
+        const year = parts[0];
+        const monthName = months[monthIndex];
+        const displayKey = `${monthName} ${year}`;
+        const sortKey = `${year}-${parts[1]}`;
+        
+        const current = monthlyBreakdownMap.get(displayKey) || { total: 0, count: 0, sortKey };
+        current.total += Number(r.amount_paid);
+        current.count += 1;
+        monthlyBreakdownMap.set(displayKey, current);
+      }
+    }
+
+    const monthlyBreakdown = Array.from(monthlyBreakdownMap.entries())
+      .map(([month, data]) => ({
+        month,
+        total: data.total,
+        count: data.count,
+        sortKey: data.sortKey,
+      }))
+      .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
+
+    // 8. Shift Counts (Active occupancy per shift)
     let fullDayCount = 0;
     let shift1Count = 0;
     let shift2Count = 0;
     let shift3Count = 0;
 
-    for (const r of activeReceipts ?? []) {
+    for (const r of activeReceipts) {
       if (r.subscription_type === "full_day") {
         fullDayCount++;
       } else {
@@ -124,10 +147,7 @@ export async function GET(req: Request) {
       shift_3: shift3Count,
     };
 
-    // --- HOURLY OCCUPANCY PROFILE ---
-    // Morning (6am-2pm): Full Day + Shift 1
-    // Afternoon (2pm-4pm): Full Day + Shift 2
-    // Evening (4pm-12am): Full Day + Shift 2 + Shift 3 (max occupancy)
+    // 9. Hourly load profiles
     const hourlyOccupancy = [
       { period: "Morning (6 AM - 2 PM)", count: fullDayCount + shift1Count },
       { period: "Afternoon (2 PM - 4 PM)", count: fullDayCount + shift2Count },
@@ -140,12 +160,14 @@ export async function GET(req: Request) {
       free,
       expiringSoon,
       monthRevenue,
+      lifetimeRevenue,
+      activeMonthlyRevenue,
       revenueTrend,
+      monthlyBreakdown,
       shiftCounts,
       hourlyOccupancy,
     });
-  } catch (error: any) {
-    console.error("GET /api/dashboard error:", error);
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

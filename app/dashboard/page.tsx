@@ -9,7 +9,10 @@ interface Stats {
   free: number;
   expiringSoon: number;
   monthRevenue: number;
+  lifetimeRevenue: number;
+  activeMonthlyRevenue: number;
   revenueTrend: { month: string; revenue: number }[];
+  monthlyBreakdown: { month: string; total: number; count: number }[];
   shiftCounts: { full_day: number; shift_1: number; shift_2: number; shift_3: number };
   hourlyOccupancy: { period: string; count: number }[];
 }
@@ -146,11 +149,25 @@ export default function DashboardPage() {
       borderColor: "border-amber-500/20",
     },
     {
-      label: "This Month's Revenue",
-      value: `₹${stats.monthRevenue}`,
+      label: "This Month's Earnings",
+      value: `₹${stats.monthRevenue.toLocaleString()}`,
       color: "text-blue-600 dark:text-blue-400",
       bgGlow: "from-blue-500/10 to-transparent",
       borderColor: "border-blue-500/20",
+    },
+    {
+      label: "Monthly Run Rate",
+      value: `₹${stats.activeMonthlyRevenue.toLocaleString()}`,
+      color: "text-teal-600 dark:text-teal-400",
+      bgGlow: "from-teal-500/10 to-transparent",
+      borderColor: "border-teal-500/20",
+    },
+    {
+      label: "Total Collections",
+      value: `₹${stats.lifetimeRevenue.toLocaleString()}`,
+      color: "text-purple-600 dark:text-purple-400",
+      bgGlow: "from-purple-500/10 to-transparent",
+      borderColor: "border-purple-500/20",
     },
   ];
 
@@ -207,7 +224,7 @@ export default function DashboardPage() {
           <p className="text-xs text-text-muted mt-1">Real-time status metrics and financial performance for The Target Library.</p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
           {cards.map((c) => (
             <div
               key={c.label}
@@ -339,6 +356,46 @@ export default function DashboardPage() {
               })}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Monthly Collection Logs */}
+      <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md relative overflow-hidden space-y-4">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-radial from-rose-500/5 to-transparent pointer-events-none" />
+        <div>
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Monthly Collection Logs
+          </h2>
+          <p className="text-xs text-text-muted mt-0.5">Chronological summary of all-time sales receipts and pass counts.</p>
+        </div>
+        
+        <div className="overflow-x-auto border border-panel-border/30 rounded-xl">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-panel-border bg-background/50 text-[10px] font-extrabold uppercase text-text-muted tracking-wider">
+                <th className="p-3.5">Billing Month</th>
+                <th className="p-3.5">Passes Sold</th>
+                <th className="p-3.5 text-right">Total Revenue</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-panel-border/30">
+              {stats.monthlyBreakdown?.map((item: any) => (
+                <tr key={item.month} className="hover:bg-panel-bg/30 transition-colors">
+                  <td className="p-3.5 font-semibold text-foreground">{item.month}</td>
+                  <td className="p-3.5 text-text-details">{item.count} receipts</td>
+                  <td className="p-3.5 font-mono font-bold text-emerald-600 dark:text-emerald-400 text-right">
+                    ₹{item.total.toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+              {(!stats.monthlyBreakdown || stats.monthlyBreakdown.length === 0) && (
+                <tr>
+                  <td colSpan={3} className="p-4 text-center text-text-muted">No historical transactions available.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
