@@ -21,18 +21,98 @@ export default function DashboardPage() {
   const [loadingSeats, setLoadingSeats] = useState(true);
   const [hoveredPoint, setHoveredPoint] = useState<any | null>(null);
 
-  useEffect(() => {
-    fetch("/api/dashboard")
-      .then((r) => r.json())
-      .then(setStats);
+  // Owner Authentication States
+  const [ownerPassword, setOwnerPassword] = useState("");
+  const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState(false);
+  const [ownerError, setOwnerError] = useState("");
+  const [checkingOwner, setCheckingOwner] = useState(true);
 
-    fetch("/api/seats")
-      .then((r) => r.json())
-      .then((data) => {
-        setSeats(Array.isArray(data) ? data : []);
-        setLoadingSeats(false);
-      });
-  }, []);
+  useEffect(() => {
+    const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
+    const correctOwnerPassword = process.env.NEXT_PUBLIC_OWNER_PASSWORD || "TargetOwner2026";
+    const isValid = ownerAuth === "true" || ownerAuth === correctOwnerPassword;
+    
+    if (isValid) {
+      setIsOwnerAuthenticated(true);
+      setCheckingOwner(false);
+      
+      fetch("/api/dashboard", {
+        headers: { "x-owner-auth": ownerAuth || "true" }
+      })
+        .then((r) => r.json())
+        .then(setStats);
+
+      fetch("/api/seats")
+        .then((r) => r.json())
+        .then((data) => {
+          setSeats(Array.isArray(data) ? data : []);
+          setLoadingSeats(false);
+        });
+    } else {
+      setCheckingOwner(false);
+    }
+  }, [isOwnerAuthenticated]);
+
+  if (checkingOwner) {
+    return <p className="text-neutral-400 text-center py-10">Verifying dashboard permissions...</p>;
+  }
+
+  if (!isOwnerAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh] px-4">
+        <form 
+          onSubmit={(e) => {
+            e.preventDefault();
+            const correctOwnerPassword = process.env.NEXT_PUBLIC_OWNER_PASSWORD || "TargetOwner2026";
+            if (ownerPassword === correctOwnerPassword) {
+              sessionStorage.setItem("target_lib_owner_auth", "true");
+              setIsOwnerAuthenticated(true);
+            } else {
+              setOwnerError("Incorrect owner passcode. Access denied.");
+            }
+          }}
+          className="bg-panel-bg border border-panel-border rounded-2xl p-8 w-full max-w-sm shadow-2xl relative overflow-hidden backdrop-blur-md space-y-4"
+        >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-radial from-rose-500/10 to-transparent pointer-events-none" />
+          <div className="text-center">
+            <span className="text-2xl">🔒</span>
+            <h2 className="text-lg font-bold text-foreground mt-2">Owner Credentials Required</h2>
+            <p className="text-xs text-text-muted mt-1">Enter owner password to unlock financial statistics and metrics.</p>
+          </div>
+          
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-extrabold uppercase tracking-wider text-text-muted">
+              Owner Password
+            </label>
+            <input
+              type="password"
+              value={ownerPassword}
+              onChange={(e) => {
+                setOwnerPassword(e.target.value);
+                setOwnerError("");
+              }}
+              placeholder="••••••••"
+              required
+              className="w-full bg-background border border-panel-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-rose-500 transition-all font-mono"
+            />
+          </div>
+
+          {ownerError && (
+            <p className="text-rose-600 dark:text-rose-400 text-xs font-semibold">
+              ⚠️ {ownerError}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            className="w-full bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs py-2.5 rounded-lg transition-all active:scale-95 cursor-pointer"
+          >
+            Unlock Dashboard
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   if (!stats) return <p className="text-neutral-400 text-center py-10">Loading analytical metrics...</p>;
 

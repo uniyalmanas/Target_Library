@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const ownerAuthHeader = req.headers.get("x-owner-auth");
+    const correctOwnerPassword = process.env.NEXT_PUBLIC_OWNER_PASSWORD || "TargetOwner2026";
+    if (ownerAuthHeader !== "true" && ownerAuthHeader !== correctOwnerPassword) {
+      return NextResponse.json({ error: "Unauthorized access to financial data" }, { status: 401 });
+    }
+
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
     const in7 = new Date(today);
