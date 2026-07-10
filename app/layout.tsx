@@ -45,7 +45,7 @@ export default function RootLayout({
               <img 
                 src="/lib-logo.jpeg" 
                 alt="The Target Library Logo" 
-                className="w-7 h-7 rounded-lg object-cover shadow-sm border border-panel-border group-hover:scale-105 transition-transform duration-200" 
+                className="w-6 h-6 rounded-md object-cover shadow-sm border border-panel-border group-hover:scale-105 transition-transform duration-200" 
               />
               <span className="font-extrabold text-sm tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-amber-500 dark:from-rose-500 dark:to-amber-400">
                 THE TARGET LIBRARY

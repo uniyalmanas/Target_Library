@@ -121,7 +121,7 @@ function ReceiptDetails() {
                 <img 
                   src="/lib-logo.jpeg" 
                   alt="Logo" 
-                  className="w-8 h-8 rounded-lg object-cover border border-neutral-800" 
+                  className="w-6 h-6 rounded-md object-cover border border-neutral-800" 
                 />
                 <div>
                   <p className="text-[7px] tracking-widest text-rose-500 font-extrabold uppercase">THE TARGET LIBRARY</p>
@@ -162,7 +162,7 @@ function ReceiptDetails() {
               <p className="text-xs text-text-muted mt-1 font-mono">Receipt No: #{data.receipt_no}</p>
               <p className="text-[10px] text-text-muted font-mono">Date: {new Date(data.created_at).toLocaleDateString()}</p>
             </div>
-            <div className="flex items-start gap-2.5 text-right justify-end">
+            <div className="flex items-start gap-2 text-right justify-end">
               <div>
                 <p className="text-xs font-bold text-rose-600 dark:text-rose-500">THE TARGET LIBRARY</p>
                 <p className="text-[9px] text-text-muted font-medium">Dehradun, Uttarakhand</p>
@@ -173,7 +173,7 @@ function ReceiptDetails() {
               <img 
                 src="/lib-logo.jpeg" 
                 alt="Logo" 
-                className="w-10 h-10 rounded-lg object-cover border border-panel-border" 
+                className="w-7 h-7 rounded-md object-cover border border-panel-border" 
               />
             </div>
           </div>
