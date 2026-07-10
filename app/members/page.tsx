@@ -43,24 +43,51 @@ export default function MembersSearchPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {results.map((m) => (
-          <Link
-            key={m.student_id}
-            href={`/members/${m.student_id}`}
-            className="group flex justify-between items-center bg-card-bg border border-card-border hover:border-rose-500/40 rounded-xl p-4 transition-all duration-200 hover:-translate-y-0.5 shadow-md shadow-black/5 cursor-pointer"
-          >
-            <div>
-              <p className="font-semibold text-foreground group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">{m.name}</p>
-              <p className="text-xs text-text-muted mt-1">
-                Student ID: <span className="font-mono text-text-details">#{m.student_id}</span>
-                {m.phone && <span className="text-text-muted"> &middot; {m.phone}</span>}
-              </p>
-            </div>
-            <span className="text-text-muted group-hover:text-rose-600 dark:group-hover:text-rose-400 text-xs font-semibold tracking-wider transition-colors uppercase">
-              View Profile &rarr;
-            </span>
-          </Link>
-        ))}
+        {results.map((m) => {
+          const todayStr = new Date().toISOString().split("T")[0];
+          const activeReceipt = m.receipts?.find(
+            (r: any) => r.start_date <= todayStr && r.end_date >= todayStr
+          );
+          const isActive = !!activeReceipt;
+          const activeSeatNumber = activeReceipt?.seats?.seat_number;
+
+          return (
+            <Link
+              key={m.student_id}
+              href={`/members/${m.student_id}`}
+              className="group flex justify-between items-center bg-card-bg border border-card-border hover:border-rose-500/40 rounded-xl p-4 transition-all duration-200 hover:-translate-y-0.5 shadow-md shadow-black/5 cursor-pointer"
+            >
+              <div className="flex-1 min-w-0 pr-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-foreground group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors truncate">
+                    {m.name}
+                  </p>
+                  <span
+                    className={`inline-flex items-center gap-1 text-[8px] font-extrabold uppercase px-2 py-0.5 rounded-full border shrink-0 ${
+                      isActive
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                        : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                    }`}
+                  >
+                    <span
+                      className={`w-1 h-1 rounded-full ${
+                        isActive ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
+                      }`}
+                    />
+                    {isActive ? `Seat ${activeSeatNumber}` : "Not Enrolled"}
+                  </span>
+                </div>
+                <p className="text-xs text-text-muted mt-1">
+                  Student ID: <span className="font-mono text-text-details">#{m.student_id}</span>
+                  {m.phone && <span className="text-text-muted"> &middot; {m.phone}</span>}
+                </p>
+              </div>
+              <span className="text-text-muted group-hover:text-rose-600 dark:group-hover:text-rose-400 text-xs font-semibold tracking-wider transition-colors uppercase shrink-0">
+                View Profile &rarr;
+              </span>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

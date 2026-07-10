@@ -103,8 +103,24 @@ export default function MemberProfilePage() {
       {/* Profile Header Card */}
       <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md shadow-xl flex justify-between items-center flex-wrap gap-4 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-rose-500/[calc(var(--glow-opacity)*0.5)] to-transparent pointer-events-none" />
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">{member.name}</h1>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground truncate">{member.name}</h1>
+            <span
+              className={`inline-flex items-center gap-1 text-[8px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
+                activeReceipt
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+              }`}
+            >
+              <span
+                className={`w-1 h-1 rounded-full ${
+                  activeReceipt ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
+                }`}
+              />
+              {activeReceipt ? `Active (Seat ${activeReceipt.seats?.seat_number})` : "Not Enrolled"}
+            </span>
+          </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted mt-2">
             <span className="flex items-center gap-1">
               Member ID: <span className="font-mono text-foreground font-semibold">#{member.student_id}</span>
