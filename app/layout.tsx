@@ -41,8 +41,12 @@ export default function RootLayout({
         
         <nav className="border-b border-panel-border bg-background/70 backdrop-blur-md sticky top-0 z-50 transition-all duration-200">
           <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-6 flex-wrap">
-            <Link href="/" className="flex items-center gap-2 group">
-              <span className="w-5 h-5 rounded-md bg-gradient-to-tr from-rose-600 to-amber-500 shadow-md shadow-rose-600/30 group-hover:scale-110 transition-transform duration-200" />
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <img 
+                src="/lib-logo.jpeg" 
+                alt="The Target Library Logo" 
+                className="w-7 h-7 rounded-lg object-cover shadow-sm border border-panel-border group-hover:scale-105 transition-transform duration-200" 
+              />
               <span className="font-extrabold text-sm tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-amber-500 dark:from-rose-500 dark:to-amber-400">
                 THE TARGET LIBRARY
               </span>

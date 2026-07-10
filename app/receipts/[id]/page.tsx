@@ -117,9 +117,16 @@ function ReceiptDetails() {
             <div className="absolute -bottom-10 -left-10 w-28 h-28 rounded-full bg-rose-600/5 blur-xl pointer-events-none" />
 
             <div className="flex justify-between items-start">
-              <div>
-                <p className="text-[7px] tracking-widest text-rose-500 font-extrabold uppercase">THE TARGET LIBRARY</p>
-                <h3 className="text-xs font-extrabold text-neutral-200 mt-0.5">STUDENT PASS</h3>
+              <div className="flex items-center gap-2">
+                <img 
+                  src="/lib-logo.jpeg" 
+                  alt="Logo" 
+                  className="w-8 h-8 rounded-lg object-cover border border-neutral-800" 
+                />
+                <div>
+                  <p className="text-[7px] tracking-widest text-rose-500 font-extrabold uppercase">THE TARGET LIBRARY</p>
+                  <h3 className="text-[10px] font-extrabold text-neutral-200 mt-0.5">STUDENT PASS</h3>
+                </div>
               </div>
               <span className="text-[9px] px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 font-semibold uppercase tracking-wider">
                 Seat {data.seats?.seat_number}
@@ -155,12 +162,19 @@ function ReceiptDetails() {
               <p className="text-xs text-text-muted mt-1 font-mono">Receipt No: #{data.receipt_no}</p>
               <p className="text-[10px] text-text-muted font-mono">Date: {new Date(data.created_at).toLocaleDateString()}</p>
             </div>
-            <div className="text-right">
-              <p className="text-xs font-bold text-rose-600 dark:text-rose-500">THE TARGET LIBRARY</p>
-              <p className="text-[9px] text-text-muted">Dehradun, Uttarakhand</p>
-              <span className="mt-2 inline-block px-3 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold uppercase text-[9px] tracking-wider">
-                Paid
-              </span>
+            <div className="flex items-start gap-2.5 text-right justify-end">
+              <div>
+                <p className="text-xs font-bold text-rose-600 dark:text-rose-500">THE TARGET LIBRARY</p>
+                <p className="text-[9px] text-text-muted font-medium">Dehradun, Uttarakhand</p>
+                <span className="mt-1.5 inline-block px-2.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold uppercase text-[8px] tracking-wider">
+                  Paid
+                </span>
+              </div>
+              <img 
+                src="/lib-logo.jpeg" 
+                alt="Logo" 
+                className="w-10 h-10 rounded-lg object-cover border border-panel-border" 
+              />
             </div>
           </div>
 
