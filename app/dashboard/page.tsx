@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [seats, setSeats] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"free" | "partial" | "full">("free");
+  const [activeDashboardTab, setActiveDashboardTab] = useState<"overview" | "logs">("overview");
   const [loadingSeats, setLoadingSeats] = useState(true);
   const [hoveredPoint, setHoveredPoint] = useState<any | null>(null);
 
@@ -238,166 +239,192 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Analytics Visual Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Growth Trend Chart */}
-        <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md flex flex-col justify-between relative overflow-hidden min-h-[300px]">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-radial from-blue-500/5 to-transparent pointer-events-none" />
-          <div className="mb-4">
-            <h2 className="text-base font-bold text-foreground">Revenue Performance &amp; Growth</h2>
-            <p className="text-[10px] text-text-muted mt-0.5">Rolling 6-month monthly collections trend.</p>
-          </div>
+      {/* Analytics Tabs Selector */}
+      <div className="flex gap-2 border-b border-panel-border pb-3 flex-wrap">
+        <button
+          onClick={() => setActiveDashboardTab("overview")}
+          className={`px-4 py-2 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+            activeDashboardTab === "overview"
+              ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+              : "border-transparent text-text-muted hover:text-foreground"
+          }`}
+        >
+          📊 Analytics Overview
+        </button>
+        <button
+          onClick={() => setActiveDashboardTab("logs")}
+          className={`px-4 py-2 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+            activeDashboardTab === "logs"
+              ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+              : "border-transparent text-text-muted hover:text-foreground"
+          }`}
+        >
+          📜 Monthly Collection Logs
+        </button>
+      </div>
 
-          <div className="relative w-full flex-1 min-h-[160px] flex items-center justify-center">
-            {points.length > 0 ? (
-              <svg className="w-full h-[160px] overflow-visible" viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
-                <defs>
-                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25"/>
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0"/>
-                  </linearGradient>
-                </defs>
-                {/* Horizontal reference grid lines */}
-                <line x1="40" y1="30" x2={chartWidth - 20} y2="30" className="stroke-panel-border/40" strokeDasharray="3 3" />
-                <line x1="40" y1="85" x2={chartWidth - 20} y2="85" className="stroke-panel-border/40" strokeDasharray="3 3" />
-                <line x1="40" y1="140" x2={chartWidth - 20} y2="140" className="stroke-panel-border" />
+      {/* Dynamic Tab Content */}
+      {activeDashboardTab === "overview" ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Revenue Growth Trend Chart */}
+          <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md flex flex-col justify-between relative overflow-hidden min-h-[300px]">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-radial from-blue-500/5 to-transparent pointer-events-none" />
+            <div className="mb-4">
+              <h2 className="text-base font-bold text-foreground">Revenue Performance &amp; Growth</h2>
+              <p className="text-[10px] text-text-muted mt-0.5">Rolling 6-month monthly collections trend.</p>
+            </div>
 
-                {/* Y-Axis Labels */}
-                <text x="30" y="34" className="text-[8px] font-bold text-text-muted fill-current text-right" textAnchor="end">₹{maxRevenue}</text>
-                <text x="30" y="89" className="text-[8px] font-bold text-text-muted fill-current text-right" textAnchor="end">₹{Math.round(maxRevenue / 2)}</text>
-                <text x="30" y="144" className="text-[8px] font-bold text-text-muted fill-current text-right" textAnchor="end">₹0</text>
+            <div className="relative w-full flex-1 min-h-[160px] flex items-center justify-center">
+              {points.length > 0 ? (
+                <svg className="w-full h-[160px] overflow-visible" viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
+                  <defs>
+                    <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25"/>
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0"/>
+                    </linearGradient>
+                  </defs>
+                  {/* Horizontal reference grid lines */}
+                  <line x1="40" y1="30" x2={chartWidth - 20} y2="30" className="stroke-panel-border/40" strokeDasharray="3 3" />
+                  <line x1="40" y1="85" x2={chartWidth - 20} y2="85" className="stroke-panel-border/40" strokeDasharray="3 3" />
+                  <line x1="40" y1="140" x2={chartWidth - 20} y2="140" className="stroke-panel-border" />
 
-                {/* Gradient Area Fill */}
-                {fillD && <path d={fillD} fill="url(#areaGrad)" />}
-                {/* Stroke Line */}
-                {pathD && <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+                  {/* Y-Axis Labels */}
+                  <text x="30" y="34" className="text-[8px] font-bold text-text-muted fill-current text-right" textAnchor="end">₹{maxRevenue}</text>
+                  <text x="30" y="89" className="text-[8px] font-bold text-text-muted fill-current text-right" textAnchor="end">₹{Math.round(maxRevenue / 2)}</text>
+                  <text x="30" y="144" className="text-[8px] font-bold text-text-muted fill-current text-right" textAnchor="end">₹0</text>
 
-                {/* Interactive circles */}
-                {points.map((p, idx) => (
-                  <g key={idx}>
-                    <circle
-                      cx={p.x}
-                      cy={p.y}
-                      r="4"
-                      className="fill-blue-500 stroke-card-bg stroke-2 cursor-pointer transition-all duration-150 hover:r-6"
-                      onMouseEnter={() => setHoveredPoint(p)}
-                      onMouseLeave={() => setHoveredPoint(null)}
-                    />
-                    <text
-                      x={p.x}
-                      y="155"
-                      className="text-[8px] font-bold text-text-muted fill-current text-center"
-                      textAnchor="middle"
-                    >
-                      {p.label.split(" ")[0]}
-                    </text>
-                  </g>
-                ))}
-              </svg>
-            ) : (
-              <p className="text-xs text-text-muted">No historical transactions available.</p>
-            )}
+                  {/* Gradient Area Fill */}
+                  {fillD && <path d={fillD} fill="url(#areaGrad)" />}
+                  {/* Stroke Line */}
+                  {pathD && <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
 
-            {/* Hover values tooltip */}
-            {hoveredPoint && (
-              <div
-                className="absolute bg-neutral-900 border border-neutral-800 text-white rounded-lg p-2 text-[10px] pointer-events-none shadow-xl flex flex-col font-semibold gap-0.5"
-                style={{
-                  left: `${(hoveredPoint.x / chartWidth) * 90}%`,
-                  top: `${(hoveredPoint.y / chartHeight) * 50}%`,
-                }}
-              >
-                <span>{hoveredPoint.label}</span>
-                <span className="text-blue-400 font-extrabold">₹{hoveredPoint.value}</span>
-              </div>
-            )}
-          </div>
-        </div>
+                  {/* Interactive circles */}
+                  {points.map((p, idx) => (
+                    <g key={idx}>
+                      <circle
+                        cx={p.x}
+                        cy={p.y}
+                        r="4"
+                        className="fill-blue-500 stroke-card-bg stroke-2 cursor-pointer transition-all duration-150 hover:r-6"
+                        onMouseEnter={() => setHoveredPoint(p)}
+                        onMouseLeave={() => setHoveredPoint(null)}
+                      />
+                      <text
+                        x={p.x}
+                        y="155"
+                        className="text-[8px] font-bold text-text-muted fill-current text-center"
+                        textAnchor="middle"
+                      >
+                        {p.label.split(" ")[0]}
+                      </text>
+                    </g>
+                  ))}
+                </svg>
+              ) : (
+                <p className="text-xs text-text-muted">No historical transactions available.</p>
+              )}
 
-        {/* Occupancy Shifts & Timeline Peak */}
-        <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md flex flex-col justify-between min-h-[300px]">
-          <div>
-            <h2 className="text-base font-bold text-foreground">Shift Popularity &amp; Allocations</h2>
-            <p className="text-[10px] text-text-muted mt-0.5">Ratio of active study slots booked per shift.</p>
-          </div>
-
-          <div className="space-y-4 my-auto">
-            {shiftList.map((s) => (
-              <div key={s.name} className="space-y-1">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-text-details">{s.name}</span>
-                  <span className={`${s.text} font-bold`}>{s.count} active</span>
+              {/* Hover values tooltip */}
+              {hoveredPoint && (
+                <div
+                  className="absolute bg-neutral-900 border border-neutral-800 text-white rounded-lg p-2 text-[10px] pointer-events-none shadow-xl flex flex-col font-semibold gap-0.5"
+                  style={{
+                    left: `${(hoveredPoint.x / chartWidth) * 90}%`,
+                    top: `${(hoveredPoint.y / chartHeight) * 50}%`,
+                  }}
+                >
+                  <span>{hoveredPoint.label}</span>
+                  <span className="text-blue-400 font-extrabold">₹{hoveredPoint.value}</span>
                 </div>
-                <div className="h-2 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${s.color} transition-all duration-700 ease-out rounded-full`}
-                    style={{ width: `${(s.count / maxShiftCount) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
 
-          <div className="pt-4 border-t border-panel-border">
-            <p className="text-[9px] uppercase font-bold tracking-widest text-text-muted mb-2.5">Hourly Peak Occupancy timeline</p>
-            <div className="grid grid-cols-3 gap-2.5">
-              {occupancyList.map((o) => {
-                const percentage = Math.round((o.count / maxOccupancyCount) * 100);
-                return (
-                  <div key={o.period} className="bg-background border border-card-border p-3.5 rounded-xl flex flex-col justify-between shadow-sm relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 h-[2px] bg-gradient-to-r from-blue-500 to-rose-500 transition-all duration-300" style={{ width: `${percentage}%` }} />
-                    <p className="text-[9px] font-bold text-foreground truncate">{o.period.split(" ")[0]}</p>
-                    <div className="mt-2.5 flex justify-between items-baseline">
-                      <span className="text-base font-extrabold tracking-tight text-foreground">{percentage}%</span>
-                      <span className="text-[8px] text-text-muted font-bold font-mono">{o.count}/{maxOccupancyCount}</span>
-                    </div>
+          {/* Occupancy Shifts & Timeline Peak */}
+          <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md flex flex-col justify-between min-h-[300px]">
+            <div>
+              <h2 className="text-base font-bold text-foreground">Shift Popularity &amp; Allocations</h2>
+              <p className="text-[10px] text-text-muted mt-0.5">Ratio of active study slots booked per shift.</p>
+            </div>
+
+            <div className="space-y-4 my-auto">
+              {shiftList.map((s) => (
+                <div key={s.name} className="space-y-1">
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-text-details">{s.name}</span>
+                    <span className={`${s.text} font-bold`}>{s.count} active</span>
                   </div>
-                );
-              })}
+                  <div className="h-2 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${s.color} transition-all duration-700 ease-out rounded-full`}
+                      style={{ width: `${(s.count / maxShiftCount) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-4 border-t border-panel-border">
+              <p className="text-[9px] uppercase font-bold tracking-widest text-text-muted mb-2.5">Hourly Peak Occupancy timeline</p>
+              <div className="grid grid-cols-3 gap-2.5">
+                {occupancyList.map((o) => {
+                  const percentage = Math.round((o.count / maxOccupancyCount) * 100);
+                  return (
+                    <div key={o.period} className="bg-background border border-card-border p-3.5 rounded-xl flex flex-col justify-between shadow-sm relative overflow-hidden group">
+                      <div className="absolute top-0 left-0 h-[2px] bg-gradient-to-r from-blue-500 to-rose-500 transition-all duration-300" style={{ width: `${percentage}%` }} />
+                      <p className="text-[9px] font-bold text-foreground truncate">{o.period.split(" ")[0]}</p>
+                      <div className="mt-2.5 flex justify-between items-baseline">
+                        <span className="text-base font-extrabold tracking-tight text-foreground">{percentage}%</span>
+                        <span className="text-[8px] text-text-muted font-bold font-mono">{o.count}/{maxOccupancyCount}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Monthly Collection Logs */}
-      <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md relative overflow-hidden space-y-4">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-radial from-rose-500/5 to-transparent pointer-events-none" />
-        <div>
-          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Monthly Collection Logs
-          </h2>
-          <p className="text-xs text-text-muted mt-0.5">Chronological summary of all-time sales receipts and pass counts.</p>
-        </div>
-        
-        <div className="overflow-x-auto border border-panel-border/30 rounded-xl">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-panel-border bg-background/50 text-[10px] font-extrabold uppercase text-text-muted tracking-wider">
-                <th className="p-3.5">Billing Month</th>
-                <th className="p-3.5">Passes Sold</th>
-                <th className="p-3.5 text-right">Total Revenue</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-panel-border/30">
-              {stats.monthlyBreakdown?.map((item: any) => (
-                <tr key={item.month} className="hover:bg-panel-bg/30 transition-colors">
-                  <td className="p-3.5 font-semibold text-foreground">{item.month}</td>
-                  <td className="p-3.5 text-text-details">{item.count} receipts</td>
-                  <td className="p-3.5 font-mono font-bold text-emerald-600 dark:text-emerald-400 text-right">
-                    ₹{item.total.toLocaleString()}
-                  </td>
+      ) : (
+        /* Monthly Collection Logs Table (Visible only when clicked) */
+        <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md relative overflow-hidden space-y-4">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-radial from-rose-500/5 to-transparent pointer-events-none" />
+          <div>
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Monthly Collection Logs
+            </h2>
+            <p className="text-xs text-text-muted mt-0.5">Chronological summary of all-time sales receipts and pass counts.</p>
+          </div>
+          
+          <div className="overflow-x-auto border border-panel-border/30 rounded-xl">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-panel-border bg-background/50 text-[10px] font-extrabold uppercase text-text-muted tracking-wider">
+                  <th className="p-3.5">Billing Month</th>
+                  <th className="p-3.5">Passes Sold</th>
+                  <th className="p-3.5 text-right">Total Revenue</th>
                 </tr>
-              ))}
-              {(!stats.monthlyBreakdown || stats.monthlyBreakdown.length === 0) && (
-                <tr>
-                  <td colSpan={3} className="p-4 text-center text-text-muted">No historical transactions available.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-panel-border/30">
+                {stats.monthlyBreakdown?.map((item: any) => (
+                  <tr key={item.month} className="hover:bg-panel-bg/30 transition-colors">
+                    <td className="p-3.5 font-semibold text-foreground">{item.month}</td>
+                    <td className="p-3.5 text-text-details">{item.count} receipts</td>
+                    <td className="p-3.5 font-mono font-bold text-emerald-600 dark:text-emerald-400 text-right">
+                      ₹{item.total.toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+                {(!stats.monthlyBreakdown || stats.monthlyBreakdown.length === 0) && (
+                  <tr>
+                    <td colSpan={3} className="p-4 text-center text-text-muted">No historical transactions available.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Seat Inventory Browser */}
       <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md space-y-4">
