@@ -49,6 +49,22 @@ function excelDateToISO(value: any): string {
   return String(value);
 }
 
+function parseLedgerDate(value: any): string | null {
+  if (!value) return null;
+  if (typeof value === "number") {
+    return excelDateToISO(value);
+  }
+  const str = String(value).trim();
+  const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (match) {
+    const day = String(match[1]).padStart(2, "0");
+    const month = String(match[2]).padStart(2, "0");
+    const year = match[3];
+    return `${year}-${month}-${day}`;
+  }
+  return null;
+}
+
 export default function ImportPage() {
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [committing, setCommitting] = useState(false);
@@ -62,8 +78,131 @@ export default function ImportPage() {
       const data = evt.target?.result;
       const wb = XLSX.read(data, { type: "binary" });
       const sheet = wb.Sheets[wb.SheetNames[0]];
-      const json: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
+      // Parse as 2D array to inspect headers dynamically
+      const rowsAOA: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+      let headerRowIndex = -1;
+      let headers: string[] = [];
+
+      // Scan first 10 rows to find header row containing custom column names
+      for (let i = 0; i < Math.min(rowsAOA.length, 10); i++) {
+        const row = rowsAOA[i];
+        const normalized = row.map(cell => String(cell || "").toUpperCase().trim());
+        if (normalized.includes("ID NO.") || normalized.includes("NAME") || normalized.includes("SEAT NO.")) {
+          headerRowIndex = i;
+          headers = normalized;
+          break;
+        }
+      }
+
+      // Mode A: Custom Ledger Importer Mode
+      if (headerRowIndex !== -1) {
+        // Auto-detect shift type by looking at sheet name and rows above headers
+        const shiftText = (wb.SheetNames[0] + " " + 
+          rowsAOA.slice(0, headerRowIndex)
+            .map(row => row.join(" "))
+            .join(" ")
+        ).toUpperCase();
+
+        let subscriptionType: "full_day" | "half_day" = "full_day";
+        let shiftType: "shift_1" | "shift_2" | "shift_3" | undefined = undefined;
+
+        if (shiftText.includes("SHIFT 1") || shiftText.includes("MORNING") || shiftText.includes("6AM")) {
+          subscriptionType = "half_day";
+          shiftType = "shift_1";
+        } else if (shiftText.includes("SHIFT 2") || shiftText.includes("EVENING") || shiftText.includes("2PM")) {
+          subscriptionType = "half_day";
+          shiftType = "shift_2";
+        } else if (shiftText.includes("SHIFT 3") || shiftText.includes("NIGHT") || shiftText.includes("4PM")) {
+          subscriptionType = "half_day";
+          shiftType = "shift_3";
+        } else {
+          subscriptionType = "full_day";
+        }
+
+        const idIdx = headers.indexOf("ID NO.");
+        const nameIdx = headers.indexOf("NAME");
+        const joiningDateIdx = headers.indexOf("JOINING DATE");
+        const seatIdx = headers.indexOf("SEAT NO.");
+
+        const monthNames = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+        const shortMonthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+        const parsed: ParsedRow[] = [];
+
+        for (let i = headerRowIndex + 1; i < rowsAOA.length; i++) {
+          const row = rowsAOA[i];
+          if (!row || row.length === 0) continue;
+          
+          const name = String(row[nameIdx] || "").trim();
+          const seat_number = row[seatIdx] ? Number(row[seatIdx]) : 0;
+          const student_id = row[idIdx] ? Number(row[idIdx]) : undefined;
+          const joiningDateRaw = row[joiningDateIdx];
+
+          // Skip completely empty rows
+          if (!name && !seat_number) continue;
+
+          let error = "";
+          if (!name) error = "Missing name";
+          if (!seat_number) error = "Missing seat_number";
+
+          // Find the active month payment in row cells matching month headers
+          let amount_paid = 0;
+          for (let colIdx = 0; colIdx < headers.length; colIdx++) {
+            const headerCell = headers[colIdx];
+            const cellValue = String(row[colIdx] || "").trim();
+
+            const isMonth = monthNames.includes(headerCell) || shortMonthNames.includes(headerCell) || 
+                            monthNames.some(m => headerCell.includes(m)) || shortMonthNames.some(m => headerCell.includes(m));
+
+            if (isMonth && cellValue && !isNaN(Number(cellValue)) && Number(cellValue) > 0) {
+              amount_paid = Number(cellValue);
+            }
+          }
+
+          if (amount_paid === 0) {
+            error = "No active monthly payment found in ledger columns";
+          }
+
+          // Deduce sheet space addon status based on rate and shift type
+          let has_sheet = false;
+          if (subscriptionType === "full_day") {
+            if (amount_paid >= 1200) has_sheet = true;
+          } else {
+            if (shiftType === "shift_3") {
+              if (amount_paid >= 800) has_sheet = true;
+            } else {
+              if (amount_paid >= 900) has_sheet = true;
+            }
+          }
+
+          let start_date = new Date().toISOString().split("T")[0];
+          if (joiningDateRaw) {
+            const parsedDate = parseLedgerDate(joiningDateRaw);
+            if (parsedDate) start_date = parsedDate;
+          }
+
+          parsed.push({
+            student_id,
+            name,
+            seat_number,
+            subscription_type: subscriptionType,
+            shift_type: shiftType,
+            has_sheet,
+            amount_paid,
+            start_date,
+            _error: error,
+          });
+        }
+
+        setRows(parsed);
+        setResults(null);
+        return;
+      }
+
+      // Mode B: Standard Template Parser
+      const json: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
       const parsed: ParsedRow[] = json.map((r) => {
         let error = "";
         if (!r.name) error = "Missing name";
