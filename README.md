@@ -74,6 +74,9 @@ A premium, modern web application designed to replace manual register logs and E
     NEXT_PUBLIC_SUPABASE_URL=https://yokxobybxdhmqijnipyx.supabase.co
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_eFb_J4TDzQqY6UTjUsX5og_UKrcJqa3
 
+    # Secure Librarian Portal Login (Defaults to Target2026 if omitted)
+    NEXT_PUBLIC_ADMIN_PASSWORD=Target2026
+
     # Optional: Configure UltraMsg for live background WhatsApp delivery
     ULTRAMSG_INSTANCE_ID=your_instance_id
     ULTRAMSG_TOKEN=your_token
