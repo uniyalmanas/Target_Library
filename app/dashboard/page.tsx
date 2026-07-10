@@ -193,7 +193,7 @@ export default function DashboardPage() {
 
   // Hourly load Timeline variables
   const occupancyList = stats.hourlyOccupancy || [];
-  const maxOccupancyCount = stats.totalSeats || 500;
+  const maxOccupancyCount = stats.totalSeats || 297;
 
   return (
     <div className="space-y-8">
