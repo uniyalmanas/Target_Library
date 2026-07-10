@@ -43,9 +43,9 @@ export default function RootLayout({
           <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-6 flex-wrap">
             <Link href="/" className="flex items-center gap-2.5 group">
               <img 
-                src="/lib-logo.jpeg" 
+                src="/lib-logo.png" 
                 alt="The Target Library Logo" 
-                className="w-6 h-6 rounded-md object-cover shadow-sm border border-panel-border group-hover:scale-105 transition-transform duration-200" 
+                className="w-6 h-6 rounded-md object-contain group-hover:scale-105 transition-transform duration-200" 
               />
               <span className="font-extrabold text-sm tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-amber-500 dark:from-rose-500 dark:to-amber-400">
                 THE TARGET LIBRARY

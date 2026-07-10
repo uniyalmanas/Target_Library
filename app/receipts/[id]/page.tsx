@@ -119,9 +119,9 @@ function ReceiptDetails() {
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-2">
                 <img 
-                  src="/lib-logo.jpeg" 
+                  src="/lib-logo.png" 
                   alt="Logo" 
-                  className="w-6 h-6 rounded-md object-cover border border-neutral-800" 
+                  className="w-6 h-6 object-contain" 
                 />
                 <div>
                   <p className="text-[7px] tracking-widest text-rose-500 font-extrabold uppercase">THE TARGET LIBRARY</p>
@@ -171,9 +171,9 @@ function ReceiptDetails() {
                 </span>
               </div>
               <img 
-                src="/lib-logo.jpeg" 
+                src="/lib-logo.png" 
                 alt="Logo" 
-                className="w-7 h-7 rounded-md object-cover border border-panel-border" 
+                className="w-7 h-7 object-contain" 
               />
             </div>
           </div>
