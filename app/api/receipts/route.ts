@@ -45,6 +45,8 @@ export async function POST(req: Request) {
     has_sheet,
     amount_paid,
     start_date,
+    end_date: customEndDate,
+    duration_days,
   } = body;
 
   if (!seat_id || !subscription_type || !amount_paid || !start_date) {
@@ -61,12 +63,34 @@ export async function POST(req: Request) {
     );
   }
 
-  // Guard: is this seat already occupied by an active receipt for the
-  // SAME slot? (full_day blocks everything; half_day only blocks same shift)
+  // Calculate resolved end_date based on customEndDate, duration_days, or default 30 days
+  const start = new Date(start_date);
+  let resolvedEndDate: string;
+
+  if (customEndDate && /^\d{4}-\d{2}-\d{2}$/.test(customEndDate)) {
+    resolvedEndDate = customEndDate;
+  } else if (duration_days && Number(duration_days) > 0) {
+    const end = new Date(start);
+    end.setDate(end.getDate() + Number(duration_days));
+    resolvedEndDate = end.toISOString().split("T")[0];
+  } else {
+    const end = new Date(start);
+    end.setDate(end.getDate() + 30);
+    resolvedEndDate = end.toISOString().split("T")[0];
+  }
+
+  if (resolvedEndDate < start_date) {
+    return NextResponse.json(
+      { error: "End date cannot be earlier than start date." },
+      { status: 400 }
+    );
+  }
+
+  // Guard: is this seat already occupied by an active receipt for an overlapping slot?
   const today = new Date().toISOString().split("T")[0];
   const { data: activeOnSeat, error: activeError } = await supabase
     .from("receipts")
-    .select("receipt_no, subscription_type, shift_type, end_date")
+    .select("receipt_no, subscription_type, shift_type, start_date, end_date")
     .eq("seat_id", seat_id)
     .gte("end_date", today);
 
@@ -75,6 +99,10 @@ export async function POST(req: Request) {
   }
 
   const conflict = (activeOnSeat ?? []).some((r) => {
+    // Check if the date ranges actually overlap
+    const isDateOverlap = r.start_date <= resolvedEndDate && r.end_date >= start_date;
+    if (!isDateOverlap) return false;
+
     if (r.subscription_type === "full_day" || subscription_type === "full_day") return true;
     
     const rShift = r.shift_type;
@@ -153,11 +181,6 @@ export async function POST(req: Request) {
     resolvedStudentId = newMember.student_id;
   }
 
-  const start = new Date(start_date);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 30);
-  const end_date = end.toISOString().split("T")[0];
-
   const { data: receipt, error: receiptError } = await supabase
     .from("receipts")
     .insert({
@@ -168,7 +191,7 @@ export async function POST(req: Request) {
       has_sheet: !!has_sheet,
       amount_paid,
       start_date,
-      end_date,
+      end_date: resolvedEndDate,
     })
     .select()
     .single();

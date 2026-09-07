@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 
 const PRICING: any = {
   full_day: {
@@ -15,6 +16,22 @@ const PRICING: any = {
     shift_3: { base: 500, with_sheet: 800 },
   }
 };
+
+function computeEndDate(startStr: string, days: number): string {
+  if (!startStr) return "";
+  const d = new Date(`${startStr}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+function computeDaysBetween(startStr: string, endStr: string): number {
+  if (!startStr || !endStr) return 30;
+  const s = new Date(`${startStr}T00:00:00`);
+  const e = new Date(`${endStr}T00:00:00`);
+  const diffTime = e.getTime() - s.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return Math.max(1, diffDays);
+}
 
 function NewReceiptForm() {
   const params = useSearchParams();
@@ -42,11 +59,10 @@ function NewReceiptForm() {
   const [hasSheet, setHasSheet] = useState(presetHasSheet);
   const [amount, setAmount] = useState<number>(() => {
     if (presetAmount !== null) return presetAmount;
-    const subType = presetSubscriptionType || "full_day";
-    const sType = presetShiftType || "shift_1";
-    if (subType === "full_day") {
+    if ((presetSubscriptionType || "full_day") === "full_day") {
       return PRICING.full_day.default[presetHasSheet ? "with_sheet" : "base"];
     } else {
+      const sType = presetShiftType || "shift_1";
       const pricingObj = PRICING.half_day[sType] || PRICING.half_day.shift_1;
       return pricingObj[presetHasSheet ? "with_sheet" : "base"];
     }
@@ -54,9 +70,16 @@ function NewReceiptForm() {
   const [startDate, setStartDate] = useState(
     presetStartDate || new Date().toISOString().split("T")[0]
   );
+  const [tenureMode, setTenureMode] = useState<"1_month" | "custom_days">("1_month");
+  const [durationDays, setDurationDays] = useState<number>(30);
+  const [endDate, setEndDate] = useState<string>(() => {
+    const s = presetStartDate || new Date().toISOString().split("T")[0];
+    return computeEndDate(s, 30);
+  });
   
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [createdReceiptNo, setCreatedReceiptNo] = useState<number | null>(null);
   const [whatsappLink, setWhatsappLink] = useState<string | null>(null);
   const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
   const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "simulated" | "failed">("idle");
@@ -66,19 +89,28 @@ function NewReceiptForm() {
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [isInitialMount, setIsInitialMount] = useState(true);
 
+  const getMonthlyBaseRate = (subType = subscriptionType, sType = shiftType, sheet = hasSheet) => {
+    if (subType === "full_day") {
+      return PRICING.full_day.default[sheet ? "with_sheet" : "base"];
+    } else {
+      const pricingObj = PRICING.half_day[sType] || PRICING.half_day.shift_1;
+      return pricingObj[sheet ? "with_sheet" : "base"];
+    }
+  };
+
   // Skip amount auto-suggestion on mount if a preset amount was provided
   useEffect(() => {
     if (isInitialMount && presetAmount !== null) {
       setIsInitialMount(false);
       return;
     }
-    if (subscriptionType === "full_day") {
-      setAmount(PRICING.full_day.default[hasSheet ? "with_sheet" : "base"]);
+    const monthlyRate = getMonthlyBaseRate();
+    if (tenureMode === "custom_days") {
+      setAmount(Math.round((monthlyRate / 30) * durationDays));
     } else {
-      const pricingObj = PRICING.half_day[shiftType] || PRICING.half_day.shift_1;
-      setAmount(pricingObj[hasSheet ? "with_sheet" : "base"]);
+      setAmount(monthlyRate);
     }
-  }, [subscriptionType, shiftType, hasSheet]);
+  }, [subscriptionType, shiftType, hasSheet, tenureMode, durationDays]);
 
   // Fetch member preview when existing student ID is typed/passed
   useEffect(() => {
@@ -152,6 +184,8 @@ function NewReceiptForm() {
       has_sheet: hasSheet,
       amount_paid: amount,
       start_date: startDate,
+      end_date: endDate,
+      duration_days: durationDays,
     };
     if (existingStudentId) {
       payload.student_id = Number(existingStudentId);
@@ -177,8 +211,7 @@ function NewReceiptForm() {
       return;
     }
 
-    const end = new Date(startDate);
-    end.setDate(end.getDate() + 30);
+    const actualEndDate = data.receipt?.end_date || endDate;
     const shiftLabel =
       subscriptionType === "half_day"
         ? shiftType === "shift_1" || shiftType === "morning"
@@ -188,9 +221,10 @@ function NewReceiptForm() {
             : "Shift 3 (4pm–12am)"
         : "Full day (6am–12am)";
 
+    setCreatedReceiptNo(data.receipt.receipt_no);
     setResult({
       ok: true,
-      message: `Receipt #${data.receipt.receipt_no} created for member #${data.student_id}, seat ${seatNumber}.`,
+      message: `Receipt #${data.receipt.receipt_no} created for member #${data.student_id}, seat ${seatNumber} for ${durationDays} days (valid until ${actualEndDate}).`,
     });
 
     const activeName = existingStudentId ? (memberPreview?.name || "Member") : name;
@@ -220,7 +254,7 @@ function NewReceiptForm() {
           setWhatsappStatus("failed");
           console.error("Auto WhatsApp failed:", waData.error);
           const digitalPassUrl = `${window.location.origin}/receipts/${data.receipt.receipt_no}`;
-          const text = `The Target Library\nReceipt No: ${data.receipt.receipt_no}\nName: ${activeName}\nSeat No: ${seatNumber}\nType: ${shiftLabel}\nSheet: ${hasSheet ? "Yes" : "No"}\nAmount: Rs ${amount}\nDate: ${startDate}\nValid till: ${end.toISOString().split("T")[0]}\nDigital Pass & Invoice: ${digitalPassUrl}`;
+          const text = `The Target Library\nReceipt No: ${data.receipt.receipt_no}\nName: ${activeName}\nSeat No: ${seatNumber}\nType: ${shiftLabel}\nSheet: ${hasSheet ? "Yes" : "No"}\nAmount: Rs ${amount}\nDate: ${startDate}\nValid till: ${actualEndDate}\nDigital Pass & Invoice: ${digitalPassUrl}`;
           const digits = activePhone.replace(/\D/g, "");
           const withCountryCode = digits.length === 10 ? `91${digits}` : digits;
           setWhatsappLink(`https://wa.me/${withCountryCode}?text=${encodeURIComponent(text)}`);
@@ -229,7 +263,7 @@ function NewReceiptForm() {
         setWhatsappStatus("failed");
         console.error("Auto WhatsApp error:", err);
         const digitalPassUrl = `${window.location.origin}/receipts/${data.receipt.receipt_no}`;
-        const text = `The Target Library\nReceipt No: ${data.receipt.receipt_no}\nName: ${activeName}\nSeat No: ${seatNumber}\nType: ${shiftLabel}\nSheet: ${hasSheet ? "Yes" : "No"}\nAmount: Rs ${amount}\nDate: ${startDate}\nValid till: ${end.toISOString().split("T")[0]}\nDigital Pass & Invoice: ${digitalPassUrl}`;
+        const text = `The Target Library\nReceipt No: ${data.receipt.receipt_no}\nName: ${activeName}\nSeat No: ${seatNumber}\nType: ${shiftLabel}\nSheet: ${hasSheet ? "Yes" : "No"}\nAmount: Rs ${amount}\nDate: ${startDate}\nValid till: ${actualEndDate}\nDigital Pass & Invoice: ${digitalPassUrl}`;
         const digits = activePhone.replace(/\D/g, "");
         const withCountryCode = digits.length === 10 ? `91${digits}` : digits;
         setWhatsappLink(`https://wa.me/${withCountryCode}?text=${encodeURIComponent(text)}`);
@@ -277,6 +311,7 @@ function NewReceiptForm() {
             {!loadingPreview && existingStudentId && !memberPreview && (
               <p className="text-xs text-rose-600 dark:text-rose-400 mt-1.5 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-lg">❌ Member ID not found. Enter a Name below to register a new member with ID {existingStudentId}, or leave blank.</p>
             )}
+
           </div>
 
           {(!existingStudentId || (existingStudentId && !memberPreview)) && (
@@ -307,6 +342,7 @@ function NewReceiptForm() {
                   </p>
                 )}
               </div>
+
             </div>
           )}
 
@@ -396,25 +432,157 @@ function NewReceiptForm() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-text-muted mb-1.5">Amount Paid (₹)</label>
+            <label className="block text-xs font-semibold text-text-muted mb-1.5">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                const newStart = e.target.value;
+                setStartDate(newStart);
+                if (newStart) {
+                  setEndDate(computeEndDate(newStart, durationDays));
+                }
+              }}
+              suppressHydrationWarning
+              className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 outline-none font-mono"
+            />
+          </div>
+
+          {/* Study Grant / Booking Tenure */}
+          <div className="bg-background border border-panel-border rounded-xl p-4 space-y-3.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <label className="text-xs font-bold text-text-main flex items-center gap-1.5">
+                <span>⏱️</span> Study Tenure / Booking Duration
+              </label>
+              <div className="flex bg-card-bg border border-panel-border rounded-lg p-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTenureMode("1_month");
+                    setDurationDays(30);
+                    setEndDate(computeEndDate(startDate, 30));
+                  }}
+                  className={`px-3 py-1 rounded-md font-medium transition cursor-pointer ${
+                    tenureMode === "1_month"
+                      ? "bg-rose-600 text-white font-semibold shadow-xs"
+                      : "text-text-muted hover:text-text-main"
+                  }`}
+                >
+                  Standard 1 Month (30 Days)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTenureMode("custom_days");
+                  }}
+                  className={`px-3 py-1 rounded-md font-medium transition cursor-pointer flex items-center gap-1 ${
+                    tenureMode === "custom_days"
+                      ? "bg-rose-600 text-white font-semibold shadow-xs"
+                      : "text-text-muted hover:text-text-main"
+                  }`}
+                >
+                  <span>🎯</span> Custom Days (&apos;n&apos; Days)
+                </button>
+              </div>
+            </div>
+
+            {tenureMode === "custom_days" && (
+              <div className="space-y-3 pt-2 border-t border-panel-border/50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-text-muted mb-1">
+                      Number of Days (&apos;n&apos;)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={durationDays}
+                      onChange={(e) => {
+                        const days = Math.max(1, Number(e.target.value) || 1);
+                        setDurationDays(days);
+                        setEndDate(computeEndDate(startDate, days));
+                      }}
+                      placeholder="e.g. 7, 10, 15"
+                      className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2 text-sm text-foreground transition-all outline-none font-semibold font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-text-muted mb-1">
+                      Tenure Ends On (Auto-calculated)
+                    </label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      min={startDate}
+                      onChange={(e) => {
+                        const newEnd = e.target.value;
+                        setEndDate(newEnd);
+                        if (newEnd) {
+                          const days = computeDaysBetween(startDate, newEnd);
+                          setDurationDays(days);
+                        }
+                      }}
+                      className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2 text-sm text-foreground transition-all outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                  <span className="text-[10px] text-text-muted font-medium mr-1">Quick Presets:</span>
+                  {[5, 7, 10, 15, 20, 45, 60].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => {
+                        setDurationDays(d);
+                        setEndDate(computeEndDate(startDate, d));
+                      }}
+                      className={`text-xs px-2.5 py-1 rounded-lg border transition cursor-pointer font-medium ${
+                        durationDays === d
+                          ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 font-bold"
+                          : "bg-card-bg border-panel-border text-text-muted hover:text-text-main"
+                      }`}
+                    >
+                      {d} Days
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Active Tenure Visual Pill */}
+            <div className="bg-neutral-500/10 border border-panel-border/60 rounded-lg px-3 py-2 text-xs flex items-center justify-between flex-wrap gap-2 text-text-details">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>
+                  Seat Occupied: <strong className="text-text-main">{durationDays} Days</strong> ({startDate} &rarr; {endDate})
+                </span>
+              </div>
+              <span className="text-[11px] text-text-muted">
+                Turns <strong className="text-emerald-600 dark:text-emerald-400">Green (Free)</strong> on {computeEndDate(endDate, 1)}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-text-muted">Amount Paid (₹)</label>
+              {tenureMode === "custom_days" && (
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                  Prorated for {durationDays} days
+                </span>
+              )}
+            </div>
             <input
               type="number"
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
               className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-rose-600 dark:text-rose-400 placeholder-text-muted transition-all duration-200 outline-none font-semibold"
             />
-            <p className="text-[10px] text-text-muted mt-1.5">Suggested amount auto-filled &mdash; custom editable.</p>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-text-muted mb-1.5">Start Date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              suppressHydrationWarning
-              className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 outline-none font-mono"
-            />
+            <p className="text-[10px] text-text-muted mt-1.5">Suggested amount auto-calculated &mdash; custom editable.</p>
           </div>
 
           <div className="flex flex-col gap-3 pt-3">
@@ -428,12 +596,29 @@ function NewReceiptForm() {
         </form>
 
         {result && (
-          <div className={`mt-4 p-3 rounded-lg text-sm border ${
+          <div className={`mt-4 p-4 rounded-xl text-sm border flex flex-col gap-3 ${
             result.ok
-              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25"
+              ? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border-emerald-500/25"
               : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/25"
           }`}>
-            {result.message}
+            <div className="font-medium">{result.message}</div>
+            {result.ok && createdReceiptNo && (
+              <div className="flex items-center gap-2 flex-wrap pt-1">
+                <Link
+                  href={`/receipts/${createdReceiptNo}`}
+                  target="_blank"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition shadow-xs"
+                >
+                  🎟️ View Pass & Invoice
+                </Link>
+                <Link
+                  href="/collections"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-main font-semibold text-xs transition"
+                >
+                  💰 View Daily Fees Register
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
