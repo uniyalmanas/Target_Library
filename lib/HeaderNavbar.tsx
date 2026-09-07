@@ -37,6 +37,7 @@ export default function HeaderNavbar() {
           <div className="flex items-center gap-6 text-sm">
             <Link href="/" className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium transition-colors">Seats</Link>
             <Link href="/new-receipt" className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium transition-colors">New Receipt</Link>
+            <Link href="/collections" className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium transition-colors">Daily Fees</Link>
             <Link href="/dashboard" className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium transition-colors">Dashboard</Link>
             <Link href="/members" className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium transition-colors">Members</Link>
             <Link href="/import" className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium transition-colors">Bulk Import</Link>

@@ -217,12 +217,20 @@ export default function DashboardPage() {
     <div className="space-y-8">
       {/* Metrics Section */}
       <div className="space-y-6">
-        <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
-            Executive Dashboard
-          </h1>
-          <p className="text-xs text-text-muted mt-1">Real-time status metrics and financial performance for The Target Library.</p>
+        <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
+              Executive Dashboard
+            </h1>
+            <p className="text-xs text-text-muted mt-1">Real-time status metrics and financial performance for The Target Library.</p>
+          </div>
+          <Link
+            href="/collections"
+            className="self-start md:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-bold transition shadow-xs text-text-main cursor-pointer"
+          >
+            💰 View Daily Fees Register
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
