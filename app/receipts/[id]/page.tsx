@@ -4,16 +4,18 @@ import { useEffect, useState, Suspense } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import EditReceiptModal from "@/lib/EditReceiptModal";
 
 function ReceiptDetails() {
   const params = useParams();
   const id = params.id as string;
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     async function fetchReceipt() {
-      const { data: receipt, error } = await supabase
+      let { data: receipt, error } = await supabase
         .from("receipts")
         .select(`
           receipt_no,
@@ -30,6 +32,7 @@ function ReceiptDetails() {
         `)
         .eq("receipt_no", id)
         .single();
+
 
       if (error) {
         console.error("Error fetching receipt:", error);
@@ -97,6 +100,13 @@ function ReceiptDetails() {
               <span>💬</span> Send via WhatsApp
             </a>
           )}
+          <button
+            onClick={() => setIsEditing(true)}
+            className="bg-panel-bg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-details border border-panel-border font-semibold text-xs px-4 py-2.5 rounded-lg shadow-sm cursor-pointer flex items-center gap-1.5 transition-all hover:-translate-y-0.5"
+            title="Owner: Edit plan, fees, or cancel subscription"
+          >
+            <span>✏️</span> Edit (Owner)
+          </button>
           <button
             onClick={handlePrint}
             className="bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs px-4.5 py-2.5 rounded-lg shadow-md shadow-rose-600/10 cursor-pointer flex items-center gap-2 hover:-translate-y-0.5 transition-all"
@@ -224,6 +234,31 @@ function ReceiptDetails() {
           </div>
         </div>
       </div>
+
+      {/* Owner Edit Receipt Modal */}
+      {isEditing && (
+        <EditReceiptModal
+          receipt={{
+            receipt_no: data.receipt_no,
+            student_id: data.student_id,
+            student_name: data.members?.name,
+            student_phone: data.members?.phone,
+            seat_id: data.seat_id,
+            seat_number: data.seats?.seat_number || data.seat_id,
+            subscription_type: data.subscription_type,
+            shift_type: data.shift_type,
+            has_sheet: data.has_sheet,
+            amount_paid: data.amount_paid,
+            start_date: data.start_date,
+            end_date: data.end_date,
+          }}
+          isOpen={isEditing}
+          onClose={() => setIsEditing(false)}
+          onSuccess={() => {
+            window.location.reload();
+          }}
+        />
+      )}
 
       {/* Print Styles CSS */}
       <style jsx global>{`

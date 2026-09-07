@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 
 interface MemberData {
   student_id: number;
@@ -33,6 +34,7 @@ export default function SeatsPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<SeatData | null>(null);
   const [vacating, setVacating] = useState<number | null>(null);
+  const [editingReceipt, setEditingReceipt] = useState<EditableReceipt | null>(null);
 
   const fetchSeats = () => {
     fetch("/api/seats")
@@ -254,7 +256,17 @@ export default function SeatsPage() {
                       </div>
                       <div className="flex justify-between py-1 border-b border-panel-border/30">
                         <span className="text-text-muted">Valid till:</span>
-                        <span className="text-rose-600 dark:text-rose-400 font-semibold">{r.end_date}</span>
+                        <span className="font-semibold text-text-main flex items-center gap-1.5">
+                          <span className="text-rose-600 dark:text-rose-400">{r.end_date}</span>
+                          {(() => {
+                            const today = new Date().toISOString().split("T")[0];
+                            const diffTime = new Date(r.end_date).getTime() - new Date(today).getTime();
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                            if (diffDays === 0) return <span className="text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded font-bold">Expires Today</span>;
+                            if (diffDays > 0) return <span className="text-[10px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold">{diffDays}d left</span>;
+                            return <span className="text-[10px] bg-neutral-500/15 text-neutral-500 px-1.5 py-0.5 rounded font-bold">Expired</span>;
+                          })()}
+                        </span>
                       </div>
                     </div>
 
@@ -271,6 +283,28 @@ export default function SeatsPage() {
                         className="bg-panel-bg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-muted hover:text-red-500 border border-card-border text-xs px-3.5 py-2 rounded-lg font-semibold transition-all duration-200 cursor-pointer disabled:opacity-50"
                       >
                         {vacating === r.receipt_no ? "Vacating..." : "Vacate"}
+                      </button>
+                      <button
+                        onClick={() =>
+                          setEditingReceipt({
+                            receipt_no: r.receipt_no,
+                            student_id: r.student_id,
+                            student_name: r.member?.name,
+                            student_phone: r.member?.phone,
+                            seat_id: selected.seat_id,
+                            seat_number: selected.seat_number,
+                            subscription_type: r.subscription_type,
+                            shift_type: r.shift_type,
+                            has_sheet: r.has_sheet,
+                            amount_paid: r.amount_paid,
+                            start_date: r.start_date,
+                            end_date: r.end_date,
+                          })
+                        }
+                        className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-xs px-3.5 py-2 rounded-lg font-semibold transition-all duration-200 cursor-pointer"
+                        title="Owner: Edit plan, fees, or cancel subscription"
+                      >
+                        ✏️ Edit Plan
                       </button>
                       <Link
                         href={`/receipts/${r.receipt_no}`}
@@ -366,6 +400,19 @@ export default function SeatsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Owner Edit Receipt Modal */}
+      {editingReceipt && (
+        <EditReceiptModal
+          receipt={editingReceipt}
+          isOpen={!!editingReceipt}
+          onClose={() => setEditingReceipt(null)}
+          onSuccess={() => {
+            fetchSeats();
+            setSelected(null);
+          }}
+        />
       )}
     </div>
   );

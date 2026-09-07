@@ -146,11 +146,26 @@ export async function POST(req: Request) {
     if (!existingMember) {
       if (name) {
         // Create new member with custom ID
-        const { data: newMember, error: memberError } = await supabase
+        const memberData: Record<string, any> = {
+          student_id: resolvedStudentId,
+          name,
+          phone: phone || null,
+        };
+        if (aadhar_no) memberData.aadhar_no = aadhar_no.trim();
+
+        let { data: newMember, error: memberError } = await supabase
           .from("members")
-          .insert({ student_id: resolvedStudentId, name, phone: phone || null })
+          .insert(memberData)
           .select()
           .single();
+
+        // Safe fallback if column does not exist yet on DB
+        if (memberError && (memberError.code === "42703" || memberError.message?.includes("aadhar_no"))) {
+          delete memberData.aadhar_no;
+          const retry = await supabase.from("members").insert(memberData).select().single();
+          newMember = retry.data;
+          memberError = retry.error;
+        }
 
         if (memberError) {
           return NextResponse.json({ error: memberError.message }, { status: 500 });
@@ -161,6 +176,18 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
+    } else {
+      // Existing member: update Aadhaar if provided
+      if (aadhar_no) {
+        try {
+          await supabase
+            .from("members")
+            .update({ aadhar_no: aadhar_no.trim() })
+            .eq("student_id", resolvedStudentId);
+        } catch {
+          // ignore if column doesn't exist
+        }
+      }
     }
   } else {
     if (!name) {
@@ -169,11 +196,25 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    const { data: newMember, error: memberError } = await supabase
+    const memberData: Record<string, any> = {
+      name,
+      phone: phone || null,
+    };
+    if (aadhar_no) memberData.aadhar_no = aadhar_no.trim();
+
+    let { data: newMember, error: memberError } = await supabase
       .from("members")
-      .insert({ name, phone: phone || null })
+      .insert(memberData)
       .select()
       .single();
+
+    // Safe fallback if column does not exist yet on DB
+    if (memberError && (memberError.code === "42703" || memberError.message?.includes("aadhar_no"))) {
+      delete memberData.aadhar_no;
+      const retry = await supabase.from("members").insert(memberData).select().single();
+      newMember = retry.data;
+      memberError = retry.error;
+    }
 
     if (memberError) {
       return NextResponse.json({ error: memberError.message }, { status: 500 });
@@ -228,4 +269,180 @@ export async function PATCH(req: Request) {
   }
 
   return NextResponse.json({ ok: true, receipt: data });
+}
+
+// PUT /api/receipts -> Owner-only Edit of existing receipt (plan, seat, amount, dates, candidate info)
+export async function PUT(req: Request) {
+  try {
+    const ownerAuthHeader = req.headers.get("x-owner-auth");
+    const correctOwnerPassword = process.env.NEXT_PUBLIC_OWNER_PASSWORD || "TargetOwner2026";
+    if (ownerAuthHeader !== "true" && ownerAuthHeader !== correctOwnerPassword) {
+      return NextResponse.json({ error: "Unauthorized. Owner passcode required to edit receipts." }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const {
+      receipt_no,
+      seat_id,
+      seat_number,
+      subscription_type,
+      shift_type,
+      has_sheet,
+      amount_paid,
+      start_date,
+      end_date,
+      name,
+      phone,
+    } = body;
+
+    if (!receipt_no) {
+      return NextResponse.json({ error: "Missing receipt_no" }, { status: 400 });
+    }
+
+    // Fetch existing receipt
+    const { data: existingReceipt, error: fetchError } = await supabase
+      .from("receipts")
+      .select("*, members(student_id, name, phone)")
+      .eq("receipt_no", receipt_no)
+      .single();
+
+    if (fetchError || !existingReceipt) {
+      return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
+    }
+
+    // Resolve target seat_id
+    let targetSeatId = seat_id || existingReceipt.seat_id;
+    if (seat_number && !seat_id) {
+      const { data: seatData } = await supabase
+        .from("seats")
+        .select("seat_id")
+        .eq("seat_number", seat_number)
+        .single();
+      if (seatData) targetSeatId = seatData.seat_id;
+    }
+
+    const targetSubType = subscription_type || existingReceipt.subscription_type;
+    const targetShift = targetSubType === "half_day" ? (shift_type || existingReceipt.shift_type) : null;
+    const targetStartDate = start_date || existingReceipt.start_date;
+    const targetEndDate = end_date || existingReceipt.end_date;
+    const targetAmount = amount_paid !== undefined ? Number(amount_paid) : Number(existingReceipt.amount_paid);
+    const targetHasSheet = has_sheet !== undefined ? !!has_sheet : !!existingReceipt.has_sheet;
+
+    if (targetEndDate < targetStartDate) {
+      return NextResponse.json({ error: "End date cannot be earlier than start date." }, { status: 400 });
+    }
+
+    // Check conflict on target seat (excluding this receipt)
+    const today = new Date().toISOString().split("T")[0];
+    const { data: activeOnSeat, error: activeError } = await supabase
+      .from("receipts")
+      .select("receipt_no, subscription_type, shift_type, start_date, end_date")
+      .eq("seat_id", targetSeatId)
+      .gte("end_date", today)
+      .neq("receipt_no", receipt_no);
+
+    if (activeError) {
+      return NextResponse.json({ error: activeError.message }, { status: 500 });
+    }
+
+    const conflict = (activeOnSeat ?? []).some((r) => {
+      const isDateOverlap = r.start_date <= targetEndDate && r.end_date >= targetStartDate;
+      if (!isDateOverlap) return false;
+
+      if (r.subscription_type === "full_day" || targetSubType === "full_day") return true;
+
+      const rShift = r.shift_type;
+      const newShift = targetShift;
+
+      if (rShift === newShift) return true;
+      if ((rShift === "morning" && newShift === "shift_1") || (rShift === "shift_1" && newShift === "morning")) return true;
+      if ((rShift === "evening" && newShift === "shift_2") || (rShift === "shift_2" && newShift === "evening")) return true;
+
+      const isRShift2 = rShift === "shift_2" || rShift === "evening";
+      const isNewShift2 = newShift === "shift_2" || newShift === "evening";
+      const isRShift3 = rShift === "shift_3";
+      const isNewShift3 = newShift === "shift_3";
+
+      if ((isRShift2 && isNewShift3) || (isRShift3 && isNewShift2)) return true;
+      return false;
+    });
+
+    if (conflict) {
+      return NextResponse.json(
+        { error: "The selected seat or shift is occupied by another student for these dates." },
+        { status: 409 }
+      );
+    }
+
+    // If candidate name or phone updated, update members table
+    if ((name || phone !== undefined) && existingReceipt.student_id) {
+      const memberUpdates: Record<string, string | null> = {};
+      if (name) memberUpdates.name = name;
+      if (phone !== undefined) memberUpdates.phone = phone || null;
+      await supabase.from("members").update(memberUpdates).eq("student_id", existingReceipt.student_id);
+    }
+
+    // Update receipt
+    const { data: updatedReceipt, error: updateError } = await supabase
+      .from("receipts")
+      .update({
+        seat_id: targetSeatId,
+        subscription_type: targetSubType,
+        shift_type: targetShift,
+        has_sheet: targetHasSheet,
+        amount_paid: targetAmount,
+        start_date: targetStartDate,
+        end_date: targetEndDate,
+      })
+      .eq("receipt_no", receipt_no)
+      .select()
+      .single();
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, receipt: updatedReceipt });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+// DELETE /api/receipts -> Owner-only Cancel & Delete a receipt
+export async function DELETE(req: Request) {
+  try {
+    const ownerAuthHeader = req.headers.get("x-owner-auth");
+    const correctOwnerPassword = process.env.NEXT_PUBLIC_OWNER_PASSWORD || "TargetOwner2026";
+    if (ownerAuthHeader !== "true" && ownerAuthHeader !== correctOwnerPassword) {
+      return NextResponse.json({ error: "Unauthorized. Owner passcode required to cancel/delete receipts." }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const receiptNoParam = searchParams.get("receipt_no");
+    let receipt_no = receiptNoParam ? Number(receiptNoParam) : null;
+
+    if (!receipt_no) {
+      const body = await req.json().catch(() => ({}));
+      receipt_no = body.receipt_no ? Number(body.receipt_no) : null;
+    }
+
+    if (!receipt_no) {
+      return NextResponse.json({ error: "Missing receipt_no" }, { status: 400 });
+    }
+
+    const { error: deleteError } = await supabase
+      .from("receipts")
+      .delete()
+      .eq("receipt_no", receipt_no);
+
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, message: `Receipt #${receipt_no} has been deleted. Seat is now available.` });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }
