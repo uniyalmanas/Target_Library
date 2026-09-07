@@ -7,6 +7,7 @@ export interface EditableReceipt {
   student_id: number;
   student_name?: string;
   student_phone?: string | null;
+  aadhar_no?: string | null;
   seat_id?: number;
   seat_number: number;
   subscription_type: "full_day" | "half_day";
@@ -70,6 +71,7 @@ export default function EditReceiptModal({
   // Edit form state
   const [name, setName] = useState(receipt.student_name || "");
   const [phone, setPhone] = useState(receipt.student_phone || "");
+  const [aadharNo, setAadharNo] = useState(receipt.aadhar_no || "");
   const [seatNumber, setSeatNumber] = useState(receipt.seat_number.toString());
   const [subscriptionType, setSubscriptionType] = useState<"full_day" | "half_day">(
     receipt.subscription_type
@@ -150,6 +152,7 @@ export default function EditReceiptModal({
           end_date: endDate,
           name: name.trim(),
           phone: phone.trim() || null,
+          aadhar_no: aadharNo.trim() || null,
         }),
       });
 
@@ -332,6 +335,24 @@ export default function EditReceiptModal({
               </div>
             </div>
 
+            {/* Aadhaar Number (Optional) */}
+            <div>
+              <label className="block text-[11px] font-semibold text-text-muted mb-1 flex items-center justify-between">
+                <span>Aadhaar Card Number (Optional)</span>
+                <span className="text-[10px] text-text-muted font-normal">Candidate Integrity</span>
+              </label>
+              <input
+                type="text"
+                value={aadharNo}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/\D/g, "").slice(0, 12);
+                  const formatted = raw.replace(/(\d{4})(?=\d)/g, "$1 ");
+                  setAadharNo(formatted);
+                }}
+                placeholder="12-digit Aadhaar (e.g. 5432 1098 7654)"
+                className="w-full px-3 py-2 bg-background border border-panel-border rounded-xl text-xs font-mono text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
 
             {/* Seat Number */}
             <div>

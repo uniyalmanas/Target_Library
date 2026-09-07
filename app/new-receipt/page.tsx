@@ -49,6 +49,7 @@ function NewReceiptForm() {
   const [existingStudentId, setExistingStudentId] = useState(presetStudentId);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [aadharNo, setAadharNo] = useState("");
   const [seatNumber, setSeatNumber] = useState(presetSeat);
   const [subscriptionType, setSubscriptionType] = useState<"full_day" | "half_day">(
     presetSubscriptionType || "full_day"
@@ -85,7 +86,11 @@ function NewReceiptForm() {
   const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "simulated" | "failed">("idle");
 
   // Live preview for existing members
-  const [memberPreview, setMemberPreview] = useState<{ name: string; phone: string | null } | null>(null);
+  const [memberPreview, setMemberPreview] = useState<{
+    name: string;
+    phone: string | null;
+    aadhar_no?: string | null;
+  } | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [isInitialMount, setIsInitialMount] = useState(true);
 
@@ -116,6 +121,7 @@ function NewReceiptForm() {
   useEffect(() => {
     if (!existingStudentId) {
       setMemberPreview(null);
+      setAadharNo("");
       return;
     }
     const delayDebounceFn = setTimeout(() => {
@@ -127,7 +133,14 @@ function NewReceiptForm() {
         })
         .then((data) => {
           if (data.member) {
-            setMemberPreview({ name: data.member.name, phone: data.member.phone });
+            setMemberPreview({
+              name: data.member.name,
+              phone: data.member.phone,
+              aadhar_no: data.member.aadhar_no || null,
+            });
+            if (data.member.aadhar_no) {
+              setAadharNo(data.member.aadhar_no);
+            }
           } else {
             setMemberPreview(null);
           }
@@ -187,6 +200,9 @@ function NewReceiptForm() {
       end_date: endDate,
       duration_days: durationDays,
     };
+    if (aadharNo.trim()) {
+      payload.aadhar_no = aadharNo.trim();
+    }
     if (existingStudentId) {
       payload.student_id = Number(existingStudentId);
       if (!memberPreview) {
@@ -274,6 +290,7 @@ function NewReceiptForm() {
 
     setName("");
     setPhone("");
+    setAadharNo("");
     setExistingStudentId("");
     setSeatNumber("");
     setMemberPreview(null);
@@ -303,15 +320,38 @@ function NewReceiptForm() {
             />
             {loadingPreview && <p className="text-xs text-text-muted mt-1.5 animate-pulse">Verifying member ID...</p>}
             {!loadingPreview && memberPreview && (
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5 bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-lg">
-                ✅ Member found: <span className="font-semibold">{memberPreview.name}</span>
-                {memberPreview.phone ? ` (Phone: ${memberPreview.phone})` : " (No phone on file)"}
-              </p>
+              <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1.5 bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-lg space-y-1">
+                <p>✅ Member found: <span className="font-semibold">{memberPreview.name}</span></p>
+                <div className="flex gap-4 text-[11px] text-text-muted font-mono">
+                  <span>Phone: {memberPreview.phone || "None"}</span>
+                  <span>Aadhaar: {memberPreview.aadhar_no || "Not linked"}</span>
+                </div>
+              </div>
             )}
             {!loadingPreview && existingStudentId && !memberPreview && (
               <p className="text-xs text-rose-600 dark:text-rose-400 mt-1.5 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-lg">❌ Member ID not found. Enter a Name below to register a new member with ID {existingStudentId}, or leave blank.</p>
             )}
-
+            {!loadingPreview && memberPreview && !memberPreview.aadhar_no && (
+              <div className="pt-2">
+                <label className="block text-xs font-semibold text-text-muted mb-1.5 flex items-center justify-between">
+                  <span>Link Aadhaar Card (Optional)</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Verify Candidate</span>
+                </label>
+                <input
+                  value={aadharNo}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, "").slice(0, 12);
+                    const formatted = raw.replace(/(\d{4})(?=\d)/g, "$1 ");
+                    setAadharNo(formatted);
+                  }}
+                  placeholder="12-digit Aadhaar Number (e.g. 5432 1098 7654)"
+                  className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder-text-muted transition-all duration-200 outline-none font-mono"
+                />
+                <p className="text-[10px] text-text-muted mt-1">
+                  🔒 Member currently has no Aadhaar on file. You can attach it optionally now.
+                </p>
+              </div>
+            )}
           </div>
 
           {(!existingStudentId || (existingStudentId && !memberPreview)) && (
@@ -342,7 +382,25 @@ function NewReceiptForm() {
                   </p>
                 )}
               </div>
-
+              <div>
+                <label className="block text-xs font-semibold text-text-muted mb-1.5 flex items-center justify-between">
+                  <span>Aadhaar Card Number (Optional)</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Candidate Integrity</span>
+                </label>
+                <input
+                  value={aadharNo}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, "").slice(0, 12);
+                    const formatted = raw.replace(/(\d{4})(?=\d)/g, "$1 ");
+                    setAadharNo(formatted);
+                  }}
+                  placeholder="12-digit Aadhaar Number (e.g. 5432 1098 7654)"
+                  className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder-text-muted transition-all duration-200 outline-none font-mono"
+                />
+                <p className="text-[10px] text-text-muted mt-1">
+                  🔒 Stored securely. Appears on the student pass &amp; invoice. Strictly optional.
+                </p>
+              </div>
             </div>
           )}
 

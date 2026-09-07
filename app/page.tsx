@@ -8,6 +8,7 @@ interface MemberData {
   student_id: number;
   name: string;
   phone: string | null;
+  aadhar_no?: string | null;
 }
 
 interface ReceiptData {
@@ -242,6 +243,14 @@ export default function SeatsPage() {
                           <span className="text-text-details">{r.member.phone}</span>
                         </div>
                       )}
+                      {r.member?.aadhar_no && (
+                        <div className="flex justify-between py-1 border-b border-panel-border/30">
+                          <span className="text-text-muted">Aadhaar:</span>
+                          <span className="font-mono text-text-details text-xs">
+                            •••• •••• {r.member.aadhar_no.replace(/\s+/g, "").slice(-4)}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between py-1 border-b border-panel-border/30">
                         <span className="text-text-muted">Subscription:</span>
                         <span className="text-text-details font-medium">
@@ -291,6 +300,7 @@ export default function SeatsPage() {
                             student_id: r.student_id,
                             student_name: r.member?.name,
                             student_phone: r.member?.phone,
+                            aadhar_no: r.member?.aadhar_no,
                             seat_id: selected.seat_id,
                             seat_number: selected.seat_number,
                             subscription_type: r.subscription_type,

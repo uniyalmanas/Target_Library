@@ -27,12 +27,34 @@ function ReceiptDetails() {
           end_date,
           created_at,
           student_id,
-          members (student_id, name, phone),
+          members (student_id, name, phone, aadhar_no),
           seats (seat_number)
         `)
         .eq("receipt_no", id)
         .single();
 
+      // Safe fallback if aadhar_no column does not exist on DB yet
+      if (error && (error.code === "42703" || error.message?.includes("aadhar_no"))) {
+        const retry = await supabase
+          .from("receipts")
+          .select(`
+            receipt_no,
+            subscription_type,
+            shift_type,
+            has_sheet,
+            amount_paid,
+            start_date,
+            end_date,
+            created_at,
+            student_id,
+            members (student_id, name, phone),
+            seats (seat_number)
+          `)
+          .eq("receipt_no", id)
+          .single();
+        receipt = retry.data as any;
+        error = retry.error;
+      }
 
       if (error) {
         console.error("Error fetching receipt:", error);
@@ -146,7 +168,12 @@ function ReceiptDetails() {
             <div className="my-auto pt-2">
               <p className="text-[8px] text-neutral-500 uppercase font-semibold">Card Holder</p>
               <p className="text-base font-extrabold text-white tracking-tight leading-tight">{data.members?.name}</p>
-              <p className="text-[9px] text-neutral-400 font-mono mt-0.5">ID: #{data.student_id}</p>
+              <div className="flex items-center gap-2.5 flex-wrap text-[9px] text-neutral-400 font-mono mt-0.5">
+                <span>ID: #{data.student_id}</span>
+                {data.members?.aadhar_no && (
+                  <span className="text-neutral-300">Aadhaar: •••• •••• {data.members.aadhar_no.replace(/\s+/g, "").slice(-4)}</span>
+                )}
+              </div>
             </div>
 
             <div className="flex justify-between items-end border-t border-neutral-900/60 pt-2">
@@ -194,6 +221,9 @@ function ReceiptDetails() {
               <p className="font-bold text-foreground">{data.members?.name}</p>
               <p className="text-text-details mt-0.5 font-mono">Student ID: #{data.student_id}</p>
               {data.members?.phone && <p className="text-text-details font-mono">{data.members.phone}</p>}
+              {data.members?.aadhar_no && (
+                <p className="text-text-details font-mono">Aadhaar: {data.members.aadhar_no}</p>
+              )}
             </div>
             <div className="text-right">
               <p className="font-semibold text-text-muted mb-1.5">Reservation details:</p>
@@ -243,6 +273,7 @@ function ReceiptDetails() {
             student_id: data.student_id,
             student_name: data.members?.name,
             student_phone: data.members?.phone,
+            aadhar_no: data.members?.aadhar_no,
             seat_id: data.seat_id,
             seat_number: data.seats?.seat_number || data.seat_id,
             subscription_type: data.subscription_type,

@@ -17,12 +17,24 @@ export async function GET() {
     }
 
     // Active receipts = end_date >= today, joined with member info
-    const { data: activeReceipts, error: receiptsError } = await supabase
+    let { data: activeReceipts, error: receiptsError } = await supabase
       .from("receipts")
       .select(
-        "receipt_no, student_id, seat_id, subscription_type, shift_type, has_sheet, amount_paid, start_date, end_date, members(student_id, name, phone)"
+        "receipt_no, student_id, seat_id, subscription_type, shift_type, has_sheet, amount_paid, start_date, end_date, members(student_id, name, phone, aadhar_no)"
       )
       .gte("end_date", today);
+
+    // Fallback if aadhar_no column does not exist on DB yet
+    if (receiptsError && (receiptsError.code === "42703" || receiptsError.message?.includes("aadhar_no"))) {
+      const retry = await supabase
+        .from("receipts")
+        .select(
+          "receipt_no, student_id, seat_id, subscription_type, shift_type, has_sheet, amount_paid, start_date, end_date, members(student_id, name, phone)"
+        )
+        .gte("end_date", today);
+      activeReceipts = retry.data as any;
+      receiptsError = retry.error;
+    }
 
     if (receiptsError) {
       return NextResponse.json({ error: receiptsError.message }, { status: 500 });
@@ -59,6 +71,7 @@ export async function GET() {
                 student_id: r.members.student_id,
                 name: r.members.name,
                 phone: r.members.phone,
+                aadhar_no: r.members.aadhar_no || null,
               }
             : null,
         })),

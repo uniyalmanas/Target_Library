@@ -39,6 +39,7 @@ export async function POST(req: Request) {
     student_id,
     name,
     phone,
+    aadhar_no,
     seat_id,
     subscription_type,
     shift_type,
@@ -293,6 +294,7 @@ export async function PUT(req: Request) {
       end_date,
       name,
       phone,
+      aadhar_no,
     } = body;
 
     if (!receipt_no) {
@@ -374,12 +376,31 @@ export async function PUT(req: Request) {
       );
     }
 
-    // If candidate name or phone updated, update members table
-    if ((name || phone !== undefined) && existingReceipt.student_id) {
+    // If candidate name, phone or aadhar_no updated, update members table
+    if ((name || phone !== undefined || aadhar_no !== undefined) && existingReceipt.student_id) {
       const memberUpdates: Record<string, string | null> = {};
       if (name) memberUpdates.name = name;
       if (phone !== undefined) memberUpdates.phone = phone || null;
-      await supabase.from("members").update(memberUpdates).eq("student_id", existingReceipt.student_id);
+      if (aadhar_no !== undefined) memberUpdates.aadhar_no = aadhar_no ? aadhar_no.trim() : null;
+
+      try {
+        const updateRes = await supabase
+          .from("members")
+          .update(memberUpdates)
+          .eq("student_id", existingReceipt.student_id);
+
+        if (updateRes.error && (updateRes.error.code === "42703" || updateRes.error.message?.includes("aadhar_no"))) {
+          delete memberUpdates.aadhar_no;
+          if (Object.keys(memberUpdates).length > 0) {
+            await supabase
+              .from("members")
+              .update(memberUpdates)
+              .eq("student_id", existingReceipt.student_id);
+          }
+        }
+      } catch {
+        // Safe fallback
+      }
     }
 
     // Update receipt
