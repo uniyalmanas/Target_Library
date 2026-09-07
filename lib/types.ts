@@ -5,6 +5,7 @@ export interface Member {
   student_id: number;
   name: string;
   phone: string | null;
+  aadhar_no?: string | null;
   date_of_joining: string;
   created_at: string;
 }

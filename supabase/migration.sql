@@ -9,9 +9,13 @@ CREATE TABLE IF NOT EXISTS members (
     student_id      BIGSERIAL PRIMARY KEY,
     name            VARCHAR(255) NOT NULL,
     phone           VARCHAR(15),
+    aadhar_no       VARCHAR(20),
     date_of_joining DATE NOT NULL DEFAULT CURRENT_DATE,
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- For existing database, safely add column if not present:
+ALTER TABLE members ADD COLUMN IF NOT EXISTS aadhar_no VARCHAR(20);
 
 -- Seats: static seats 1-297
 CREATE TABLE IF NOT EXISTS seats (
