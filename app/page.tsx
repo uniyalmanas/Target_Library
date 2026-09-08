@@ -20,6 +20,9 @@ interface ReceiptData {
   amount_paid: number;
   start_date: string;
   end_date: string;
+  is_vacated?: boolean;
+  is_overdue?: boolean;
+  days_overdue?: number;
   member: MemberData | null;
 }
 
@@ -27,6 +30,9 @@ interface SeatData {
   seat_id: number;
   seat_number: number;
   occupied: boolean;
+  is_overdue?: boolean;
+  has_due?: boolean;
+  status?: string;
   receipts: ReceiptData[];
 }
 
@@ -51,14 +57,19 @@ export default function SeatsPage() {
   }, []);
 
   const freeCount = seats.filter((s) => !s.occupied).length;
+
+  const dueCount = seats.filter((s) => s.is_overdue || s.status === "due" || s.status === "partial_due").length;
   
   const partialCount = seats.filter(
-    (s) => s.occupied && s.receipts?.length === 1 && s.receipts[0].subscription_type === "half_day"
+    (s) => s.occupied && !s.is_overdue && s.status !== "due" && s.status !== "partial_due" && s.receipts?.length === 1 && s.receipts[0].subscription_type === "half_day"
   ).length;
 
   const fullOccupiedCount = seats.filter(
     (s) =>
       s.occupied &&
+      !s.is_overdue &&
+      s.status !== "due" &&
+      s.status !== "partial_due" &&
       (s.receipts?.some((r) => r.subscription_type === "full_day") || s.receipts?.length === 2)
   ).length;
 
@@ -74,6 +85,16 @@ export default function SeatsPage() {
   const seatColor = (s: SeatData) => {
     if (!s.occupied) {
       return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:shadow-[0_0_10px_rgba(16,185,129,0.15)] hover:-translate-y-0.5";
+    }
+
+    // Overdue seat: Blue
+    if (s.is_overdue || s.status === "due") {
+      return "bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/40 hover:bg-blue-500/25 hover:border-blue-500/60 hover:shadow-[0_0_12px_rgba(59,130,246,0.3)] hover:-translate-y-0.5";
+    }
+
+    // Partial due (1 active half-day + 1 overdue shift)
+    if (s.status === "partial_due") {
+      return "bg-gradient-to-br from-blue-500/20 to-amber-500/20 text-blue-700 dark:text-blue-300 border border-blue-400/50 hover:border-blue-500/70 hover:shadow-[0_0_12px_rgba(59,130,246,0.25)] hover:-translate-y-0.5";
     }
     
     const isFullDay = s.receipts?.some((r) => r.subscription_type === "full_day");
@@ -107,8 +128,11 @@ export default function SeatsPage() {
     return `/new-receipt?${params.toString()}`;
   };
 
-  const handleVacate = async (receipt_no: number) => {
-    if (!confirm("Are you sure you want to vacate this seat/shift early? This will make the seat available for the shift immediately.")) return;
+  const handleVacate = async (receipt_no: number, isOverdue = false) => {
+    const msg = isOverdue
+      ? "Are you sure you want to officially vacate this overdue seat? The seat will immediately turn green and become available for booking."
+      : "Are you sure you want to vacate this seat/shift early? This will make the seat available for the shift immediately.";
+    if (!confirm(msg)) return;
     setVacating(receipt_no);
     try {
       const res = await fetch("/api/receipts", {
@@ -151,10 +175,13 @@ export default function SeatsPage() {
           </h1>
           <p className="text-xs text-text-muted mt-1">Select a seat block to review active subscriptions or book an available shift.</p>
         </div>
-        <div className="flex gap-4 text-xs font-semibold bg-background/50 border border-panel-border p-3 rounded-lg shadow-inner">
+        <div className="flex gap-4 text-xs font-semibold bg-background/50 border border-panel-border p-3 rounded-lg shadow-inner flex-wrap items-center">
           <span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
             <span className="w-3 h-3 rounded-md bg-emerald-500/10 border border-emerald-500/25 inline-block" /> Free ({freeCount})
           </span>
+          <Link href="/due-fees" className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline">
+            <span className="w-3 h-3 rounded-md bg-blue-500/20 border border-blue-500/40 inline-block" /> Fees Due ({dueCount})
+          </Link>
           <span className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
             <span className="w-3 h-3 rounded-md bg-amber-500/10 border border-amber-500/25 inline-block" /> Half-day ({partialCount})
           </span>
@@ -203,17 +230,25 @@ export default function SeatsPage() {
               <span className={`px-2.5 py-1 rounded-full text-[9px] uppercase font-extrabold tracking-wider border ${
                 !selected.occupied 
                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                  : selected.receipts?.some(r => r.subscription_type === "full_day") || selected.receipts?.length === 2
-                    ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
-                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                  : selected.is_overdue || selected.status === "due"
+                    ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/40"
+                    : selected.status === "partial_due"
+                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/40"
+                      : selected.receipts?.some(r => r.subscription_type === "full_day") || selected.receipts?.length === 2
+                        ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                        : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
               }`}>
                 {!selected.occupied
                   ? "Free"
-                  : selected.receipts?.some(r => r.subscription_type === "full_day")
-                    ? "Full Day"
-                    : selected.receipts?.length === 2
-                      ? "Fully Occupied"
-                      : `${shiftLabel(selected.receipts[0].shift_type)} Occupied`
+                  : selected.is_overdue || selected.status === "due"
+                    ? `Fees Due (${selected.receipts?.find(r => r.is_overdue)?.days_overdue || 1}d overdue)`
+                    : selected.status === "partial_due"
+                      ? "Partial Due"
+                      : selected.receipts?.some(r => r.subscription_type === "full_day")
+                        ? "Full Day"
+                        : selected.receipts?.length === 2
+                          ? "Fully Occupied"
+                          : `${shiftLabel(selected.receipts[0].shift_type)} Occupied`
               }
               </span>
             </div>
@@ -222,6 +257,17 @@ export default function SeatsPage() {
               <div className="space-y-4">
                 {selected.receipts?.map((r, idx) => (
                   <div key={r.receipt_no} className="bg-background border border-card-border rounded-xl p-4 relative shadow-inner">
+                    {r.is_overdue && (
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-2.5 text-xs text-blue-700 dark:text-blue-300 flex items-center justify-between mb-3">
+                        <span className="font-semibold flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse inline-block" />
+                          Fees Overdue ({r.days_overdue} day{r.days_overdue === 1 ? "" : "s"})
+                        </span>
+                        <span className="text-[10px] bg-blue-500/20 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded font-bold">
+                          Expired {r.end_date}
+                        </span>
+                      </div>
+                    )}
                     {selected.receipts.length > 1 && (
                       <div className="text-[9px] text-rose-600 dark:text-rose-400 font-extrabold uppercase tracking-widest mb-3 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block animate-pulse" />
@@ -266,14 +312,17 @@ export default function SeatsPage() {
                       <div className="flex justify-between py-1 border-b border-panel-border/30">
                         <span className="text-text-muted">Valid till:</span>
                         <span className="font-semibold text-text-main flex items-center gap-1.5">
-                          <span className="text-rose-600 dark:text-rose-400">{r.end_date}</span>
+                          <span className={r.is_overdue ? "text-blue-600 dark:text-blue-400 font-bold" : "text-rose-600 dark:text-rose-400"}>{r.end_date}</span>
                           {(() => {
+                            if (r.is_overdue) {
+                              return <span className="text-[10px] bg-blue-500/15 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-bold">{r.days_overdue}d overdue</span>;
+                            }
                             const today = new Date().toISOString().split("T")[0];
                             const diffTime = new Date(r.end_date).getTime() - new Date(today).getTime();
                             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                             if (diffDays === 0) return <span className="text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded font-bold">Expires Today</span>;
                             if (diffDays > 0) return <span className="text-[10px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold">{diffDays}d left</span>;
-                            return <span className="text-[10px] bg-neutral-500/15 text-neutral-500 px-1.5 py-0.5 rounded font-bold">Expired</span>;
+                            return <span className="text-[10px] bg-blue-500/15 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-bold">Overdue</span>;
                           })()}
                         </span>
                       </div>
@@ -286,12 +335,29 @@ export default function SeatsPage() {
                       >
                         Renew
                       </Link>
+                      {r.member?.phone && r.is_overdue && (
+                        <a
+                          href={`https://wa.me/91${r.member.phone.replace(/[^0-9]/g, "").slice(-10)}?text=${encodeURIComponent(
+                            `Hello ${r.member.name}, this is a gentle reminder from The Target Library regarding Seat ${selected.seat_number}. Your subscription expired on ${r.end_date} (${r.days_overdue} day${r.days_overdue === 1 ? "" : "s"} ago). Please pay your renewal fee to retain your seat. Thank you!`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3.5 py-2 rounded-lg font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1 shadow-md shadow-emerald-600/20 hover:-translate-y-0.5"
+                          title="Send WhatsApp payment reminder"
+                        >
+                          💬 WhatsApp
+                        </a>
+                      )}
                       <button
                         disabled={vacating === r.receipt_no}
-                        onClick={() => handleVacate(r.receipt_no)}
-                        className="bg-panel-bg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-muted hover:text-red-500 border border-card-border text-xs px-3.5 py-2 rounded-lg font-semibold transition-all duration-200 cursor-pointer disabled:opacity-50"
+                        onClick={() => handleVacate(r.receipt_no, r.is_overdue)}
+                        className={`${
+                          r.is_overdue
+                            ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                            : "bg-panel-bg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-muted hover:text-red-500 border border-card-border"
+                        } text-xs px-3.5 py-2 rounded-lg font-semibold transition-all duration-200 cursor-pointer disabled:opacity-50`}
                       >
-                        {vacating === r.receipt_no ? "Vacating..." : "Vacate"}
+                        {vacating === r.receipt_no ? "Vacating..." : r.is_overdue ? "Vacate Seat" : "Vacate"}
                       </button>
                       <button
                         onClick={() =>

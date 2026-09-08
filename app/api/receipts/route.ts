@@ -258,12 +258,23 @@ export async function PATCH(req: Request) {
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().split("T")[0];
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("receipts")
-    .update({ end_date: yesterdayStr })
+    .update({ is_vacated: true, end_date: yesterdayStr })
     .eq("receipt_no", receipt_no)
     .select()
     .single();
+
+  if (error && (error.code === "42703" || error.message?.includes("is_vacated"))) {
+    const fallback = await supabase
+      .from("receipts")
+      .update({ end_date: yesterdayStr })
+      .eq("receipt_no", receipt_no)
+      .select()
+      .single();
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

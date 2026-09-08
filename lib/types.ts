@@ -25,6 +25,7 @@ export interface Receipt {
   amount_paid: number;
   start_date: string;
   end_date: string;
+  is_vacated?: boolean;
   created_at: string;
 }
 
@@ -33,6 +34,7 @@ export interface SeatWithOccupant {
   seat_id: number;
   seat_number: number;
   occupied: boolean;
+  is_overdue?: boolean;
   receipt?: Receipt;
   member?: Member;
 }

@@ -35,12 +35,16 @@ export default function HeaderNavbar() {
         {/* Only show navigation links if logged in and not on a public path */}
         {!isPublicPath && isAuthenticated && (
           <div className="flex items-center gap-6 text-sm">
-            <Link href="/" className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium transition-colors">Seats</Link>
-            <Link href="/new-receipt" className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium transition-colors">New Receipt</Link>
-            <Link href="/collections" className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium transition-colors">Daily Fees</Link>
-            <Link href="/dashboard" className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium transition-colors">Dashboard</Link>
-            <Link href="/members" className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium transition-colors">Members</Link>
-            <Link href="/import" className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium transition-colors">Bulk Import</Link>
+            <Link href="/" className={`${pathname === "/" ? "text-rose-600 dark:text-rose-400 font-bold" : "text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium"} transition-colors`}>Seats</Link>
+            <Link href="/new-receipt" className={`${pathname === "/new-receipt" ? "text-rose-600 dark:text-rose-400 font-bold" : "text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium"} transition-colors`}>New Receipt</Link>
+            <Link href="/due-fees" className={`${pathname === "/due-fees" ? "text-blue-600 dark:text-blue-400 font-bold" : "text-text-muted hover:text-blue-500 dark:hover:text-blue-400 font-medium"} transition-colors flex items-center gap-1.5`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block animate-pulse" />
+              Due Fees
+            </Link>
+            <Link href="/collections" className={`${pathname === "/collections" ? "text-rose-600 dark:text-rose-400 font-bold" : "text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium"} transition-colors`}>Daily Fees</Link>
+            <Link href="/dashboard" className={`${pathname === "/dashboard" ? "text-rose-600 dark:text-rose-400 font-bold" : "text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium"} transition-colors`}>Dashboard</Link>
+            <Link href="/members" className={`${pathname === "/members" ? "text-rose-600 dark:text-rose-400 font-bold" : "text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium"} transition-colors`}>Members</Link>
+            <Link href="/import" className={`${pathname === "/import" ? "text-rose-600 dark:text-rose-400 font-bold" : "text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium"} transition-colors`}>Bulk Import</Link>
             <button
               onClick={() => {
                 sessionStorage.removeItem("target_lib_auth");

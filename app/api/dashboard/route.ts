@@ -29,19 +29,38 @@ export async function GET(req: Request) {
     if (seatsError) return NextResponse.json({ error: seatsError.message }, { status: 500 });
 
     // Fetch all receipts to compute metrics in a single database round-trip
-    const { data: receipts, error: receiptsError } = await supabase
+    let { data: receipts, error: receiptsError } = await supabase
       .from("receipts")
-      .select("seat_id, amount_paid, start_date, end_date, subscription_type, shift_type");
+      .select("seat_id, amount_paid, start_date, end_date, subscription_type, shift_type, is_vacated");
+
+    if (receiptsError && (receiptsError.code === "42703" || receiptsError.message?.includes("is_vacated"))) {
+      const fallback = await supabase
+        .from("receipts")
+        .select("seat_id, amount_paid, start_date, end_date, subscription_type, shift_type");
+      receipts = fallback.data as any;
+      receiptsError = fallback.error;
+    }
 
     if (receiptsError) return NextResponse.json({ error: receiptsError.message }, { status: 500 });
 
     const safeReceipts = receipts ?? [];
 
+    // Cutoff for overdue candidate tracking (45 days)
+    const cutoffDateObj = new Date();
+    cutoffDateObj.setDate(cutoffDateObj.getDate() - 45);
+    const cutoffDateStr = cutoffDateObj.toISOString().split("T")[0];
+
     // 1. Active receipts
-    const activeReceipts = safeReceipts.filter((r) => r.end_date >= todayStr);
+    const activeReceipts = safeReceipts.filter((r) => r.end_date >= todayStr && (r as any).is_vacated !== true);
     const occupiedSeatIds = new Set(activeReceipts.map((r) => r.seat_id));
     const occupied = occupiedSeatIds.size;
     const free = Math.max(0, (totalSeats ?? 0) - occupied);
+
+    // 2. Overdue receipts (Due Fees)
+    const dueReceipts = safeReceipts.filter(
+      (r) => r.end_date < todayStr && r.end_date >= cutoffDateStr && (r as any).is_vacated !== true
+    );
+    const dueFeesCount = dueReceipts.length;
 
     // 2. Expiring in 7 Days
     const expiringSoon = activeReceipts.filter((r) => r.end_date <= in7Str).length;
@@ -159,6 +178,7 @@ export async function GET(req: Request) {
       occupied,
       free,
       expiringSoon,
+      dueFeesCount,
       monthRevenue,
       lifetimeRevenue,
       activeMonthlyRevenue,

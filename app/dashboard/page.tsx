@@ -8,6 +8,7 @@ interface Stats {
   occupied: number;
   free: number;
   expiringSoon: number;
+  dueFeesCount?: number;
   monthRevenue: number;
   lifetimeRevenue: number;
   activeMonthlyRevenue: number;
@@ -150,6 +151,14 @@ export default function DashboardPage() {
       borderColor: "border-amber-500/20",
     },
     {
+      label: "Fees Overdue",
+      value: stats.dueFeesCount ?? 0,
+      color: "text-blue-600 dark:text-blue-400",
+      bgGlow: "from-blue-500/15 to-transparent",
+      borderColor: "border-blue-500/30",
+      link: "/due-fees",
+    },
+    {
       label: "This Month's Earnings",
       value: `₹${stats.monthRevenue.toLocaleString()}`,
       color: "text-blue-600 dark:text-blue-400",
@@ -225,25 +234,44 @@ export default function DashboardPage() {
             </h1>
             <p className="text-xs text-text-muted mt-1">Real-time status metrics and financial performance for The Target Library.</p>
           </div>
-          <Link
-            href="/collections"
-            className="self-start md:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-bold transition shadow-xs text-text-main cursor-pointer"
-          >
-            💰 View Daily Fees Register
-          </Link>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              href="/due-fees"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 text-xs font-bold transition shadow-xs text-blue-600 dark:text-blue-400 cursor-pointer"
+            >
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              Due Fees ({stats?.dueFeesCount ?? 0})
+            </Link>
+            <Link
+              href="/collections"
+              className="self-start md:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-bold transition shadow-xs text-text-main cursor-pointer"
+            >
+              💰 View Daily Fees Register
+            </Link>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-          {cards.map((c) => (
-            <div
-              key={c.label}
-              className={`bg-card-bg border ${c.borderColor} rounded-2xl p-6 relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/10`}
-            >
-              <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl ${c.bgGlow} pointer-events-none`} />
-              <p className="text-text-muted text-xs font-semibold tracking-wider uppercase mb-2">{c.label}</p>
-              <p className={`text-3xl font-extrabold tracking-tight ${c.color}`}>{c.value}</p>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+          {cards.map((c) => {
+            const cardContent = (
+              <div
+                key={c.label}
+                className={`bg-card-bg border ${c.borderColor} rounded-2xl p-5 relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/10 h-full`}
+              >
+                <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl ${c.bgGlow} pointer-events-none`} />
+                <p className="text-text-muted text-[10px] font-semibold tracking-wider uppercase mb-1.5">{c.label}</p>
+                <p className={`text-2xl font-extrabold tracking-tight ${c.color}`}>{c.value}</p>
+              </div>
+            );
+
+            return (c as any).link ? (
+              <Link key={c.label} href={(c as any).link} className="block cursor-pointer">
+                {cardContent}
+              </Link>
+            ) : (
+              <div key={c.label}>{cardContent}</div>
+            );
+          })}
         </div>
       </div>
 
