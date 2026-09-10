@@ -21,7 +21,7 @@ interface Stats {
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [seats, setSeats] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"free" | "partial" | "full">("free");
+  const [activeTab, setActiveTab] = useState<"free" | "partial" | "full" | "double">("free");
   const [activeDashboardTab, setActiveDashboardTab] = useState<"overview" | "logs">("overview");
   const [loadingSeats, setLoadingSeats] = useState(true);
   const [hoveredPoint, setHoveredPoint] = useState<any | null>(null);
@@ -188,10 +188,16 @@ export default function DashboardPage() {
     (s) => s.occupied && s.receipts?.length === 1 && s.receipts[0].subscription_type === "half_day"
   );
 
+  const doubleShiftSeatsList = seats.filter(
+    (s) =>
+      s.occupied &&
+      (s.is_double_shift || s.status === "double_shift" || (s.receipts?.length >= 2 && !s.receipts.some((r: any) => r.subscription_type === "full_day")))
+  );
+
   const fullSeatsList = seats.filter(
     (s) =>
       s.occupied &&
-      (s.receipts?.some((r: any) => r.subscription_type === "full_day") || s.receipts?.length === 2)
+      s.receipts?.some((r: any) => r.subscription_type === "full_day")
   );
 
   // SVG Area Chart Calculations (Rolling 6-month trends)
@@ -494,6 +500,17 @@ export default function DashboardPage() {
             Half-day Occupied ({partialSeatsList.length})
           </button>
           <button
+            onClick={() => setActiveTab("double")}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "double"
+                ? "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/40"
+                : "border-transparent text-text-muted hover:text-foreground"
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-purple-500" />
+            Double Shifted ({doubleShiftSeatsList.length})
+          </button>
+          <button
             onClick={() => setActiveTab("full")}
             className={`px-4 py-2 rounded-lg text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === "full"
@@ -502,7 +519,7 @@ export default function DashboardPage() {
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-rose-500" />
-            Fully Blocked ({fullSeatsList.length})
+            Full Day ({fullSeatsList.length})
           </button>
         </div>
 
@@ -565,53 +582,111 @@ export default function DashboardPage() {
               </div>
             )}
 
+            {activeTab === "double" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <p className="text-[10px] uppercase font-extrabold tracking-wider text-purple-600 dark:text-purple-400">
+                    Double Shifted Seats (Shared by 2 Shift Students)
+                  </p>
+                  <span className="text-xs text-text-muted">
+                    Total: <strong className="text-foreground">{doubleShiftSeatsList.length}</strong> seats
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 max-h-[350px] overflow-y-auto p-1">
+                  {doubleShiftSeatsList.map((s) => (
+                    <div
+                      key={s.seat_id}
+                      className="bg-purple-500/5 border border-purple-500/15 p-4 rounded-2xl flex flex-col justify-between gap-3 shadow-sm hover:border-purple-500/35 transition"
+                    >
+                      <div className="flex justify-between items-center">
+                        <p className="text-base font-extrabold text-foreground flex items-center gap-1.5">
+                          <span className="text-sm">🪑</span> Seat {s.seat_number}
+                        </p>
+                        <span className="text-[9px] font-extrabold uppercase bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25 px-2.5 py-1 rounded-full tracking-wider flex items-center gap-1">
+                          <span>👥</span> 2 Shifts
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {s.receipts.map((r: any) => (
+                          <Link
+                            key={r.receipt_no}
+                            href={`/members/${r.student_id}`}
+                            className="block text-xs p-3 rounded-xl bg-background/60 hover:bg-purple-500/10 border border-panel-border hover:border-purple-500/25 transition group cursor-pointer"
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-foreground group-hover:text-purple-500 transition-colors">
+                                {r.member?.name}
+                              </span>
+                              <span className="text-[10px] text-text-muted font-mono">
+                                #{r.student_id}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center mt-1.5 text-[10px]">
+                              <span className="text-purple-600 dark:text-purple-400 font-bold uppercase">
+                                {r.shift_type === "shift_1" || r.shift_type === "morning"
+                                  ? "Shift 1 (6AM–2PM)"
+                                  : r.shift_type === "shift_2" || r.shift_type === "evening"
+                                    ? "Shift 2 (2PM–12AM)"
+                                    : "Shift 3 (4PM–12AM)"}
+                              </span>
+                              <span className="text-text-muted">
+                                Exp: {r.end_date}
+                              </span>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {doubleShiftSeatsList.length === 0 && (
+                    <p className="text-xs text-text-muted py-4 col-span-full">No double shifted seats currently booked.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {activeTab === "full" && (
               <div className="space-y-4">
-                <p className="text-[10px] uppercase font-extrabold tracking-wider text-text-muted">Fully Blocked Seats (Full-Day or 2 Shifts Booked)</p>
+                <p className="text-[10px] uppercase font-extrabold tracking-wider text-text-muted">Full-Day Seats (1 Student Dedicated Full Day)</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 max-h-[350px] overflow-y-auto p-1">
-                  {fullSeatsList.map((s) => {
-                    const isBothShifts = s.receipts?.length === 2;
-                    return (
-                      <div
-                        key={s.seat_id}
-                        className="bg-rose-500/5 border border-rose-500/15 p-4 rounded-2xl flex flex-col justify-between gap-3.5 shadow-sm"
-                      >
-                        <div className="flex justify-between items-center">
-                          <p className="text-base font-extrabold text-foreground flex items-center gap-1.5">
-                            <span className="text-sm">🪑</span> Seat {s.seat_number}
-                          </p>
-                          <span className="text-[9px] font-extrabold uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 px-2.5 py-1 rounded-full tracking-wider">
-                            {isBothShifts ? "2 Shifts Booked" : "Full Day"}
-                          </span>
-                        </div>
-                        <div className="space-y-2">
-                          {s.receipts.map((r: any, idx: number) => (
-                            <Link
-                              key={r.receipt_no}
-                              href={`/members/${r.student_id}`}
-                              className="block text-xs p-3 rounded-xl bg-background/50 hover:bg-rose-500/5 border border-panel-border hover:border-rose-500/25 transition group cursor-pointer"
-                            >
-                              <div className="flex justify-between">
-                                <span className="font-bold text-foreground group-hover:text-rose-500 transition-colors">
-                                  {r.member?.name}
-                                </span>
-                                <span className="text-[10px] text-text-muted font-mono">
-                                  ID: #{r.student_id}
-                                </span>
-                              </div>
-                              {isBothShifts && (
-                                <p className="text-[9px] text-text-muted mt-1.5 uppercase font-bold tracking-wider">
-                                  Shift: {r.shift_type === "shift_1" || r.shift_type === "morning" ? "Shift 1" : r.shift_type === "shift_2" || r.shift_type === "evening" ? "Shift 2" : "Shift 3"}
-                                </p>
-                              )}
-                            </Link>
-                          ))}
-                        </div>
+                  {fullSeatsList.map((s) => (
+                    <div
+                      key={s.seat_id}
+                      className="bg-rose-500/5 border border-rose-500/15 p-4 rounded-2xl flex flex-col justify-between gap-3.5 shadow-sm"
+                    >
+                      <div className="flex justify-between items-center">
+                        <p className="text-base font-extrabold text-foreground flex items-center gap-1.5">
+                          <span className="text-sm">🪑</span> Seat {s.seat_number}
+                        </p>
+                        <span className="text-[9px] font-extrabold uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 px-2.5 py-1 rounded-full tracking-wider">
+                          Full Day
+                        </span>
                       </div>
-                    );
-                  })}
+                      <div className="space-y-2">
+                        {s.receipts.map((r: any) => (
+                          <Link
+                            key={r.receipt_no}
+                            href={`/members/${r.student_id}`}
+                            className="block text-xs p-3 rounded-xl bg-background/50 hover:bg-rose-500/5 border border-panel-border hover:border-rose-500/25 transition group cursor-pointer"
+                          >
+                            <div className="flex justify-between">
+                              <span className="font-bold text-foreground group-hover:text-rose-500 transition-colors">
+                                {r.member?.name}
+                              </span>
+                              <span className="text-[10px] text-text-muted font-mono">
+                                ID: #{r.student_id}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-text-muted mt-1">
+                              Valid until: <strong className="text-foreground">{r.end_date}</strong>
+                            </p>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                   {fullSeatsList.length === 0 && (
-                    <p className="text-xs text-text-muted py-4 col-span-full">No fully occupied seats currently booked.</p>
+                    <p className="text-xs text-text-muted py-4 col-span-full">No full-day seats currently booked.</p>
                   )}
                 </div>
               </div>

@@ -120,16 +120,21 @@ export async function GET() {
       const isPartialDue = activeReceipts.length > 0 && deduplicatedOverdue.length > 0;
       const isOccupied = visibleReceipts.length > 0;
 
+      const isFullDay = activeReceipts.some((r) => r.subscription_type === "full_day");
+      const isDoubleShift = activeReceipts.length >= 2 && !isFullDay;
+
       let status = "free";
       if (isAllOverdue) {
         status = "due"; // Entire seat is BLUE (due fees)
       } else if (isPartialDue) {
         status = "partial_due"; // 1 active shift + 1 overdue shift
       } else if (activeReceipts.length > 0) {
-        if (activeReceipts.some((r) => r.subscription_type === "full_day") || activeReceipts.length >= 2) {
-          status = "full_day"; // RED
+        if (isFullDay) {
+          status = "full_day"; // RED (single full-day student)
+        } else if (isDoubleShift) {
+          status = "double_shift"; // PURPLE (seat split across 2 active shifts)
         } else {
-          status = "half_day"; // AMBER
+          status = "half_day"; // AMBER (only 1 shift occupied, 1 shift free)
         }
       }
 
@@ -139,6 +144,7 @@ export async function GET() {
         occupied: isOccupied,
         is_overdue: isAllOverdue,
         has_due: deduplicatedOverdue.length > 0,
+        is_double_shift: isDoubleShift,
         status,
         receipts: visibleReceipts.map((r) => {
           const isDue = r.end_date < today;

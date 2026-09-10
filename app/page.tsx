@@ -32,6 +32,7 @@ interface SeatData {
   occupied: boolean;
   is_overdue?: boolean;
   has_due?: boolean;
+  is_double_shift?: boolean;
   status?: string;
   receipts: ReceiptData[];
 }
@@ -42,6 +43,7 @@ export default function SeatsPage() {
   const [selected, setSelected] = useState<SeatData | null>(null);
   const [vacating, setVacating] = useState<number | null>(null);
   const [editingReceipt, setEditingReceipt] = useState<EditableReceipt | null>(null);
+  const [filterStatus, setFilterStatus] = useState<"all" | "double_shift" | "full_day" | "half_day" | "free" | "due">("all");
 
   const fetchSeats = () => {
     fetch("/api/seats")
@@ -56,22 +58,48 @@ export default function SeatsPage() {
     fetchSeats();
   }, []);
 
+  const isSeatDoubleShift = (s: SeatData) =>
+    s.occupied &&
+    !s.is_overdue &&
+    s.status !== "due" &&
+    s.status !== "partial_due" &&
+    (s.is_double_shift || s.status === "double_shift" || (s.receipts?.length >= 2 && !s.receipts.some((r) => r.subscription_type === "full_day")));
+
+  const isSeatFullDay = (s: SeatData) =>
+    s.occupied &&
+    !s.is_overdue &&
+    s.status !== "due" &&
+    s.status !== "partial_due" &&
+    s.receipts?.some((r) => r.subscription_type === "full_day");
+
+  const isSeatHalfDay = (s: SeatData) =>
+    s.occupied &&
+    !s.is_overdue &&
+    s.status !== "due" &&
+    s.status !== "partial_due" &&
+    s.receipts?.length === 1 &&
+    s.receipts[0].subscription_type === "half_day";
+
+  const isSeatDue = (s: SeatData) =>
+    s.is_overdue || s.status === "due" || s.status === "partial_due";
+
   const freeCount = seats.filter((s) => !s.occupied).length;
+  const dueCount = seats.filter(isSeatDue).length;
+  const partialCount = seats.filter(isSeatHalfDay).length;
+  const fullDayCount = seats.filter(isSeatFullDay).length;
+  const doubleShiftCount = seats.filter(isSeatDoubleShift).length;
 
-  const dueCount = seats.filter((s) => s.is_overdue || s.status === "due" || s.status === "partial_due").length;
-  
-  const partialCount = seats.filter(
-    (s) => s.occupied && !s.is_overdue && s.status !== "due" && s.status !== "partial_due" && s.receipts?.length === 1 && s.receipts[0].subscription_type === "half_day"
-  ).length;
+  const doubleShiftSeats = seats.filter(isSeatDoubleShift);
 
-  const fullOccupiedCount = seats.filter(
-    (s) =>
-      s.occupied &&
-      !s.is_overdue &&
-      s.status !== "due" &&
-      s.status !== "partial_due" &&
-      (s.receipts?.some((r) => r.subscription_type === "full_day") || s.receipts?.length === 2)
-  ).length;
+  const matchesFilter = (s: SeatData) => {
+    if (filterStatus === "all") return true;
+    if (filterStatus === "double_shift") return isSeatDoubleShift(s);
+    if (filterStatus === "full_day") return isSeatFullDay(s);
+    if (filterStatus === "half_day") return isSeatHalfDay(s);
+    if (filterStatus === "free") return !s.occupied;
+    if (filterStatus === "due") return isSeatDue(s);
+    return true;
+  };
 
   const shiftLabel = (shift: string | null) =>
     shift === "shift_1" || shift === "morning"
@@ -96,13 +124,18 @@ export default function SeatsPage() {
     if (s.status === "partial_due") {
       return "bg-gradient-to-br from-blue-500/20 to-amber-500/20 text-blue-700 dark:text-blue-300 border border-blue-400/50 hover:border-blue-500/70 hover:shadow-[0_0_12px_rgba(59,130,246,0.25)] hover:-translate-y-0.5";
     }
-    
-    const isFullDay = s.receipts?.some((r) => r.subscription_type === "full_day");
-    const isBothShifts = s.receipts?.length === 2;
 
-    if (isFullDay || isBothShifts) {
+    // Double shifted: 2 different shift students sharing this seat -> Distinct Purple / Violet!
+    if (isSeatDoubleShift(s)) {
+      return "bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/40 hover:bg-purple-500/25 hover:border-purple-500/60 hover:shadow-[0_0_12px_rgba(168,85,247,0.3)] hover:-translate-y-0.5";
+    }
+
+    // Single student Full Day: Red
+    if (isSeatFullDay(s)) {
       return "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/40 hover:shadow-[0_0_10px_rgba(244,63,94,0.15)] hover:-translate-y-0.5";
     }
+
+    // Single shift half day: Amber
     return "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 hover:shadow-[0_0_10px_rgba(245,158,11,0.15)] hover:-translate-y-0.5";
   };
 
@@ -175,25 +208,105 @@ export default function SeatsPage() {
           </h1>
           <p className="text-xs text-text-muted mt-1">Select a seat block to review active subscriptions or book an available shift.</p>
         </div>
-        <div className="flex gap-4 text-xs font-semibold bg-background/50 border border-panel-border p-3 rounded-lg shadow-inner flex-wrap items-center">
-          <span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-            <span className="w-3 h-3 rounded-md bg-emerald-500/10 border border-emerald-500/25 inline-block" /> Free ({freeCount})
-          </span>
-          <Link href="/due-fees" className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline">
-            <span className="w-3 h-3 rounded-md bg-blue-500/20 border border-blue-500/40 inline-block" /> Fees Due ({dueCount})
-          </Link>
-          <span className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
-            <span className="w-3 h-3 rounded-md bg-amber-500/10 border border-amber-500/25 inline-block" /> Half-day ({partialCount})
-          </span>
-          <span className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
-            <span className="w-3 h-3 rounded-md bg-rose-500/10 border border-rose-500/25 inline-block" /> Fully Occupied ({fullOccupiedCount})
-          </span>
+        <div className="flex gap-2 text-xs font-semibold bg-background/50 border border-panel-border p-2 rounded-xl shadow-inner flex-wrap items-center">
+          <button
+            onClick={() => setFilterStatus("all")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterStatus === "all"
+                ? "bg-foreground/10 text-foreground font-bold shadow-xs"
+                : "text-text-muted hover:text-foreground"
+            }`}
+          >
+            All ({seats.length})
+          </button>
+          <button
+            onClick={() => setFilterStatus(filterStatus === "free" ? "all" : "free")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterStatus === "free"
+                ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold ring-1 ring-emerald-500/40"
+                : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/20 border border-emerald-500/40 inline-block" /> Free ({freeCount})
+          </button>
+          <button
+            onClick={() => setFilterStatus(filterStatus === "half_day" ? "all" : "half_day")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterStatus === "half_day"
+                ? "bg-amber-500/20 text-amber-800 dark:text-amber-300 font-bold ring-1 ring-amber-500/40"
+                : "text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-sm bg-amber-500/20 border border-amber-500/40 inline-block" /> Half-day ({partialCount})
+          </button>
+          <button
+            onClick={() => setFilterStatus(filterStatus === "full_day" ? "all" : "full_day")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterStatus === "full_day"
+                ? "bg-rose-500/20 text-rose-800 dark:text-rose-300 font-bold ring-1 ring-rose-500/40"
+                : "text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-sm bg-rose-500/20 border border-rose-500/40 inline-block" /> Full Day ({fullDayCount})
+          </button>
+          <button
+            onClick={() => setFilterStatus(filterStatus === "double_shift" ? "all" : "double_shift")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterStatus === "double_shift"
+                ? "bg-purple-500/25 text-purple-800 dark:text-purple-200 font-bold ring-2 ring-purple-500/50 shadow-sm"
+                : "text-purple-600 dark:text-purple-400 hover:bg-purple-500/10"
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-sm bg-purple-500/30 border border-purple-500/50 inline-block" /> Double Shifted ({doubleShiftCount})
+          </button>
+          <button
+            onClick={() => setFilterStatus(filterStatus === "due" ? "all" : "due")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterStatus === "due"
+                ? "bg-blue-500/20 text-blue-800 dark:text-blue-200 font-bold ring-1 ring-blue-500/40"
+                : "text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-sm bg-blue-500/20 border border-blue-500/40 inline-block" /> Fees Due ({dueCount})
+          </button>
         </div>
       </div>
+
+      {filterStatus === "double_shift" && (
+        <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in duration-200">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-base">👥</span>
+              <h3 className="text-sm font-bold text-foreground">
+                Double Shifted Seats ({doubleShiftSeats.length})
+              </h3>
+            </div>
+            <p className="text-xs text-text-muted mt-0.5">
+              These seats are split across shifts and occupied by 2 different students. Click any seat below to inspect both occupants:
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1.5 max-w-lg">
+            {doubleShiftSeats.map((s) => (
+              <button
+                key={s.seat_id}
+                onClick={() => setSelected(s)}
+                className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/40 hover:bg-purple-500/35 hover:scale-105 transition cursor-pointer"
+              >
+                Seat {s.seat_number}
+              </button>
+            ))}
+            {doubleShiftSeats.length === 0 && (
+              <span className="text-xs text-text-muted italic py-1">No double shifted seats currently booked.</span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="bg-panel-bg border border-panel-border rounded-xl p-6 backdrop-blur-xs">
         <div className="grid grid-cols-10 sm:grid-cols-15 md:grid-cols-20 gap-2">
           {seats.map((s) => {
+            const matches = matchesFilter(s);
+            const isDouble = isSeatDoubleShift(s);
             const tooltip = s.occupied
               ? s.receipts?.map((r) => `${r.member?.name} (${r.subscription_type === 'full_day' ? 'Full Day' : r.shift_type})`).join(", ")
               : "Free";
@@ -201,10 +314,18 @@ export default function SeatsPage() {
               <button
                 key={s.seat_id}
                 onClick={() => setSelected(s)}
-                className={`aspect-square rounded-lg text-[10px] font-bold flex items-center justify-center transition-all duration-200 cursor-pointer ${seatColor(s)}`}
+                className={`aspect-square rounded-lg text-[10px] font-bold flex flex-col items-center justify-center transition-all duration-200 cursor-pointer relative ${seatColor(s)} ${
+                  !matches ? "opacity-20 scale-95" : filterStatus !== "all" ? "ring-2 ring-purple-500 shadow-md scale-105 z-10" : ""
+                }`}
                 title={tooltip}
               >
-                {s.seat_number}
+                <span>{s.seat_number}</span>
+                {isDouble && (
+                  <span className="flex gap-0.5 pointer-events-none mt-[-2px]">
+                    <span className="w-1 h-1 rounded-full bg-purple-600 dark:bg-purple-300 inline-block" />
+                    <span className="w-1 h-1 rounded-full bg-purple-600 dark:bg-purple-300 inline-block" />
+                  </span>
+                )}
               </button>
             );
           })}
@@ -234,9 +355,11 @@ export default function SeatsPage() {
                     ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/40"
                     : selected.status === "partial_due"
                       ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/40"
-                      : selected.receipts?.some(r => r.subscription_type === "full_day") || selected.receipts?.length === 2
-                        ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
-                        : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                      : isSeatDoubleShift(selected)
+                        ? "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/35"
+                        : selected.receipts?.some(r => r.subscription_type === "full_day")
+                          ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                          : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
               }`}>
                 {!selected.occupied
                   ? "Free"
@@ -244,10 +367,10 @@ export default function SeatsPage() {
                     ? `Fees Due (${selected.receipts?.find(r => r.is_overdue)?.days_overdue || 1}d overdue)`
                     : selected.status === "partial_due"
                       ? "Partial Due"
-                      : selected.receipts?.some(r => r.subscription_type === "full_day")
-                        ? "Full Day"
-                        : selected.receipts?.length === 2
-                          ? "Fully Occupied"
+                      : isSeatDoubleShift(selected)
+                        ? "👥 Double Shifted"
+                        : selected.receipts?.some(r => r.subscription_type === "full_day")
+                          ? "Full Day"
                           : `${shiftLabel(selected.receipts[0].shift_type)} Occupied`
               }
               </span>
@@ -255,6 +378,16 @@ export default function SeatsPage() {
 
             {selected.occupied ? (
               <div className="space-y-4">
+                {isSeatDoubleShift(selected) && (
+                  <div className="bg-purple-500/10 border border-purple-500/25 rounded-xl p-3 text-xs text-purple-700 dark:text-purple-300 flex items-center justify-between">
+                    <span className="font-bold flex items-center gap-1.5">
+                      <span>👥</span> Double Shifted Seat
+                    </span>
+                    <span className="text-[10px] bg-purple-500/20 text-purple-700 dark:text-purple-200 px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider">
+                      2 Active Shifts
+                    </span>
+                  </div>
+                )}
                 {selected.receipts?.map((r, idx) => (
                   <div key={r.receipt_no} className="bg-background border border-card-border rounded-xl p-4 relative shadow-inner">
                     {r.is_overdue && (
@@ -269,8 +402,12 @@ export default function SeatsPage() {
                       </div>
                     )}
                     {selected.receipts.length > 1 && (
-                      <div className="text-[9px] text-rose-600 dark:text-rose-400 font-extrabold uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block animate-pulse" />
+                      <div className={`text-[9px] font-extrabold uppercase tracking-widest mb-3 flex items-center gap-1.5 ${
+                        isSeatDoubleShift(selected) ? "text-purple-600 dark:text-purple-400" : "text-rose-600 dark:text-rose-400"
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full inline-block ${
+                          isSeatDoubleShift(selected) ? "bg-purple-500" : "bg-rose-500 animate-pulse"
+                        }`} />
                         Occupant {idx + 1} &middot; {shiftLabel(r.shift_type)}
                       </div>
                     )}
