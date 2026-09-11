@@ -45,6 +45,7 @@ export async function POST(req: Request) {
     shift_type,
     has_sheet,
     amount_paid,
+    payment_mode = "cash",
     start_date,
     end_date: customEndDate,
     duration_days,
@@ -223,20 +224,31 @@ export async function POST(req: Request) {
     resolvedStudentId = newMember.student_id;
   }
 
-  const { data: receipt, error: receiptError } = await supabase
+  const receiptInsertData: Record<string, any> = {
+    student_id: resolvedStudentId,
+    seat_id,
+    subscription_type,
+    shift_type: subscription_type === "half_day" ? shift_type : null,
+    has_sheet: !!has_sheet,
+    amount_paid,
+    payment_mode: payment_mode === "online" ? "online" : "cash",
+    start_date,
+    end_date: resolvedEndDate,
+  };
+
+  let { data: receipt, error: receiptError } = await supabase
     .from("receipts")
-    .insert({
-      student_id: resolvedStudentId,
-      seat_id,
-      subscription_type,
-      shift_type: subscription_type === "half_day" ? shift_type : null,
-      has_sheet: !!has_sheet,
-      amount_paid,
-      start_date,
-      end_date: resolvedEndDate,
-    })
+    .insert(receiptInsertData)
     .select()
     .single();
+
+  // Safe fallback if payment_mode column does not exist on DB yet
+  if (receiptError && (receiptError.code === "42703" || receiptError.message?.includes("payment_mode"))) {
+    delete receiptInsertData.payment_mode;
+    const retry = await supabase.from("receipts").insert(receiptInsertData).select().single();
+    receipt = retry.data;
+    receiptError = retry.error;
+  }
 
   if (receiptError) {
     return NextResponse.json({ error: receiptError.message }, { status: 500 });
@@ -301,6 +313,7 @@ export async function PUT(req: Request) {
       shift_type,
       has_sheet,
       amount_paid,
+      payment_mode,
       start_date,
       end_date,
       name,
@@ -414,21 +427,38 @@ export async function PUT(req: Request) {
       }
     }
 
+    const targetPaymentMode = payment_mode !== undefined ? payment_mode : (existingReceipt.payment_mode || "cash");
+
     // Update receipt
-    const { data: updatedReceipt, error: updateError } = await supabase
+    const updateReceiptData: Record<string, any> = {
+      seat_id: targetSeatId,
+      subscription_type: targetSubType,
+      shift_type: targetShift,
+      has_sheet: targetHasSheet,
+      amount_paid: targetAmount,
+      payment_mode: targetPaymentMode,
+      start_date: targetStartDate,
+      end_date: targetEndDate,
+    };
+
+    let { data: updatedReceipt, error: updateError } = await supabase
       .from("receipts")
-      .update({
-        seat_id: targetSeatId,
-        subscription_type: targetSubType,
-        shift_type: targetShift,
-        has_sheet: targetHasSheet,
-        amount_paid: targetAmount,
-        start_date: targetStartDate,
-        end_date: targetEndDate,
-      })
+      .update(updateReceiptData)
       .eq("receipt_no", receipt_no)
       .select()
       .single();
+
+    if (updateError && (updateError.code === "42703" || updateError.message?.includes("payment_mode"))) {
+      delete updateReceiptData.payment_mode;
+      const retry = await supabase
+        .from("receipts")
+        .update(updateReceiptData)
+        .eq("receipt_no", receipt_no)
+        .select()
+        .single();
+      updatedReceipt = retry.data;
+      updateError = retry.error;
+    }
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });

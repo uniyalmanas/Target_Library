@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     const endUTC = new Date(`${targetDate}T23:59:59.999+05:30`).toISOString();
 
     // Query receipts on this day
-    const { data: receipts, error: receiptsError } = await supabase
+    let { data: receipts, error: receiptsError } = await supabase
       .from("receipts")
       .select(`
         receipt_no,
@@ -33,6 +33,7 @@ export async function GET(req: Request) {
         shift_type,
         has_sheet,
         amount_paid,
+        payment_mode,
         start_date,
         end_date,
         created_at,
@@ -48,6 +49,37 @@ export async function GET(req: Request) {
       .gte("created_at", startUTC)
       .lte("created_at", endUTC)
       .order("created_at", { ascending: false });
+
+    // Fallback if payment_mode column does not exist on DB yet
+    if (receiptsError && (receiptsError.code === "42703" || receiptsError.message?.includes("payment_mode"))) {
+      const retry = await supabase
+        .from("receipts")
+        .select(`
+          receipt_no,
+          student_id,
+          seat_id,
+          subscription_type,
+          shift_type,
+          has_sheet,
+          amount_paid,
+          start_date,
+          end_date,
+          created_at,
+          members (
+            name,
+            phone,
+            date_of_joining
+          ),
+          seats (
+            seat_number
+          )
+        `)
+        .gte("created_at", startUTC)
+        .lte("created_at", endUTC)
+        .order("created_at", { ascending: false });
+      receipts = retry.data as any;
+      receiptsError = retry.error;
+    }
 
     if (receiptsError) {
       return NextResponse.json({ error: receiptsError.message }, { status: 500 });
@@ -74,6 +106,10 @@ export async function GET(req: Request) {
     }
 
     let totalCollected = 0;
+    let cashCollected = 0;
+    let onlineCollected = 0;
+    let cashCount = 0;
+    let onlineCount = 0;
     let newAdmissionsCount = 0;
     let renewalsCount = 0;
     let withSheetCount = 0;
@@ -89,6 +125,15 @@ export async function GET(req: Request) {
     const formattedList = safeReceipts.map((r) => {
       const amount = Number(r.amount_paid) || 0;
       totalCollected += amount;
+
+      const mode = (r as any).payment_mode === "online" ? "online" : "cash";
+      if (mode === "online") {
+        onlineCollected += amount;
+        onlineCount++;
+      } else {
+        cashCollected += amount;
+        cashCount++;
+      }
 
       const isNew = earliestReceiptMap.get(r.student_id) === r.receipt_no;
       if (isNew) {
@@ -142,6 +187,7 @@ export async function GET(req: Request) {
         shift_type: r.shift_type,
         has_sheet: r.has_sheet,
         amount_paid: amount,
+        payment_mode: mode,
         start_date: r.start_date,
         end_date: r.end_date,
         created_at: r.created_at,
@@ -156,6 +202,10 @@ export async function GET(req: Request) {
         total_students: formattedList.length,
         unique_members: studentIds.length,
         total_collected: totalCollected,
+        cash_collected: cashCollected,
+        online_collected: onlineCollected,
+        cash_count: cashCount,
+        online_count: onlineCount,
         new_admissions_count: newAdmissionsCount,
         renewals_count: renewalsCount,
         with_sheet_count: withSheetCount,

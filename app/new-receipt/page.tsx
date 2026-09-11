@@ -77,6 +77,7 @@ function NewReceiptForm() {
     const s = presetStartDate || new Date().toISOString().split("T")[0];
     return computeEndDate(s, 30);
   });
+  const [paymentMode, setPaymentMode] = useState<"cash" | "online">("cash");
   
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -196,6 +197,7 @@ function NewReceiptForm() {
       shift_type: subscriptionType === "half_day" ? shiftType : undefined,
       has_sheet: hasSheet,
       amount_paid: amount,
+      payment_mode: paymentMode,
       start_date: startDate,
       end_date: endDate,
       duration_days: durationDays,
@@ -270,7 +272,8 @@ function NewReceiptForm() {
           setWhatsappStatus("failed");
           console.error("Auto WhatsApp failed:", waData.error);
           const digitalPassUrl = `${window.location.origin}/receipts/${data.receipt.receipt_no}`;
-          const text = `The Target Library\nReceipt No: ${data.receipt.receipt_no}\nName: ${activeName}\nSeat No: ${seatNumber}\nType: ${shiftLabel}\nSheet: ${hasSheet ? "Yes" : "No"}\nAmount: Rs ${amount}\nDate: ${startDate}\nValid till: ${actualEndDate}\nDigital Pass & Invoice: ${digitalPassUrl}`;
+          const paymentModeLabel = paymentMode === "online" ? "Online (UPI)" : "Cash";
+          const text = `The Target Library\nReceipt No: ${data.receipt.receipt_no}\nName: ${activeName}\nSeat No: ${seatNumber}\nType: ${shiftLabel}\nSheet: ${hasSheet ? "Yes" : "No"}\nAmount: Rs ${amount}\nPayment Mode: ${paymentModeLabel}\nDate: ${startDate}\nValid till: ${actualEndDate}\nDigital Pass & Invoice: ${digitalPassUrl}`;
           const digits = activePhone.replace(/\D/g, "");
           const withCountryCode = digits.length === 10 ? `91${digits}` : digits;
           setWhatsappLink(`https://wa.me/${withCountryCode}?text=${encodeURIComponent(text)}`);
@@ -279,7 +282,8 @@ function NewReceiptForm() {
         setWhatsappStatus("failed");
         console.error("Auto WhatsApp error:", err);
         const digitalPassUrl = `${window.location.origin}/receipts/${data.receipt.receipt_no}`;
-        const text = `The Target Library\nReceipt No: ${data.receipt.receipt_no}\nName: ${activeName}\nSeat No: ${seatNumber}\nType: ${shiftLabel}\nSheet: ${hasSheet ? "Yes" : "No"}\nAmount: Rs ${amount}\nDate: ${startDate}\nValid till: ${actualEndDate}\nDigital Pass & Invoice: ${digitalPassUrl}`;
+        const paymentModeLabel = paymentMode === "online" ? "Online (UPI)" : "Cash";
+        const text = `The Target Library\nReceipt No: ${data.receipt.receipt_no}\nName: ${activeName}\nSeat No: ${seatNumber}\nType: ${shiftLabel}\nSheet: ${hasSheet ? "Yes" : "No"}\nAmount: Rs ${amount}\nPayment Mode: ${paymentModeLabel}\nDate: ${startDate}\nValid till: ${actualEndDate}\nDigital Pass & Invoice: ${digitalPassUrl}`;
         const digits = activePhone.replace(/\D/g, "");
         const withCountryCode = digits.length === 10 ? `91${digits}` : digits;
         setWhatsappLink(`https://wa.me/${withCountryCode}?text=${encodeURIComponent(text)}`);
@@ -641,6 +645,62 @@ function NewReceiptForm() {
               className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-rose-600 dark:text-rose-400 placeholder-text-muted transition-all duration-200 outline-none font-semibold"
             />
             <p className="text-[10px] text-text-muted mt-1.5">Suggested amount auto-calculated &mdash; custom editable.</p>
+          </div>
+
+          {/* Payment Mode Selector */}
+          <div className="bg-background border border-panel-border rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <span>💳</span> Payment Mode
+              </label>
+              <span className="text-[10px] text-text-muted font-medium">Record payment method</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label
+                onClick={() => setPaymentMode("cash")}
+                className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-bold cursor-pointer transition-all select-none ${
+                  paymentMode === "cash"
+                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 shadow-xs ring-1 ring-emerald-500/30"
+                    : "bg-input-bg border-input-border text-text-muted hover:text-foreground hover:bg-neutral-500/5"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="payment_mode"
+                  value="cash"
+                  checked={paymentMode === "cash"}
+                  onChange={() => setPaymentMode("cash")}
+                  className="hidden"
+                />
+                <span className="text-base">💵</span>
+                <span>Cash Mode</span>
+              </label>
+
+              <label
+                onClick={() => setPaymentMode("online")}
+                className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-bold cursor-pointer transition-all select-none ${
+                  paymentMode === "online"
+                    ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/40 shadow-xs ring-1 ring-blue-500/30"
+                    : "bg-input-bg border-input-border text-text-muted hover:text-foreground hover:bg-neutral-500/5"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="payment_mode"
+                  value="online"
+                  checked={paymentMode === "online"}
+                  onChange={() => setPaymentMode("online")}
+                  className="hidden"
+                />
+                <span className="text-base">📱</span>
+                <span>Online / UPI</span>
+              </label>
+            </div>
+
+            <p className="text-[10px] text-text-muted flex items-center gap-1.5">
+              <span>ℹ️</span> Tracked for daily cash drawer reconciliation and printed student invoices.
+            </p>
           </div>
 
           <div className="flex flex-col gap-3 pt-3">

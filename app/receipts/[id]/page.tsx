@@ -23,6 +23,7 @@ function ReceiptDetails() {
           shift_type,
           has_sheet,
           amount_paid,
+          payment_mode,
           start_date,
           end_date,
           created_at,
@@ -33,8 +34,8 @@ function ReceiptDetails() {
         .eq("receipt_no", id)
         .single();
 
-      // Safe fallback if aadhar_no column does not exist on DB yet
-      if (error && (error.code === "42703" || error.message?.includes("aadhar_no"))) {
+      // Safe fallback if aadhar_no or payment_mode column does not exist on DB yet
+      if (error && (error.code === "42703" || error.message?.includes("aadhar_no") || error.message?.includes("payment_mode"))) {
         const retry = await supabase
           .from("receipts")
           .select(`
@@ -170,6 +171,11 @@ function ReceiptDetails() {
               <p className="text-base font-extrabold text-white tracking-tight leading-tight">{data.members?.name}</p>
               <div className="flex items-center gap-2.5 flex-wrap text-[9px] text-neutral-400 font-mono mt-0.5">
                 <span>ID: #{data.student_id}</span>
+                <span className={`px-1.5 py-0.5 rounded font-semibold ${
+                  data.payment_mode === "online" ? "text-blue-300 bg-blue-500/20" : "text-emerald-300 bg-emerald-500/20"
+                }`}>
+                  {data.payment_mode === "online" ? "📱 Online" : "💵 Cash"}
+                </span>
                 {data.members?.aadhar_no && (
                   <span className="text-neutral-300">Aadhaar: •••• •••• {data.members.aadhar_no.replace(/\s+/g, "").slice(-4)}</span>
                 )}
@@ -204,7 +210,7 @@ function ReceiptDetails() {
                 <p className="text-xs font-bold text-rose-600 dark:text-rose-500">THE TARGET LIBRARY</p>
                 <p className="text-[9px] text-text-muted font-medium">Dehradun, Uttarakhand</p>
                 <span className="mt-1.5 inline-block px-2.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold uppercase text-[8px] tracking-wider">
-                  Paid
+                  Paid &middot; {data.payment_mode === "online" ? "Online (UPI)" : "Cash"}
                 </span>
               </div>
               <img 
@@ -230,6 +236,9 @@ function ReceiptDetails() {
               <p className="font-bold text-foreground">Seat Number: {data.seats?.seat_number}</p>
               <p className="text-text-details mt-0.5">{shiftLabel}</p>
               <p className="text-text-details">Sheets Desk: {data.has_sheet ? "Included" : "None"}</p>
+              <p className="text-text-details font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                Payment: {data.payment_mode === "online" ? "📱 Online (UPI)" : "💵 Cash Mode"}
+              </p>
             </div>
           </div>
 
@@ -280,6 +289,7 @@ function ReceiptDetails() {
             shift_type: data.shift_type,
             has_sheet: data.has_sheet,
             amount_paid: data.amount_paid,
+            payment_mode: data.payment_mode || "cash",
             start_date: data.start_date,
             end_date: data.end_date,
           }}

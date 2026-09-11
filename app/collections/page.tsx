@@ -15,6 +15,7 @@ interface DailyPayment {
   shift_type: string | null;
   has_sheet: boolean;
   amount_paid: number;
+  payment_mode?: "cash" | "online";
   start_date: string;
   end_date: string;
   created_at: string;
@@ -26,6 +27,10 @@ interface DailySummary {
   total_students: number;
   unique_members: number;
   total_collected: number;
+  cash_collected?: number;
+  online_collected?: number;
+  cash_count?: number;
+  online_count?: number;
   new_admissions_count: number;
   renewals_count: number;
   with_sheet_count: number;
@@ -61,6 +66,7 @@ export default function DailyCollectionsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "new" | "renewal">("all");
   const [shiftFilter, setShiftFilter] = useState<string>("all");
+  const [modeFilter, setModeFilter] = useState<"all" | "cash" | "online">("all");
 
   const todayIST = getTodayIST();
   const isToday = selectedDate === todayIST;
@@ -143,9 +149,15 @@ export default function DailyCollectionsPage() {
         if (shiftFilter === "shift_3" && p.shift_type !== "shift_3") return false;
       }
 
+      // Payment Mode Filter
+      if (modeFilter !== "all") {
+        const mode = p.payment_mode || "cash";
+        if (modeFilter !== mode) return false;
+      }
+
       return true;
     });
-  }, [payments, searchQuery, typeFilter, shiftFilter]);
+  }, [payments, searchQuery, typeFilter, shiftFilter, modeFilter]);
 
   // Export CSV
   const handleExportCSV = () => {
@@ -161,6 +173,7 @@ export default function DailyCollectionsPage() {
       "Shift",
       "Desk Sheet",
       "Admission Type",
+      "Payment Mode",
       "Amount (INR)",
       "Start Date",
       "End Date",
@@ -177,6 +190,7 @@ export default function DailyCollectionsPage() {
       p.shift_type || "N/A",
       p.has_sheet ? "Yes" : "No",
       p.is_new_admission ? "New Admission" : "Renewal",
+      p.payment_mode === "online" ? "Online (UPI)" : "Cash",
       p.amount_paid,
       p.start_date,
       p.end_date,
@@ -325,22 +339,50 @@ export default function DailyCollectionsPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 mb-6">
         {/* Total Collected */}
         <div className="bg-card-bg border border-panel-border rounded-2xl p-4 shadow-sm relative overflow-hidden">
           <div className="text-xs font-medium text-text-muted uppercase tracking-wider">
-            Total Fees Collected
+            Total Fees
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1 tracking-tight">
+          <div className="text-2xl sm:text-3xl font-black text-text-main mt-1 tracking-tight">
             ₹{(summary?.total_collected || 0).toLocaleString("en-IN")}
           </div>
           <div className="text-[11px] text-text-muted mt-1 flex items-center gap-1">
-            <span>{summary?.total_students || 0} transactions</span>
+            <span>{summary?.total_students || 0} receipts</span>
             {summary?.with_sheet_count ? (
               <span className="text-amber-600 dark:text-amber-400">
-                • {summary.with_sheet_count} with sheet
+                • {summary.with_sheet_count} sheet
               </span>
             ) : null}
+          </div>
+        </div>
+
+        {/* Cash in Hand */}
+        <div className="bg-card-bg border border-emerald-500/20 bg-emerald-500/5 rounded-2xl p-4 shadow-sm relative overflow-hidden">
+          <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center justify-between">
+            <span>Cash in Hand</span>
+            <span>💵</span>
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1 tracking-tight">
+            ₹{(summary?.cash_collected || 0).toLocaleString("en-IN")}
+          </div>
+          <div className="text-[11px] text-emerald-600/70 dark:text-emerald-400/70 mt-1">
+            {summary?.cash_count || 0} cash {summary?.cash_count === 1 ? "payment" : "payments"}
+          </div>
+        </div>
+
+        {/* Online / UPI */}
+        <div className="bg-card-bg border border-indigo-500/20 bg-indigo-500/5 rounded-2xl p-4 shadow-sm relative overflow-hidden">
+          <div className="text-xs font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center justify-between">
+            <span>Online / UPI</span>
+            <span>📱</span>
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-indigo-600 dark:text-indigo-400 mt-1 tracking-tight">
+            ₹{(summary?.online_collected || 0).toLocaleString("en-IN")}
+          </div>
+          <div className="text-[11px] text-indigo-600/70 dark:text-indigo-400/70 mt-1">
+            {summary?.online_count || 0} online {summary?.online_count === 1 ? "payment" : "payments"}
           </div>
         </div>
 
@@ -360,14 +402,14 @@ export default function DailyCollectionsPage() {
         {/* New Admissions */}
         <div className="bg-card-bg border border-panel-border rounded-2xl p-4 shadow-sm">
           <div className="text-xs font-medium text-text-muted uppercase tracking-wider flex items-center justify-between">
-            <span>New Admissions</span>
+            <span>New Admission</span>
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
           </div>
           <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1 tracking-tight">
             {summary?.new_admissions_count || 0}
           </div>
           <div className="text-[11px] text-text-muted mt-1">
-            New students enrolled today
+            New enrollments
           </div>
         </div>
 
@@ -381,7 +423,7 @@ export default function DailyCollectionsPage() {
             {summary?.renewals_count || 0}
           </div>
           <div className="text-[11px] text-text-muted mt-1">
-            Existing members renewed
+            Renewed members
           </div>
         </div>
       </div>
@@ -389,7 +431,7 @@ export default function DailyCollectionsPage() {
       {/* Search & Filter Toolbar */}
       <div className="bg-card-bg border border-panel-border rounded-2xl p-4 mb-6 print:hidden shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Search Input */}
-        <div className="relative w-full md:w-80">
+        <div className="relative w-full md:w-72">
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted text-sm">
             🔍
           </span>
@@ -404,6 +446,40 @@ export default function DailyCollectionsPage() {
 
         {/* Filter Pills */}
         <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
+          {/* Payment Mode Filter */}
+          <div className="flex bg-background border border-panel-border rounded-xl p-1 text-xs">
+            <button
+              onClick={() => setModeFilter("all")}
+              className={`px-3 py-1 rounded-lg font-medium transition cursor-pointer ${
+                modeFilter === "all"
+                  ? "bg-card-bg text-text-main font-semibold shadow-xs"
+                  : "text-text-muted hover:text-text-main"
+              }`}
+            >
+              All Modes
+            </button>
+            <button
+              onClick={() => setModeFilter("cash")}
+              className={`px-3 py-1 rounded-lg font-medium transition cursor-pointer flex items-center gap-1 ${
+                modeFilter === "cash"
+                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-semibold shadow-xs"
+                  : "text-text-muted hover:text-text-main"
+              }`}
+            >
+              💵 Cash ({summary?.cash_count || 0})
+            </button>
+            <button
+              onClick={() => setModeFilter("online")}
+              className={`px-3 py-1 rounded-lg font-medium transition cursor-pointer flex items-center gap-1 ${
+                modeFilter === "online"
+                  ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs"
+                  : "text-text-muted hover:text-text-main"
+              }`}
+            >
+              📱 Online ({summary?.online_count || 0})
+            </button>
+          </div>
+
           {/* Type Filter */}
           <div className="flex bg-background border border-panel-border rounded-xl p-1 text-xs">
             <button
@@ -414,7 +490,7 @@ export default function DailyCollectionsPage() {
                   : "text-text-muted hover:text-text-main"
               }`}
             >
-              All ({payments.length})
+              All Types
             </button>
             <button
               onClick={() => setTypeFilter("new")}
@@ -501,6 +577,7 @@ export default function DailyCollectionsPage() {
                   <th className="py-3.5 px-4">Seat</th>
                   <th className="py-3.5 px-4">Plan / Shift</th>
                   <th className="py-3.5 px-4">Type</th>
+                  <th className="py-3.5 px-4">Mode</th>
                   <th className="py-3.5 px-4 text-right">Amount</th>
                   <th className="py-3.5 px-4 text-center print:hidden">Actions</th>
                 </tr>
@@ -518,8 +595,9 @@ export default function DailyCollectionsPage() {
                       ? "Shift 3 (4PM-12AM)"
                       : "Half Day";
 
+                  const modeText = p.payment_mode === "online" ? "Online (UPI)" : "Cash";
                   const whatsappMessage = encodeURIComponent(
-                    `Hello ${p.student_name.trim()}! Your fee payment of ₹${p.amount_paid} for Seat #${p.seat_number} at The Target Library has been recorded.\n\nView Pass & Receipt: ${window?.location?.origin || ""}/receipts/${p.receipt_no}`
+                    `Hello ${p.student_name.trim()}! Your fee payment of ₹${p.amount_paid} (${modeText}) for Seat #${p.seat_number} at The Target Library has been recorded.\n\nView Pass & Receipt: ${window?.location?.origin || ""}/receipts/${p.receipt_no}`
                   );
 
                   return (
@@ -586,6 +664,19 @@ export default function DailyCollectionsPage() {
                         )}
                       </td>
 
+                      {/* Payment Mode */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {p.payment_mode === "online" ? (
+                          <span className="inline-flex items-center gap-1 bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20 text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                            📱 Online
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                            💵 Cash
+                          </span>
+                        )}
+                      </td>
+
                       {/* Amount Paid */}
                       <td className="py-3.5 px-4 whitespace-nowrap text-right font-black text-sm text-emerald-600 dark:text-emerald-400">
                         ₹{p.amount_paid.toLocaleString("en-IN")}
@@ -617,6 +708,7 @@ export default function DailyCollectionsPage() {
                                 shift_type: p.shift_type,
                                 has_sheet: p.has_sheet,
                                 amount_paid: p.amount_paid,
+                                payment_mode: p.payment_mode || "cash",
                                 start_date: p.start_date,
                                 end_date: p.end_date,
                               })

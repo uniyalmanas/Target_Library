@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     }
 
     // Fetch receipt, member and seat info
-    const { data: receipt, error: fetchError } = await supabase
+    let { data: receipt, error: fetchError } = await supabase
       .from("receipts")
       .select(`
         receipt_no,
@@ -20,6 +20,7 @@ export async function POST(req: Request) {
         shift_type,
         has_sheet,
         amount_paid,
+        payment_mode,
         start_date,
         end_date,
         members (name, phone),
@@ -27,6 +28,26 @@ export async function POST(req: Request) {
       `)
       .eq("receipt_no", receipt_no)
       .single();
+
+    if (fetchError && (fetchError.code === "42703" || fetchError.message?.includes("payment_mode"))) {
+      const retry = await supabase
+        .from("receipts")
+        .select(`
+          receipt_no,
+          subscription_type,
+          shift_type,
+          has_sheet,
+          amount_paid,
+          start_date,
+          end_date,
+          members (name, phone),
+          seats (seat_number)
+        `)
+        .eq("receipt_no", receipt_no)
+        .single();
+      receipt = retry.data as any;
+      fetchError = retry.error;
+    }
 
     if (fetchError || !receipt) {
       return NextResponse.json({ error: fetchError?.message || "Receipt not found" }, { status: 404 });
@@ -44,6 +65,8 @@ export async function POST(req: Request) {
         ? "Full day (6am–12am)"
         : `Half day (${receipt.shift_type === "morning" ? "6am–2pm" : "2pm–12am"})`;
 
+    const paymentLabel = receipt.payment_mode === "online" ? "Online (UPI)" : "Cash";
+
     // Build absolute URL for the digital pass page
     const origin = req.headers.get("origin") || "http://localhost:3000";
     const digitalPassUrl = `${origin}/receipts/${receipt.receipt_no}`;
@@ -55,7 +78,7 @@ Name: ${member.name}
 Seat No: ${seat.seat_number}
 Type: ${shiftLabel}
 Sheet Addon: ${receipt.has_sheet ? "Yes" : "No"}
-Amount Paid: Rs ${receipt.amount_paid}
+Amount Paid: Rs ${receipt.amount_paid} (${paymentLabel})
 Start Date: ${receipt.start_date}
 Valid till: ${receipt.end_date}
 

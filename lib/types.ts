@@ -23,6 +23,7 @@ export interface Receipt {
   shift_type: ShiftType;
   has_sheet: boolean;
   amount_paid: number;
+  payment_mode?: "cash" | "online";
   start_date: string;
   end_date: string;
   is_vacated?: boolean;

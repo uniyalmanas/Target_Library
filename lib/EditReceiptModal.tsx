@@ -14,6 +14,7 @@ export interface EditableReceipt {
   shift_type: string | null;
   has_sheet: boolean;
   amount_paid: number;
+  payment_mode?: "cash" | "online";
   start_date: string;
   end_date: string;
 }
@@ -83,6 +84,7 @@ export default function EditReceiptModal({
   const [startDate, setStartDate] = useState(receipt.start_date);
   const [endDate, setEndDate] = useState(receipt.end_date);
   const [amount, setAmount] = useState<number>(receipt.amount_paid);
+  const [paymentMode, setPaymentMode] = useState<"cash" | "online">(receipt.payment_mode || "cash");
 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -148,6 +150,7 @@ export default function EditReceiptModal({
           shift_type: subscriptionType === "half_day" ? shiftType : null,
           has_sheet: hasSheet,
           amount_paid: Number(amount),
+          payment_mode: paymentMode,
           start_date: startDate,
           end_date: endDate,
           name: name.trim(),
@@ -520,6 +523,39 @@ export default function EditReceiptModal({
               <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80">
                 💰 <strong>Income Impact:</strong> Saving will update this receipt from ₹{receipt.amount_paid} to ₹{amount}. Your daily and monthly revenue will automatically reflect the change.
               </p>
+            </div>
+
+            {/* Payment Mode Selector */}
+            <div className="bg-background border border-panel-border rounded-xl p-3.5 space-y-2">
+              <label className="block text-xs font-bold text-foreground flex items-center justify-between">
+                <span>💳 Payment Mode</span>
+                <span className="text-[10px] text-text-muted font-normal">Switch payment method</span>
+              </label>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode("cash")}
+                  className={`py-2 px-3 rounded-lg border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    paymentMode === "cash"
+                      ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 ring-1 ring-emerald-500/30"
+                      : "bg-input-bg border-panel-border text-text-muted hover:text-foreground"
+                  }`}
+                >
+                  <span>💵</span> Cash Mode
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode("online")}
+                  className={`py-2 px-3 rounded-lg border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    paymentMode === "online"
+                      ? "bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/40 ring-1 ring-blue-500/30"
+                      : "bg-input-bg border-panel-border text-text-muted hover:text-foreground"
+                  }`}
+                >
+                  <span>📱</span> Online (UPI)
+                </button>
+              </div>
             </div>
 
             {/* Modal Actions */}

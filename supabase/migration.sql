@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS members (
 -- For existing database, safely add column if not present:
 ALTER TABLE members ADD COLUMN IF NOT EXISTS aadhar_no VARCHAR(20);
 ALTER TABLE receipts ADD COLUMN IF NOT EXISTS is_vacated BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS payment_mode VARCHAR(20) NOT NULL DEFAULT 'cash';
 
 -- Seats: static seats 1-297
 CREATE TABLE IF NOT EXISTS seats (
