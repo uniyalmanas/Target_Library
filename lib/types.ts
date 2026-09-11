@@ -58,6 +58,78 @@ export function addDays(date: Date, days: number) {
   return d;
 }
 
+// Multi-Tenant SaaS Types
+export interface ShiftConfig {
+  id: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+  base_price: number;
+  sheet_price: number;
+}
+
+export interface Library {
+  id: string;
+  slug: string;
+  name: string;
+  city: string | null;
+  phone: string | null;
+  address: string | null;
+  logo_url: string | null;
+  upi_id: string | null;
+  upi_name: string | null;
+  monthly_fee: number;
+  discount_code: string | null;
+  is_lifetime_fixed: boolean;
+  subscription_status: "trial" | "active" | "past_due" | "suspended";
+  trial_ends_at: string | null;
+  subscription_ends_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LibrarySettings {
+  library_id: string;
+  total_seats: number;
+  shifts_config: ShiftConfig[];
+  has_sheet_enabled: boolean;
+  sheet_price_monthly: number;
+  require_aadhar: boolean;
+  allow_student_self_registration: boolean;
+  updated_at: string;
+}
+
+export interface LibraryUser {
+  id: string;
+  library_id: string;
+  username: string;
+  role: "owner" | "staff";
+  full_name: string | null;
+  phone: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AdmissionRequest {
+  id: string;
+  library_id: string;
+  student_name: string;
+  student_phone: string;
+  aadhar_no?: string | null;
+  subscription_type: "full_day" | "half_day";
+  shift_type: string | null;
+  has_sheet: boolean;
+  amount_paid: number;
+  payment_mode: "online" | "cash";
+  utr_number?: string | null;
+  status: "pending" | "approved" | "rejected";
+  assigned_seat_id?: number | null;
+  assigned_receipt_no?: number | null;
+  created_at: string;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+}
+
 export function toISODate(d: Date) {
   return d.toISOString().split("T")[0];
 }
