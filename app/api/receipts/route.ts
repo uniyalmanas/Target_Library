@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getLibraryBySlug, DEFAULT_LIBRARY_ID } from "@/lib/tenant";
 
 // GET /api/receipts?student_id=1287  -> full history for a member
 // GET /api/receipts?seat_id=12        -> history for a seat
+// GET /api/receipts?slug=target-library -> filter by library
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const studentId = searchParams.get("student_id");
   const seatId = searchParams.get("seat_id");
+  const slug = searchParams.get("slug");
 
   let query = supabase
     .from("receipts")
@@ -15,6 +18,14 @@ export async function GET(req: Request) {
 
   if (studentId) query = query.eq("student_id", studentId);
   if (seatId) query = query.eq("seat_id", seatId);
+  if (slug) {
+    try {
+      const lib = await getLibraryBySlug(slug);
+      query = query.eq("library_id", lib.id);
+    } catch {
+      // ignore
+    }
+  }
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -36,6 +47,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const body = await req.json();
   const {
+    slug,
     student_id,
     name,
     phone,
@@ -46,10 +58,21 @@ export async function POST(req: Request) {
     has_sheet,
     amount_paid,
     payment_mode = "cash",
+    utr_number,
     start_date,
     end_date: customEndDate,
     duration_days,
   } = body;
+
+  let libraryId = DEFAULT_LIBRARY_ID;
+  if (slug) {
+    try {
+      const lib = await getLibraryBySlug(slug);
+      libraryId = lib.id;
+    } catch {
+      // fallback
+    }
+  }
 
   if (!seat_id || !subscription_type || !amount_paid || !start_date) {
     return NextResponse.json(
@@ -152,6 +175,7 @@ export async function POST(req: Request) {
           student_id: resolvedStudentId,
           name,
           phone: phone || null,
+          library_id: libraryId,
         };
         if (aadhar_no) memberData.aadhar_no = aadhar_no.trim();
 
@@ -162,7 +186,8 @@ export async function POST(req: Request) {
           .single();
 
         // Safe fallback if column does not exist yet on DB
-        if (memberError && (memberError.code === "42703" || memberError.message?.includes("aadhar_no"))) {
+        if (memberError && (memberError.code === "42703" || memberError.message?.includes("library_id") || memberError.message?.includes("aadhar_no"))) {
+          delete memberData.library_id;
           delete memberData.aadhar_no;
           const retry = await supabase.from("members").insert(memberData).select().single();
           newMember = retry.data;
@@ -234,7 +259,9 @@ export async function POST(req: Request) {
     payment_mode: payment_mode === "online" ? "online" : "cash",
     start_date,
     end_date: resolvedEndDate,
+    library_id: libraryId,
   };
+  if (utr_number) receiptInsertData.utr_number = utr_number.trim();
 
   let { data: receipt, error: receiptError } = await supabase
     .from("receipts")
@@ -242,9 +269,11 @@ export async function POST(req: Request) {
     .select()
     .single();
 
-  // Safe fallback if payment_mode column does not exist on DB yet
-  if (receiptError && (receiptError.code === "42703" || receiptError.message?.includes("payment_mode"))) {
+  // Safe fallback if payment_mode, library_id, or utr_number column does not exist on DB yet
+  if (receiptError && (receiptError.code === "42703" || receiptError.message?.includes("payment_mode") || receiptError.message?.includes("library_id") || receiptError.message?.includes("utr_number"))) {
     delete receiptInsertData.payment_mode;
+    delete receiptInsertData.library_id;
+    delete receiptInsertData.utr_number;
     const retry = await supabase.from("receipts").insert(receiptInsertData).select().single();
     receipt = retry.data;
     receiptError = retry.error;

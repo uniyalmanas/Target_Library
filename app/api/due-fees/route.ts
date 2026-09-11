@@ -1,8 +1,22 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getLibraryBySlug } from "@/lib/tenant";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const slug = searchParams.get("slug");
+
+    let libraryId: string | null = null;
+    if (slug) {
+      try {
+        const lib = await getLibraryBySlug(slug);
+        libraryId = lib.id;
+      } catch {
+        // ignore
+      }
+    }
+
     const today = new Date().toISOString().split("T")[0];
     const todayTime = new Date(`${today}T00:00:00`).getTime();
 
@@ -12,16 +26,28 @@ export async function GET() {
     const cutoffDate = cutoffDateObj.toISOString().split("T")[0];
 
     // Fetch active receipts (to exclude renewed students or re-allocated seats)
-    let { data: activeReceipts, error: activeError } = await supabase
+    let activeQuery = supabase
       .from("receipts")
       .select("receipt_no, student_id, seat_id, subscription_type, shift_type, is_vacated, end_date")
       .gte("end_date", today);
 
+    if (libraryId) {
+      activeQuery = activeQuery.eq("library_id", libraryId);
+    }
+
+    let { data: activeReceipts, error: activeError } = await activeQuery;
+
     if (activeError && (activeError.code === "42703" || activeError.message?.includes("is_vacated"))) {
-      const fallback = await supabase
+      let fallbackQuery = supabase
         .from("receipts")
         .select("receipt_no, student_id, seat_id, subscription_type, shift_type, end_date")
         .gte("end_date", today);
+
+      if (libraryId) {
+        fallbackQuery = fallbackQuery.eq("library_id", libraryId);
+      }
+
+      const fallback = await fallbackQuery;
       activeReceipts = fallback.data as any;
       activeError = fallback.error;
     }
@@ -33,7 +59,7 @@ export async function GET() {
     const validActive = (activeReceipts ?? []).filter((r) => (r as any).is_vacated !== true);
 
     // Fetch overdue receipts within the 45-day window
-    let overdueRes: any = await supabase
+    let overdueQuery = supabase
       .from("receipts")
       .select(
         "receipt_no, student_id, seat_id, subscription_type, shift_type, has_sheet, amount_paid, start_date, end_date, is_vacated, created_at, members(student_id, name, phone, aadhar_no), seats(seat_id, seat_number)"
@@ -41,6 +67,12 @@ export async function GET() {
       .lt("end_date", today)
       .gte("end_date", cutoffDate)
       .order("end_date", { ascending: false });
+
+    if (libraryId) {
+      overdueQuery = overdueQuery.eq("library_id", libraryId);
+    }
+
+    let overdueRes: any = await overdueQuery;
 
     if (overdueRes.error && (overdueRes.error.code === "42703" || overdueRes.error.message?.includes("is_vacated"))) {
       overdueRes = await supabase

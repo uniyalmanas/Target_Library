@@ -1,17 +1,42 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getLibraryBySlug, getLibrarySettings } from "@/lib/tenant";
 
-// Returns all 500 seats, each annotated with whether it's currently occupied
+// Returns seats, each annotated with whether it's currently occupied
 // (an active receipt with end_date >= today) and by whom.
-export async function GET() {
+// Dynamically adjusts to the library tenant's total_seats capacity.
+export async function GET(req: Request) {
   try {
-    const { data: seats, error: seatsError } = await supabase
+    const { searchParams } = new URL(req.url);
+    const slug = searchParams.get("slug");
+
+    let totalSeatsLimit: number | null = null;
+    if (slug) {
+      const library = await getLibraryBySlug(slug);
+      const settings = await getLibrarySettings(library.id);
+      if (settings?.total_seats) {
+        totalSeatsLimit = settings.total_seats;
+      }
+    }
+
+    const { data: seatsData, error: seatsError } = await supabase
       .from("seats")
       .select("seat_id, seat_number")
       .order("seat_number", { ascending: true });
 
     if (seatsError) {
       return NextResponse.json({ error: seatsError.message }, { status: 500 });
+    }
+
+    let seats = seatsData || [];
+    if (totalSeatsLimit && seats.length > totalSeatsLimit) {
+      seats = seats.slice(0, totalSeatsLimit);
+    } else if (seats.length === 0 && totalSeatsLimit && totalSeatsLimit > 0) {
+      // Generate synthetic empty seats if newly registered library
+      seats = Array.from({ length: totalSeatsLimit }, (_, i) => ({
+        seat_id: i + 1,
+        seat_number: i + 1,
+      }));
     }
 
     // Indian Standard Time (IST) today

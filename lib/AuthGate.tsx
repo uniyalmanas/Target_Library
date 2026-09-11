@@ -14,7 +14,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   const isPublicPath =
     pathname === "/login" ||
-    pathname.startsWith("/receipts/");
+    pathname.startsWith("/receipts/") ||
+    pathname.startsWith("/l/") ||
+    pathname.startsWith("/superadmin");
 
   useEffect(() => {
     const authStatus = sessionStorage.getItem("target_lib_auth");

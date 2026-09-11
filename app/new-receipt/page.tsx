@@ -36,6 +36,7 @@ function computeDaysBetween(startStr: string, endStr: string): number {
 function NewReceiptForm() {
   const params = useSearchParams();
   const router = useRouter();
+  const slug = params.get("slug") || "target-library";
   
   // Parse presets from URL (if coming from Renew flow)
   const presetSeat = params.get("seat_number") || "";
@@ -201,6 +202,7 @@ function NewReceiptForm() {
       start_date: startDate,
       end_date: endDate,
       duration_days: durationDays,
+      slug,
     };
     if (aadharNo.trim()) {
       payload.aadhar_no = aadharNo.trim();
@@ -305,10 +307,18 @@ function NewReceiptForm() {
       <div className="bg-panel-bg border border-panel-border rounded-2xl p-8 backdrop-blur-md shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-rose-500/[calc(var(--glow-opacity)*0.5)] to-transparent pointer-events-none" />
         
-        <h1 className="text-xl font-bold tracking-tight text-foreground mb-6 flex items-center gap-2 pb-3 border-b border-panel-border">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
-          Create Receipt &amp; Renewal
-        </h1>
+        <div className="flex items-center justify-between mb-6 pb-3 border-b border-panel-border">
+          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
+            Create Receipt &amp; Renewal
+          </h1>
+          <Link
+            href={`/l/${slug}`}
+            className="px-2.5 py-1 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition"
+          >
+            ← Desk Portal
+          </Link>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>

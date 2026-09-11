@@ -14,6 +14,10 @@ export default function HeaderNavbar() {
     setIsAuthenticated(authStatus === "true");
   }, [pathname]);
 
+  if (pathname.startsWith("/l/") || pathname.startsWith("/superadmin")) {
+    return null;
+  }
+
   const isPublicPath =
     pathname === "/login" ||
     pathname.startsWith("/receipts/");

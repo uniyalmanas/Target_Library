@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getLibraryBySlug } from "@/lib/tenant";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get("date");
+    const slug = searchParams.get("slug");
 
     // Compute target date in Indian Standard Time (IST) if not provided
     let targetDate = dateParam;
@@ -22,8 +24,18 @@ export async function GET(req: Request) {
     const startUTC = new Date(`${targetDate}T00:00:00+05:30`).toISOString();
     const endUTC = new Date(`${targetDate}T23:59:59.999+05:30`).toISOString();
 
+    let libraryId: string | null = null;
+    if (slug) {
+      try {
+        const lib = await getLibraryBySlug(slug);
+        libraryId = lib.id;
+      } catch {
+        // ignore
+      }
+    }
+
     // Query receipts on this day
-    let { data: receipts, error: receiptsError } = await supabase
+    let query = supabase
       .from("receipts")
       .select(`
         receipt_no,
@@ -49,6 +61,12 @@ export async function GET(req: Request) {
       .gte("created_at", startUTC)
       .lte("created_at", endUTC)
       .order("created_at", { ascending: false });
+
+    if (libraryId) {
+      query = query.eq("library_id", libraryId);
+    }
+
+    let { data: receipts, error: receiptsError } = await query;
 
     // Fallback if payment_mode column does not exist on DB yet
     if (receiptsError && (receiptsError.code === "42703" || receiptsError.message?.includes("payment_mode"))) {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { Suspense, useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 
@@ -52,7 +53,10 @@ function getTodayIST(): string {
   }).format(new Date());
 }
 
-export default function DailyCollectionsPage() {
+function DailyCollectionsContent() {
+  const searchParams = useSearchParams();
+  const slug = searchParams.get("slug") || "target-library";
+
   const [selectedDate, setSelectedDate] = useState<string>(getTodayIST());
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -77,7 +81,7 @@ export default function DailyCollectionsPage() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/collections?date=${date}`);
+      const res = await fetch(`/api/collections?date=${date}&slug=${slug}`);
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || "Failed to load daily collections");
@@ -234,6 +238,12 @@ export default function DailyCollectionsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-panel-border pb-6 print:hidden">
         <div>
           <div className="flex items-center gap-3">
+            <Link
+              href={`/l/${slug}`}
+              className="px-2.5 py-1 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition"
+            >
+              ← Desk Portal
+            </Link>
             <span className="text-2xl">💰</span>
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
               Daily Fee Collections
@@ -765,5 +775,13 @@ export default function DailyCollectionsPage() {
         />
       )}
     </main>
+  );
+}
+
+export default function DailyCollectionsPage() {
+  return (
+    <Suspense fallback={<div className="p-12 text-center text-xs text-text-muted">Loading collections ledger...</div>}>
+      <DailyCollectionsContent />
+    </Suspense>
   );
 }

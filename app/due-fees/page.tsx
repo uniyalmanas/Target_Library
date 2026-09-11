@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { Suspense, useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 
@@ -31,7 +32,10 @@ interface DueSummary {
   estimated_pending_fees: number;
 }
 
-export default function DueFeesPage() {
+function DueFeesContent() {
+  const searchParams = useSearchParams();
+  const slug = searchParams.get("slug") || "target-library";
+
   const [candidates, setCandidates] = useState<DueCandidate[]>([]);
   const [summary, setSummary] = useState<DueSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +54,7 @@ export default function DueFeesPage() {
     else setLoading(true);
 
     try {
-      const res = await fetch("/api/due-fees");
+      const res = await fetch(`/api/due-fees?slug=${slug}`);
       if (res.ok) {
         const data = await res.json();
         setCandidates(data.candidates || []);
@@ -229,10 +233,10 @@ export default function DueFeesPage() {
             📥 Export CSV
           </button>
           <Link
-            href="/"
+            href={`/l/${slug}`}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-all shadow-md shadow-blue-600/20 cursor-pointer"
           >
-            🗺️ View Seat Map
+            🗺️ View Desk Portal
           </Link>
         </div>
       </div>
@@ -567,5 +571,13 @@ export default function DueFeesPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function DueFeesPage() {
+  return (
+    <Suspense fallback={<div className="p-12 text-center text-xs text-text-muted">Loading due fees register...</div>}>
+      <DueFeesContent />
+    </Suspense>
   );
 }
