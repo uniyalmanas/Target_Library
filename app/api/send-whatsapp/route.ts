@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { generateDueFeeWhatsAppMessage } from "@/lib/upi";
+import { getLibraryBySlug, DEFAULT_LIBRARY_ID } from "@/lib/tenant";
 
 // POST /api/send-whatsapp
-// Body: { receipt_no: number }
+// Body: { receipt_no: number, type?: "receipt" | "due_reminder", slug?: string }
 export async function POST(req: Request) {
   try {
-    const { receipt_no } = await req.json();
+    const { receipt_no, type = "receipt", slug } = await req.json();
 
     if (!receipt_no) {
       return NextResponse.json({ error: "Missing receipt_no" }, { status: 400 });
@@ -23,13 +25,14 @@ export async function POST(req: Request) {
         payment_mode,
         start_date,
         end_date,
+        library_id,
         members (name, phone),
         seats (seat_number)
       `)
       .eq("receipt_no", receipt_no)
       .single();
 
-    if (fetchError && (fetchError.code === "42703" || fetchError.message?.includes("payment_mode"))) {
+    if (fetchError && (fetchError.code === "42703" || fetchError.message?.includes("payment_mode") || fetchError.message?.includes("library_id"))) {
       const retry = await supabase
         .from("receipts")
         .select(`
@@ -60,10 +63,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Member phone number is missing. Cannot send WhatsApp." }, { status: 400 });
     }
 
+    // Resolve library branding and UPI configurations
+    let libraryName = "The Target Library";
+    let upiId = "targetlibrary@upi";
+    let upiName = "The Target Library";
+
+    if (slug) {
+      try {
+        const lib = await getLibraryBySlug(slug);
+        if (lib) {
+          libraryName = lib.name || libraryName;
+          upiId = lib.upi_id || upiId;
+          upiName = lib.upi_name || lib.name || upiName;
+        }
+      } catch {
+        // fallback
+      }
+    } else if ((receipt as any).library_id) {
+      const { data: libData } = await supabase
+        .from("libraries")
+        .select("name, upi_id, upi_name")
+        .eq("id", (receipt as any).library_id)
+        .maybeSingle();
+      if (libData) {
+        libraryName = libData.name || libraryName;
+        upiId = libData.upi_id || upiId;
+        upiName = libData.upi_name || libData.name || upiName;
+      }
+    }
+
     const shiftLabel =
       receipt.subscription_type === "full_day"
         ? "Full day (6am–12am)"
-        : `Half day (${receipt.shift_type === "morning" ? "6am–2pm" : "2pm–12am"})`;
+        : `Half day (${receipt.shift_type === "morning" || receipt.shift_type === "shift_1" ? "6am–2pm" : "2pm–12am"})`;
 
     const paymentLabel = receipt.payment_mode === "online" ? "Online (UPI)" : "Cash";
 
@@ -71,8 +103,30 @@ export async function POST(req: Request) {
     const origin = req.headers.get("origin") || "http://localhost:3000";
     const digitalPassUrl = `${origin}/receipts/${receipt.receipt_no}`;
 
-    // Format message text
-    const messageText = `The Target Library
+    let messageText = "";
+
+    if (type === "due_reminder") {
+      const today = new Date().toISOString().split("T")[0];
+      const todayTime = new Date(`${today}T00:00:00`).getTime();
+      const endTime = new Date(`${receipt.end_date}T00:00:00`).getTime();
+      const daysOverdue = Math.max(0, Math.ceil((todayTime - endTime) / (1000 * 60 * 60 * 24)));
+
+      messageText = generateDueFeeWhatsAppMessage({
+        studentName: member.name,
+        studentPhone: member.phone,
+        seatNumber: seat.seat_number,
+        shiftName: shiftLabel,
+        daysOverdue,
+        expiryDate: receipt.end_date,
+        amountDue: receipt.amount_paid,
+        libraryName,
+        upiId,
+        upiName,
+        digitalPassUrl,
+      });
+    } else {
+      // Format standard receipt message text
+      messageText = `${libraryName}
 Receipt No: ${receipt.receipt_no}
 Name: ${member.name}
 Seat No: ${seat.seat_number}
@@ -85,7 +139,8 @@ Valid till: ${receipt.end_date}
 Click below to view/print your Digital Membership Pass & Invoice:
 ${digitalPassUrl}
 
-Thank you for choosing The Target Library!`;
+Thank you for choosing ${libraryName}!`;
+    }
 
     // Read provider credentials from environment variables
     const instanceId = process.env.ULTRAMSG_INSTANCE_ID;
