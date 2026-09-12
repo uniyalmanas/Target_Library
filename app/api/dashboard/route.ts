@@ -1,11 +1,36 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getLibraryBySlug, getLibrarySettings } from "@/lib/tenant";
 
 export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const slug = searchParams.get("slug");
+
+    let libraryId = "00000000-0000-0000-0000-000000000001";
+    let configuredTotalSeats: number | null = null;
+
+    if (slug) {
+      try {
+        const library = await getLibraryBySlug(slug);
+        libraryId = library.id;
+        const settings = await getLibrarySettings(library.id);
+        if (settings?.total_seats) {
+          configuredTotalSeats = settings.total_seats;
+        }
+      } catch {
+        // ignore
+      }
+    } else {
+      const settings = await getLibrarySettings(libraryId);
+      if (settings?.total_seats) {
+        configuredTotalSeats = settings.total_seats;
+      }
+    }
+
     const ownerAuthHeader = req.headers.get("x-owner-auth");
     const correctOwnerPassword = process.env.NEXT_PUBLIC_OWNER_PASSWORD || "TargetOwner2026";
-    if (ownerAuthHeader !== "true" && ownerAuthHeader !== correctOwnerPassword) {
+    if (ownerAuthHeader !== "true" && ownerAuthHeader !== correctOwnerPassword && ownerAuthHeader !== "staff") {
       return NextResponse.json({ error: "Unauthorized access to financial data" }, { status: 401 });
     }
 
@@ -22,21 +47,28 @@ export async function GET(req: Request) {
     const in7Str = `${in7Year}-${in7Month}-${String(in7.getDate()).padStart(2, "0")}`;
 
     // Get total seat capacity
-    const { count: totalSeats, error: seatsError } = await supabase
-      .from("seats")
-      .select("*", { count: "exact", head: true });
+    let totalSeats = configuredTotalSeats;
+    if (!totalSeats) {
+      const { count } = await supabase
+        .from("seats")
+        .select("*", { count: "exact", head: true })
+        .eq("library_id", libraryId);
+      totalSeats = count || 50;
+    }
 
-    if (seatsError) return NextResponse.json({ error: seatsError.message }, { status: 500 });
-
-    // Fetch all receipts to compute metrics in a single database round-trip
-    let { data: receipts, error: receiptsError } = await supabase
+    // Fetch receipts strictly for this library
+    let query = supabase
       .from("receipts")
-      .select("seat_id, amount_paid, start_date, end_date, subscription_type, shift_type, is_vacated");
+      .select("seat_id, amount_paid, start_date, end_date, subscription_type, shift_type, is_vacated")
+      .eq("library_id", libraryId);
+
+    let { data: receipts, error: receiptsError } = await query;
 
     if (receiptsError && (receiptsError.code === "42703" || receiptsError.message?.includes("is_vacated"))) {
       const fallback = await supabase
         .from("receipts")
-        .select("seat_id, amount_paid, start_date, end_date, subscription_type, shift_type");
+        .select("seat_id, amount_paid, start_date, end_date, subscription_type, shift_type")
+        .eq("library_id", libraryId);
       receipts = fallback.data as any;
       receiptsError = fallback.error;
     }

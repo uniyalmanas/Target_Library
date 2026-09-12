@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import * as XLSX from "xlsx";
 
 interface ParsedRow {
@@ -65,7 +67,10 @@ function parseLedgerDate(value: any): string | null {
   return null;
 }
 
-export default function ImportPage() {
+function ImportContent() {
+  const searchParams = useSearchParams();
+  const slug = searchParams.get("slug") || "target-library";
+
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [committing, setCommitting] = useState(false);
   const [results, setResults] = useState<any[] | null>(null);
@@ -235,7 +240,7 @@ export default function ImportPage() {
     const res = await fetch("/api/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows: validRows }),
+      body: JSON.stringify({ rows: validRows, slug }),
     });
     const data = await res.json();
     setResults(data.results);
@@ -246,6 +251,21 @@ export default function ImportPage() {
 
   return (
     <div className="space-y-6">
+      {/* Top Breadcrumb Navigation */}
+      <div className="flex items-center justify-between pb-3 border-b border-panel-border">
+        <Link
+          href={`/l/${slug}`}
+          className="text-xs font-bold text-text-muted hover:text-text-main flex items-center gap-1.5 transition"
+        >
+          ← Back to Desk Portal
+        </Link>
+        {slug !== "target-library" && (
+          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+            Workspace: {slug}
+          </span>
+        )}
+      </div>
+
       <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md">
         <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
@@ -381,5 +401,19 @@ export default function ImportPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ImportPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="w-8 h-8 border-3 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      }
+    >
+      <ImportContent />
+    </Suspense>
   );
 }

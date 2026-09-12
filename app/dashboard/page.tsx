@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { getStoredSession } from "@/lib/auth";
 
 interface Stats {
   totalSeats: number;
@@ -18,7 +20,10 @@ interface Stats {
   hourlyOccupancy: { period: string; count: number }[];
 }
 
-export default function DashboardPage() {
+function DashboardInner() {
+  const searchParams = useSearchParams();
+  const slug = searchParams.get("slug") || getStoredSession()?.librarySlug || "target-library";
+
   const [stats, setStats] = useState<Stats | null>(null);
   const [seats, setSeats] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"free" | "partial" | "full" | "double">("free");
@@ -33,21 +38,27 @@ export default function DashboardPage() {
   const [checkingOwner, setCheckingOwner] = useState(true);
 
   useEffect(() => {
+    const session = getStoredSession();
     const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
     const correctOwnerPassword = process.env.NEXT_PUBLIC_OWNER_PASSWORD || "TargetOwner2026";
-    const isValid = ownerAuth === "true" || ownerAuth === correctOwnerPassword;
+    const isValid =
+      session.role === "owner" ||
+      session.role === "superadmin" ||
+      session.role === "staff" ||
+      ownerAuth === "true" ||
+      ownerAuth === correctOwnerPassword;
     
     if (isValid) {
       setIsOwnerAuthenticated(true);
       setCheckingOwner(false);
       
-      fetch("/api/dashboard", {
+      fetch(`/api/dashboard?slug=${encodeURIComponent(slug)}`, {
         headers: { "x-owner-auth": ownerAuth || "true" }
       })
         .then((r) => r.json())
         .then(setStats);
 
-      fetch("/api/seats")
+      fetch(`/api/seats?slug=${encodeURIComponent(slug)}`)
         .then((r) => r.json())
         .then((data) => {
           setSeats(Array.isArray(data) ? data : []);
@@ -56,7 +67,7 @@ export default function DashboardPage() {
     } else {
       setCheckingOwner(false);
     }
-  }, [isOwnerAuthenticated]);
+  }, [isOwnerAuthenticated, slug]);
 
   if (checkingOwner) {
     return <p className="text-neutral-400 text-center py-10">Verifying dashboard permissions...</p>;
@@ -156,7 +167,7 @@ export default function DashboardPage() {
       color: "text-blue-600 dark:text-blue-400",
       bgGlow: "from-blue-500/15 to-transparent",
       borderColor: "border-blue-500/30",
-      link: "/due-fees",
+      link: `/due-fees?slug=${slug}`,
     },
     {
       label: "This Month's Earnings",
@@ -230,6 +241,19 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Top Breadcrumb Navigation */}
+      <div className="flex items-center justify-between pb-3 border-b border-panel-border">
+        <Link
+          href={`/l/${slug}`}
+          className="text-xs font-bold text-text-muted hover:text-text-main flex items-center gap-1.5 transition"
+        >
+          ← Back to Desk Portal
+        </Link>
+        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+          Workspace: {slug}
+        </span>
+      </div>
+
       {/* Metrics Section */}
       <div className="space-y-6">
         <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -238,18 +262,18 @@ export default function DashboardPage() {
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
               Executive Dashboard
             </h1>
-            <p className="text-xs text-text-muted mt-1">Real-time status metrics and financial performance for The Target Library.</p>
+            <p className="text-xs text-text-muted mt-1">Real-time status metrics and financial performance for this library.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Link
-              href="/due-fees"
+              href={`/due-fees?slug=${slug}`}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 text-xs font-bold transition shadow-xs text-blue-600 dark:text-blue-400 cursor-pointer"
             >
               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
               Due Fees ({stats?.dueFeesCount ?? 0})
             </Link>
             <Link
-              href="/collections"
+              href={`/collections?slug=${slug}`}
               className="self-start md:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-bold transition shadow-xs text-text-main cursor-pointer"
             >
               💰 View Daily Fees Register
@@ -695,5 +719,19 @@ export default function DashboardPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="w-8 h-8 border-3 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      }
+    >
+      <DashboardInner />
+    </Suspense>
   );
 }

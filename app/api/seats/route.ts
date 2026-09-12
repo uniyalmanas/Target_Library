@@ -10,10 +10,17 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const slug = searchParams.get("slug");
 
+    let libraryId = "00000000-0000-0000-0000-000000000001";
     let totalSeatsLimit: number | null = null;
     if (slug) {
       const library = await getLibraryBySlug(slug);
+      libraryId = library.id;
       const settings = await getLibrarySettings(library.id);
+      if (settings?.total_seats) {
+        totalSeatsLimit = settings.total_seats;
+      }
+    } else {
+      const settings = await getLibrarySettings(libraryId);
       if (settings?.total_seats) {
         totalSeatsLimit = settings.total_seats;
       }
@@ -21,22 +28,26 @@ export async function GET(req: Request) {
 
     const { data: seatsData, error: seatsError } = await supabase
       .from("seats")
-      .select("seat_id, seat_number")
+      .select("seat_id, seat_number, library_id")
+      .eq("library_id", libraryId)
       .order("seat_number", { ascending: true });
 
     if (seatsError) {
-      return NextResponse.json({ error: seatsError.message }, { status: 500 });
+      console.warn("Error querying seats with library_id, falling back:", seatsError.message);
     }
 
-    let seats = seatsData || [];
-    if (totalSeatsLimit && seats.length > totalSeatsLimit) {
-      seats = seats.slice(0, totalSeatsLimit);
-    } else if (seats.length === 0 && totalSeatsLimit && totalSeatsLimit > 0) {
-      // Generate synthetic empty seats if newly registered library
-      seats = Array.from({ length: totalSeatsLimit }, (_, i) => ({
+    let seats: any[] = seatsData || [];
+    const targetCapacity = totalSeatsLimit || (libraryId === "00000000-0000-0000-0000-000000000001" ? 225 : 50);
+
+    if (seats.length === 0) {
+      // Fresh isolated empty seats for new library tenant
+      seats = Array.from({ length: targetCapacity }, (_, i) => ({
         seat_id: i + 1,
         seat_number: i + 1,
+        library_id: libraryId,
       }));
+    } else if (totalSeatsLimit && seats.length > totalSeatsLimit) {
+      seats = seats.slice(0, totalSeatsLimit);
     }
 
     // Indian Standard Time (IST) today
@@ -58,7 +69,7 @@ export async function GET(req: Request) {
       day: "2-digit",
     }).format(cutoffObj);
 
-    // Query non-vacated active and overdue receipts
+    // Query non-vacated active and overdue receipts strictly for this library
     let relevantReceipts: any[] | null = null;
     let receiptsError: any = null;
 
@@ -68,6 +79,7 @@ export async function GET(req: Request) {
       .select(
         "receipt_no, student_id, seat_id, subscription_type, shift_type, has_sheet, amount_paid, start_date, end_date, is_vacated, members(student_id, name, phone, aadhar_no)"
       )
+      .eq("library_id", libraryId)
       .gte("end_date", cutoffDate);
 
     if (!res1.error) {
@@ -79,6 +91,7 @@ export async function GET(req: Request) {
         .select(
           "receipt_no, student_id, seat_id, subscription_type, shift_type, has_sheet, amount_paid, start_date, end_date, members(student_id, name, phone, aadhar_no)"
         )
+        .eq("library_id", libraryId)
         .gte("end_date", cutoffDate);
 
       if (!res2.error) {
@@ -89,6 +102,7 @@ export async function GET(req: Request) {
           .select(
             "receipt_no, student_id, seat_id, subscription_type, shift_type, has_sheet, amount_paid, start_date, end_date, members(student_id, name, phone)"
           )
+          .eq("library_id", libraryId)
           .gte("end_date", cutoffDate);
         relevantReceipts = res3.data;
         receiptsError = res3.error;
@@ -113,7 +127,7 @@ export async function GET(req: Request) {
     const todayTime = new Date(`${today}T00:00:00`).getTime();
 
     const result = (seats ?? []).map((seat) => {
-      const allSeatReceipts = receiptsBySeat.get(seat.seat_id) ?? [];
+      const allSeatReceipts = (receiptsBySeat.get(seat.seat_id) || receiptsBySeat.get(seat.seat_number)) ?? [];
 
       const activeReceipts = allSeatReceipts.filter((r) => r.end_date >= today);
       const overdueReceipts = allSeatReceipts.filter((r) => {

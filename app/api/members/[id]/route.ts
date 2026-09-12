@@ -27,5 +27,15 @@ export async function GET(
     return NextResponse.json({ error: receiptsError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ member, receipts });
+  let library = null;
+  if (member?.library_id) {
+    const { data: lib } = await supabase
+      .from("libraries")
+      .select("id, name, slug, city")
+      .eq("id", member.library_id)
+      .maybeSingle();
+    library = lib;
+  }
+
+  return NextResponse.json({ member, receipts, library });
 }

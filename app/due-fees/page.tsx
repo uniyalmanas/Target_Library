@@ -38,6 +38,7 @@ function DueFeesContent() {
 
   const [candidates, setCandidates] = useState<DueCandidate[]>([]);
   const [summary, setSummary] = useState<DueSummary | null>(null);
+  const [libraryName, setLibraryName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [vacatingId, setVacatingId] = useState<number | null>(null);
@@ -49,12 +50,24 @@ function DueFeesContent() {
   const [shiftFilter, setShiftFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"overdue_desc" | "overdue_asc" | "seat" | "name">("overdue_desc");
 
+  // Fetch library details for dynamic branding
+  useEffect(() => {
+    if (slug && slug !== "target-library") {
+      fetch(`/api/libraries/${encodeURIComponent(slug)}/settings`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.library?.name) setLibraryName(d.library.name);
+        })
+        .catch(() => {});
+    }
+  }, [slug]);
+
   const fetchDueFees = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
     try {
-      const res = await fetch(`/api/due-fees?slug=${slug}`);
+      const res = await fetch(`/api/due-fees?slug=${encodeURIComponent(slug)}`);
       if (res.ok) {
         const data = await res.json();
         setCandidates(data.candidates || []);
@@ -70,7 +83,7 @@ function DueFeesContent() {
 
   useEffect(() => {
     fetchDueFees();
-  }, []);
+  }, [slug]);
 
   const shiftLabel = (shift: string | null, subType: string) => {
     if (subType === "full_day") return "Full Day (6am–12am)";
@@ -118,6 +131,7 @@ function DueFeesContent() {
       has_sheet: c.has_sheet.toString(),
       amount: c.amount_paid.toString(),
       start_date: today,
+      slug: slug,
     });
     return `/new-receipt?${params.toString()}`;
   };
@@ -125,7 +139,8 @@ function DueFeesContent() {
   const getWhatsAppReminderUrl = (c: DueCandidate) => {
     if (!c.student_phone) return "#";
     const phone = c.student_phone.replace(/[^0-9]/g, "").slice(-10);
-    const message = `Hello ${c.student_name}, this is a gentle reminder from The Target Library regarding Seat ${c.seat_number} (${shiftLabel(c.shift_type, c.subscription_type)}). Your subscription expired on ${c.end_date} (${c.days_overdue} day${c.days_overdue === 1 ? "" : "s"} ago). Please complete your fee payment to retain your seat. Thank you! - The Target Library`;
+    const libDisplayName = libraryName || (slug !== "target-library" ? slug.replace(/-/g, " ").toUpperCase() : "The Target Library");
+    const message = `Hello ${c.student_name}, this is a gentle reminder from ${libDisplayName} regarding Seat ${c.seat_number} (${shiftLabel(c.shift_type, c.subscription_type)}). Your subscription expired on ${c.end_date} (${c.days_overdue} day${c.days_overdue === 1 ? "" : "s"} ago). Please complete your fee payment to retain your seat. Thank you! - ${libDisplayName}`;
     return `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
   };
 

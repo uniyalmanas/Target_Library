@@ -53,6 +53,7 @@ export async function POST(req: Request) {
     phone,
     aadhar_no,
     seat_id,
+    seat_number,
     subscription_type,
     shift_type,
     has_sheet,
@@ -74,11 +75,61 @@ export async function POST(req: Request) {
     }
   }
 
-  if (!seat_id || !subscription_type || !amount_paid || !start_date) {
+  if ((!seat_id && !seat_number) || !subscription_type || !amount_paid || !start_date) {
     return NextResponse.json(
       { error: "Missing required fields" },
       { status: 400 }
     );
+  }
+
+  // Resolve target seat for this specific library tenant
+  let resolvedSeatId = seat_id;
+  const targetSeatNum = seat_number ? Number(seat_number) : null;
+
+  if (targetSeatNum) {
+    const { data: existingSeat } = await supabase
+      .from("seats")
+      .select("seat_id")
+      .eq("library_id", libraryId)
+      .eq("seat_number", targetSeatNum)
+      .maybeSingle();
+
+    if (existingSeat) {
+      resolvedSeatId = existingSeat.seat_id;
+    } else {
+      const { data: newSeat } = await supabase
+        .from("seats")
+        .insert({ library_id: libraryId, seat_number: targetSeatNum })
+        .select("seat_id")
+        .maybeSingle();
+      if (newSeat) resolvedSeatId = newSeat.seat_id;
+    }
+  } else if (seat_id) {
+    const { data: seatRow } = await supabase
+      .from("seats")
+      .select("seat_id, seat_number, library_id")
+      .eq("seat_id", seat_id)
+      .maybeSingle();
+
+    if (seatRow && seatRow.library_id && seatRow.library_id !== libraryId) {
+      const { data: correctSeat } = await supabase
+        .from("seats")
+        .select("seat_id")
+        .eq("library_id", libraryId)
+        .eq("seat_number", seatRow.seat_number)
+        .maybeSingle();
+
+      if (correctSeat) {
+        resolvedSeatId = correctSeat.seat_id;
+      } else {
+        const { data: createdSeat } = await supabase
+          .from("seats")
+          .insert({ library_id: libraryId, seat_number: seatRow.seat_number })
+          .select("seat_id")
+          .maybeSingle();
+        if (createdSeat) resolvedSeatId = createdSeat.seat_id;
+      }
+    }
   }
 
   if (subscription_type === "half_day" && !shift_type) {
@@ -111,12 +162,13 @@ export async function POST(req: Request) {
     );
   }
 
-  // Guard: is this seat already occupied by an active receipt for an overlapping slot?
+  // Guard: is this seat already occupied by an active receipt for an overlapping slot in this library?
   const today = new Date().toISOString().split("T")[0];
   const { data: activeOnSeat, error: activeError } = await supabase
     .from("receipts")
     .select("receipt_no, subscription_type, shift_type, start_date, end_date")
-    .eq("seat_id", seat_id)
+    .eq("seat_id", resolvedSeatId)
+    .eq("library_id", libraryId)
     .gte("end_date", today);
 
   if (activeError) {
@@ -226,6 +278,7 @@ export async function POST(req: Request) {
     const memberData: Record<string, any> = {
       name,
       phone: phone || null,
+      library_id: libraryId,
     };
     if (aadhar_no) memberData.aadhar_no = aadhar_no.trim();
 
@@ -251,7 +304,7 @@ export async function POST(req: Request) {
 
   const receiptInsertData: Record<string, any> = {
     student_id: resolvedStudentId,
-    seat_id,
+    seat_id: resolvedSeatId,
     subscription_type,
     shift_type: subscription_type === "half_day" ? shift_type : null,
     has_sheet: !!has_sheet,
@@ -365,15 +418,29 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
     }
 
+    const receiptLibId = existingReceipt.library_id || DEFAULT_LIBRARY_ID;
+
     // Resolve target seat_id
     let targetSeatId = seat_id || existingReceipt.seat_id;
     if (seat_number && !seat_id) {
-      const { data: seatData } = await supabase
+      let seatQuery = supabase
         .from("seats")
         .select("seat_id")
-        .eq("seat_number", seat_number)
-        .single();
-      if (seatData) targetSeatId = seatData.seat_id;
+        .eq("seat_number", Number(seat_number));
+      if (receiptLibId) {
+        seatQuery = seatQuery.eq("library_id", receiptLibId);
+      }
+      const { data: seatData } = await seatQuery.maybeSingle();
+      if (seatData) {
+        targetSeatId = seatData.seat_id;
+      } else if (receiptLibId) {
+        const { data: newSeat } = await supabase
+          .from("seats")
+          .insert({ library_id: receiptLibId, seat_number: Number(seat_number) })
+          .select("seat_id")
+          .maybeSingle();
+        if (newSeat) targetSeatId = newSeat.seat_id;
+      }
     }
 
     const targetSubType = subscription_type || existingReceipt.subscription_type;
@@ -387,14 +454,20 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "End date cannot be earlier than start date." }, { status: 400 });
     }
 
-    // Check conflict on target seat (excluding this receipt)
+    // Check conflict on target seat (excluding this receipt) strictly within this library
     const today = new Date().toISOString().split("T")[0];
-    const { data: activeOnSeat, error: activeError } = await supabase
+    let conflictQuery = supabase
       .from("receipts")
       .select("receipt_no, subscription_type, shift_type, start_date, end_date")
       .eq("seat_id", targetSeatId)
       .gte("end_date", today)
       .neq("receipt_no", receipt_no);
+
+    if (receiptLibId) {
+      conflictQuery = conflictQuery.eq("library_id", receiptLibId);
+    }
+
+    const { data: activeOnSeat, error: activeError } = await conflictQuery;
 
     if (activeError) {
       return NextResponse.json({ error: activeError.message }, { status: 500 });

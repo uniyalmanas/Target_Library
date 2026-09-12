@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function MemberProfilePage() {
+function MemberProfileContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
-  const [data, setData] = useState<{ member: any; receipts: any[] } | null>(null);
+  const slugFromQuery = searchParams.get("slug");
+
+  const [data, setData] = useState<{ member: any; receipts: any[]; library?: any } | null>(null);
   const [vacating, setVacating] = useState(false);
 
   useEffect(() => {
@@ -16,10 +19,13 @@ export default function MemberProfilePage() {
       .then(setData);
   }, [id]);
 
-  if (!data) return <p className="text-neutral-400">Loading...</p>;
-  if (!data.member) return <p className="text-red-400">Member not found.</p>;
+  if (!data) return <p className="text-neutral-400 text-center py-10">Loading member profile...</p>;
+  if (!data.member) return <p className="text-rose-400 text-center py-10">Member not found.</p>;
 
-  const { member, receipts } = data;
+  const { member, receipts, library } = data;
+  const slug = slugFromQuery || library?.slug || "target-library";
+  const libraryDisplayName = library?.name || (slug !== "target-library" ? slug.replace(/-/g, " ").toUpperCase() : "The Target Library");
+
   const today = new Date().toISOString().split("T")[0];
   const activeReceipt = receipts.find((r) => r.end_date >= today);
 
@@ -35,7 +41,8 @@ export default function MemberProfilePage() {
   const phone = member.phone;
   let activeWaUrl = "";
   if (activeReceipt && phone) {
-    const text = `The Target Library\nReceipt No: ${activeReceipt.receipt_no}\nName: ${member.name}\nSeat No: ${activeReceipt.seats?.seat_number}\nType: ${shiftLabel(activeReceipt.shift_type)}\nAmount Paid: Rs ${activeReceipt.amount_paid}\nValid till: ${activeReceipt.end_date}\nDigital Pass & Invoice: ${window.location.origin}/receipts/${activeReceipt.receipt_no}`;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const text = `${libraryDisplayName}\nReceipt No: ${activeReceipt.receipt_no}\nName: ${member.name}\nSeat No: ${activeReceipt.seats?.seat_number}\nType: ${shiftLabel(activeReceipt.shift_type)}\nAmount Paid: Rs ${activeReceipt.amount_paid}\nValid till: ${activeReceipt.end_date}\nDigital Pass & Invoice: ${origin}/receipts/${activeReceipt.receipt_no}`;
     const digits = phone.replace(/\D/g, "");
     const withCountryCode = digits.length === 10 ? `91${digits}` : digits;
     activeWaUrl = `https://wa.me/${withCountryCode}?text=${encodeURIComponent(text)}`;
@@ -43,7 +50,7 @@ export default function MemberProfilePage() {
 
   const getRenewUrl = () => {
     if (receipts.length === 0) {
-      return `/new-receipt?student_id=${member.student_id}`;
+      return `/new-receipt?student_id=${member.student_id}&slug=${slug}`;
     }
     const mostRecent = receipts[0];
     const isExpired = mostRecent.end_date < today;
@@ -55,7 +62,7 @@ export default function MemberProfilePage() {
       nextStart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     }
 
-    const params = new URLSearchParams({
+    const searchObj = new URLSearchParams({
       student_id: member.student_id.toString(),
       seat_number: mostRecent.seats?.seat_number?.toString() || "",
       subscription_type: mostRecent.subscription_type,
@@ -63,8 +70,9 @@ export default function MemberProfilePage() {
       has_sheet: mostRecent.has_sheet.toString(),
       amount: mostRecent.amount_paid.toString(),
       start_date: nextStart,
+      slug: slug,
     });
-    return `/new-receipt?${params.toString()}`;
+    return `/new-receipt?${searchObj.toString()}`;
   };
 
   const handleVacate = async (receipt_no: number) => {
@@ -93,11 +101,28 @@ export default function MemberProfilePage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="mb-4">
-        <Link href="/members" className="text-xs font-semibold text-rose-600 dark:text-rose-500 hover:underline transition-all flex items-center gap-1.5">
-          <span>&larr;</span> Back to Member Directory
-        </Link>
+    <div className="space-y-6 max-w-5xl mx-auto">
+      {/* Top Breadcrumbs */}
+      <div className="flex items-center justify-between pb-3 border-b border-panel-border flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/l/${slug}`}
+            className="px-2.5 py-1 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition flex items-center gap-1"
+          >
+            ← Desk Portal
+          </Link>
+          <Link
+            href={`/members?slug=${slug}`}
+            className="text-xs font-semibold text-rose-600 dark:text-rose-500 hover:underline transition-all flex items-center gap-1.5"
+          >
+            <span>&larr;</span> Back to Member Directory
+          </Link>
+        </div>
+        {slug !== "target-library" && (
+          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+            Workspace: {slug}
+          </span>
+        )}
       </div>
 
       {/* Profile Header Card */}
@@ -131,6 +156,12 @@ export default function MemberProfilePage() {
               <>
                 <span>&bull;</span>
                 <span>Phone: <span className="text-text-details font-medium">{member.phone}</span></span>
+              </>
+            )}
+            {member.aadhar_no && (
+              <>
+                <span>&bull;</span>
+                <span>Aadhaar: <span className="text-text-details font-mono">{member.aadhar_no}</span></span>
               </>
             )}
           </div>
@@ -229,5 +260,13 @@ export default function MemberProfilePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MemberProfilePage() {
+  return (
+    <Suspense fallback={<p className="text-neutral-400 text-center py-10">Loading member profile...</p>}>
+      <MemberProfileContent />
+    </Suspense>
   );
 }

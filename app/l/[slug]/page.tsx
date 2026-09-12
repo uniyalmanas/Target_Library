@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Library, LibrarySettings, AdmissionRequest } from "@/lib/types";
 import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS } from "@/lib/tenant";
 import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
+import ThemeToggle from "@/lib/ThemeToggle";
 
 interface MemberData {
   student_id: number;
@@ -267,17 +268,21 @@ export default function TenantDeskPage({
     if (!confirm("Are you sure you want to officially vacate this student?")) return;
     setVacating(receiptNo);
     try {
-      const res = await fetch("/api/seats", {
-        method: "POST",
+      const res = await fetch("/api/receipts", {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ receipt_no: receiptNo, action: "vacate" }),
+        body: JSON.stringify({ receipt_no: receiptNo }),
       });
       if (res.ok) {
         fetchSeats();
         setSelected(null);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        alert(`Error: ${errorData.error || "Failed to vacate seat"}`);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      alert(`Error: ${e.message || "Failed to vacate seat"}`);
     } finally {
       setVacating(null);
     }
@@ -313,6 +318,18 @@ export default function TenantDeskPage({
 
           <div className="flex items-center gap-2 flex-wrap">
             <Link
+              href={`/dashboard?slug=${slug}`}
+              className="px-3 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition flex items-center gap-1.5"
+            >
+              <span>📊</span> Dashboard
+            </Link>
+            <Link
+              href={`/members?slug=${slug}`}
+              className="px-3 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition flex items-center gap-1.5"
+            >
+              <span>👥</span> Members
+            </Link>
+            <Link
               href={`/collections?slug=${slug}`}
               className="px-3 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition flex items-center gap-1.5"
             >
@@ -343,6 +360,7 @@ export default function TenantDeskPage({
             >
               + Walk-in Admission
             </Link>
+            <ThemeToggle />
           </div>
         </div>
       </header>

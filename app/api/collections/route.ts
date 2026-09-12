@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug } from "@/lib/tenant";
+import { getLibraryBySlug, DEFAULT_LIBRARY_ID } from "@/lib/tenant";
 
 export async function GET(req: Request) {
   try {
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     const startUTC = new Date(`${targetDate}T00:00:00+05:30`).toISOString();
     const endUTC = new Date(`${targetDate}T23:59:59.999+05:30`).toISOString();
 
-    let libraryId: string | null = null;
+    let libraryId = DEFAULT_LIBRARY_ID;
     if (slug) {
       try {
         const lib = await getLibraryBySlug(slug);
@@ -60,17 +60,14 @@ export async function GET(req: Request) {
       `)
       .gte("created_at", startUTC)
       .lte("created_at", endUTC)
+      .eq("library_id", libraryId)
       .order("created_at", { ascending: false });
-
-    if (libraryId) {
-      query = query.eq("library_id", libraryId);
-    }
 
     let { data: receipts, error: receiptsError } = await query;
 
     // Fallback if payment_mode column does not exist on DB yet
     if (receiptsError && (receiptsError.code === "42703" || receiptsError.message?.includes("payment_mode"))) {
-      const retry = await supabase
+      let retryQuery = supabase
         .from("receipts")
         .select(`
           receipt_no,
@@ -94,7 +91,10 @@ export async function GET(req: Request) {
         `)
         .gte("created_at", startUTC)
         .lte("created_at", endUTC)
+        .eq("library_id", libraryId)
         .order("created_at", { ascending: false });
+
+      const retry = await retryQuery;
       receipts = retry.data as any;
       receiptsError = retry.error;
     }
@@ -110,11 +110,14 @@ export async function GET(req: Request) {
     const earliestReceiptMap = new Map<number, number>();
 
     if (studentIds.length > 0) {
-      const { data: allReceiptsForStudents } = await supabase
+      let earliestQuery = supabase
         .from("receipts")
         .select("receipt_no, student_id, created_at")
         .in("student_id", studentIds)
+        .eq("library_id", libraryId)
         .order("created_at", { ascending: true });
+
+      const { data: allReceiptsForStudents } = await earliestQuery;
 
       (allReceiptsForStudents || []).forEach((r) => {
         if (!earliestReceiptMap.has(r.student_id)) {

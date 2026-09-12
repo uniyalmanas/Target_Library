@@ -11,6 +11,7 @@ function ReceiptDetails() {
   const id = params.id as string;
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
+  const [library, setLibrary] = useState<{ name: string; city: string; slug: string } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -28,14 +29,15 @@ function ReceiptDetails() {
           end_date,
           created_at,
           student_id,
+          library_id,
           members (student_id, name, phone, aadhar_no),
           seats (seat_number)
         `)
         .eq("receipt_no", id)
         .single();
 
-      // Safe fallback if aadhar_no or payment_mode column does not exist on DB yet
-      if (error && (error.code === "42703" || error.message?.includes("aadhar_no") || error.message?.includes("payment_mode"))) {
+      // Safe fallback if aadhar_no, payment_mode, or library_id column does not exist on DB yet
+      if (error && (error.code === "42703" || error.message?.includes("aadhar_no") || error.message?.includes("payment_mode") || error.message?.includes("library_id"))) {
         const retry = await supabase
           .from("receipts")
           .select(`
@@ -61,6 +63,16 @@ function ReceiptDetails() {
         console.error("Error fetching receipt:", error);
       } else {
         setData(receipt);
+        if (receipt?.library_id) {
+          const { data: libData } = await supabase
+            .from("libraries")
+            .select("name, city, slug")
+            .eq("id", receipt.library_id)
+            .maybeSingle();
+          if (libData) {
+            setLibrary(libData);
+          }
+        }
       }
       setLoading(false);
     }
@@ -82,6 +94,11 @@ function ReceiptDetails() {
     );
   }
 
+  const libName = library?.name?.toUpperCase() || "THE TARGET LIBRARY";
+  const libCity = library?.city ? `${library.city}, Uttarakhand` : "Dehradun, Uttarakhand";
+  const libSlug = library?.slug || null;
+  const backHref = libSlug ? `/l/${libSlug}` : "/";
+
   const shiftLabel =
     data.subscription_type === "full_day"
       ? "Full day (6am–12am)"
@@ -102,15 +119,15 @@ function ReceiptDetails() {
 
   const phone = data.members?.phone;
   const manualWhatsappUrl = phone
-    ? `https://wa.me/${phone.replace(/\D/g, "").length === 10 ? "91" + phone.replace(/\D/g, "") : phone.replace(/\D/g, "")}?text=${encodeURIComponent(`The Target Library\nReceipt No: ${data.receipt_no}\nName: ${data.members?.name}\nSeat No: ${data.seats?.seat_number}\nType: ${shiftLabel}\nAmount Paid: Rs ${data.amount_paid}\nValid till: ${data.end_date}\nDigital Pass & Invoice: ${shareUrl}`)}`
+    ? `https://wa.me/${phone.replace(/\D/g, "").length === 10 ? "91" + phone.replace(/\D/g, "") : phone.replace(/\D/g, "")}?text=${encodeURIComponent(`${libName}\nReceipt No: ${data.receipt_no}\nName: ${data.members?.name}\nSeat No: ${data.seats?.seat_number}\nType: ${shiftLabel}\nAmount Paid: Rs ${data.amount_paid}\nValid till: ${data.end_date}\nDigital Pass & Invoice: ${shareUrl}`)}`
     : null;
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       {/* Action Header */}
       <div className="flex justify-between items-center no-print">
-        <Link href="/" className="text-xs font-semibold text-rose-600 dark:text-rose-500 hover:underline flex items-center gap-1.5">
-          &larr; Back to Layout
+        <Link href={backHref} className="text-xs font-semibold text-rose-600 dark:text-rose-500 hover:underline flex items-center gap-1.5">
+          &larr; {libSlug ? "Back to Desk Portal" : "Back to Layout"}
         </Link>
         <div className="flex gap-2">
           {manualWhatsappUrl && (
@@ -157,7 +174,7 @@ function ReceiptDetails() {
                   className="w-6 h-6 object-contain" 
                 />
                 <div>
-                  <p className="text-[7px] tracking-widest text-rose-500 font-extrabold uppercase">THE TARGET LIBRARY</p>
+                  <p className="text-[7px] tracking-widest text-rose-500 font-extrabold uppercase">{libName}</p>
                   <h3 className="text-[10px] font-extrabold text-neutral-200 mt-0.5">STUDENT PASS</h3>
                 </div>
               </div>
@@ -207,8 +224,8 @@ function ReceiptDetails() {
             </div>
             <div className="flex items-start gap-2 text-right justify-end">
               <div>
-                <p className="text-xs font-bold text-rose-600 dark:text-rose-500">THE TARGET LIBRARY</p>
-                <p className="text-[9px] text-text-muted font-medium">Dehradun, Uttarakhand</p>
+                <p className="text-xs font-bold text-rose-600 dark:text-rose-500">{libName}</p>
+                <p className="text-[9px] text-text-muted font-medium">{libCity}</p>
                 <span className="mt-1.5 inline-block px-2.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold uppercase text-[8px] tracking-wider">
                   Paid &middot; {data.payment_mode === "online" ? "Online (UPI)" : "Cash"}
                 </span>

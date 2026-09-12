@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug } from "@/lib/tenant";
+import { getLibraryBySlug, DEFAULT_LIBRARY_ID } from "@/lib/tenant";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const slug = searchParams.get("slug");
 
-    let libraryId: string | null = null;
+    let libraryId = DEFAULT_LIBRARY_ID;
     if (slug) {
       try {
         const lib = await getLibraryBySlug(slug);
@@ -29,11 +29,8 @@ export async function GET(req: Request) {
     let activeQuery = supabase
       .from("receipts")
       .select("receipt_no, student_id, seat_id, subscription_type, shift_type, is_vacated, end_date")
-      .gte("end_date", today);
-
-    if (libraryId) {
-      activeQuery = activeQuery.eq("library_id", libraryId);
-    }
+      .gte("end_date", today)
+      .eq("library_id", libraryId);
 
     let { data: activeReceipts, error: activeError } = await activeQuery;
 
@@ -41,11 +38,8 @@ export async function GET(req: Request) {
       let fallbackQuery = supabase
         .from("receipts")
         .select("receipt_no, student_id, seat_id, subscription_type, shift_type, end_date")
-        .gte("end_date", today);
-
-      if (libraryId) {
-        fallbackQuery = fallbackQuery.eq("library_id", libraryId);
-      }
+        .gte("end_date", today)
+        .eq("library_id", libraryId);
 
       const fallback = await fallbackQuery;
       activeReceipts = fallback.data as any;
@@ -66,11 +60,8 @@ export async function GET(req: Request) {
       )
       .lt("end_date", today)
       .gte("end_date", cutoffDate)
+      .eq("library_id", libraryId)
       .order("end_date", { ascending: false });
-
-    if (libraryId) {
-      overdueQuery = overdueQuery.eq("library_id", libraryId);
-    }
 
     let overdueRes: any = await overdueQuery;
 
@@ -82,6 +73,7 @@ export async function GET(req: Request) {
         )
         .lt("end_date", today)
         .gte("end_date", cutoffDate)
+        .eq("library_id", libraryId)
         .order("end_date", { ascending: false });
     }
 

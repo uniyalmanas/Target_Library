@@ -159,7 +159,7 @@ function NewReceiptForm() {
 
   async function lookupSeatId(seat_number: string) {
     try {
-      const res = await fetch("/api/seats");
+      const res = await fetch(`/api/seats?slug=${encodeURIComponent(slug)}`);
       const seats = await res.json();
       if (!Array.isArray(seats)) {
         console.error("Seats response is not an array:", seats);
@@ -185,15 +185,17 @@ function NewReceiptForm() {
       return;
     }
 
-    const seat_id = await lookupSeatId(seatNumber);
-    if (!seat_id) {
-      setResult({ ok: false, message: `Seat number ${seatNumber} not found.` });
+    if (!seatNumber) {
+      setResult({ ok: false, message: `Please enter a valid seat number.` });
       setSubmitting(false);
       return;
     }
 
+    const seat_id = await lookupSeatId(seatNumber);
+
     const payload: any = {
-      seat_id,
+      seat_id: seat_id || Number(seatNumber),
+      seat_number: Number(seatNumber),
       subscription_type: subscriptionType,
       shift_type: subscriptionType === "half_day" ? shiftType : undefined,
       has_sheet: hasSheet,
@@ -740,7 +742,7 @@ function NewReceiptForm() {
                   🎟️ View Pass & Invoice
                 </Link>
                 <Link
-                  href="/collections"
+                  href={`/collections?slug=${slug}`}
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-main font-semibold text-xs transition"
                 >
                   💰 View Daily Fees Register

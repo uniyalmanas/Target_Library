@@ -63,8 +63,21 @@ function DailyCollectionsContent() {
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [payments, setPayments] = useState<DailyPayment[]>([]);
+  const [libraryName, setLibraryName] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [editingReceipt, setEditingReceipt] = useState<EditableReceipt | null>(null);
+
+  // Fetch library details for dynamic branding
+  useEffect(() => {
+    if (slug && slug !== "target-library") {
+      fetch(`/api/libraries/${encodeURIComponent(slug)}/settings`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.library?.name) setLibraryName(d.library.name);
+        })
+        .catch(() => {});
+    }
+  }, [slug]);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -81,7 +94,7 @@ function DailyCollectionsContent() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/collections?date=${date}&slug=${slug}`);
+      const res = await fetch(`/api/collections?date=${date}&slug=${encodeURIComponent(slug)}`);
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || "Failed to load daily collections");
@@ -108,7 +121,7 @@ function DailyCollectionsContent() {
 
   useEffect(() => {
     fetchCollections(selectedDate);
-  }, [selectedDate]);
+  }, [slug, selectedDate]);
 
   // Date Navigation Helpers
   const handlePrevDay = () => {
@@ -606,8 +619,9 @@ function DailyCollectionsContent() {
                       : "Half Day";
 
                   const modeText = p.payment_mode === "online" ? "Online (UPI)" : "Cash";
+                  const libDisplayName = libraryName || (slug !== "target-library" ? slug.replace(/-/g, " ").toUpperCase() : "The Target Library");
                   const whatsappMessage = encodeURIComponent(
-                    `Hello ${p.student_name.trim()}! Your fee payment of ₹${p.amount_paid} (${modeText}) for Seat #${p.seat_number} at The Target Library has been recorded.\n\nView Pass & Receipt: ${window?.location?.origin || ""}/receipts/${p.receipt_no}`
+                    `Hello ${p.student_name.trim()}! Your fee payment of ₹${p.amount_paid} (${modeText}) for Seat #${p.seat_number} at ${libDisplayName} has been recorded.\n\nView Pass & Receipt: ${window?.location?.origin || ""}/receipts/${p.receipt_no}`
                   );
 
                   return (
