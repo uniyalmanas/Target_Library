@@ -187,10 +187,11 @@ export default function LibraryOwnerSettingsPage({
   useEffect(() => {
     const session = getStoredSession();
     const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
-    const isOwnerRole = session.role === "owner" || session.role === "superadmin";
+    const isStaff = session.role === "staff";
+    const isOwnerRole = (session.role === "owner" || session.role === "superadmin") && !isStaff;
     const isMatchingSlug = session.librarySlug === slug || session.role === "superadmin";
 
-    if ((isOwnerRole && isMatchingSlug) || ownerAuth === "true") {
+    if (!isStaff && ((isOwnerRole && isMatchingSlug) || ownerAuth === "true")) {
       setIsOwnerAuthenticated(true);
     } else {
       setIsOwnerAuthenticated(false);

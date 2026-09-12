@@ -106,6 +106,7 @@ function LoginContent() {
     setLookupError(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem("library_last_slug");
+      sessionStorage.removeItem("target_lib_owner_auth");
     }
   };
 
@@ -152,8 +153,10 @@ function LoginContent() {
       });
 
       sessionStorage.setItem("target_lib_auth", "true");
-      if (data.user.role === "owner") {
+      if (data.user.role === "owner" || data.user.role === "superadmin") {
         sessionStorage.setItem("target_lib_owner_auth", "true");
+      } else {
+        sessionStorage.removeItem("target_lib_owner_auth");
       }
 
       setActiveModal(null);

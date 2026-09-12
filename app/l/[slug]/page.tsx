@@ -80,10 +80,12 @@ export default function TenantDeskPage({
   useEffect(() => {
     const session = getStoredSession();
     const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
-    const hasOwner =
+    const isStaff = session?.role === "staff";
+    const hasOwner = !isStaff && (
       session?.role === "owner" ||
       session?.role === "superadmin" ||
-      ownerAuth === "true";
+      ownerAuth === "true"
+    );
     setIsOwner(hasOwner);
   }, []);
 
@@ -625,16 +627,6 @@ export default function TenantDeskPage({
                 Showing {seats.filter(matchesFilter).length} of {seats.length} seats
               </span>
             </div>
-
-            {isOwner && (
-              <Link
-                href={`/l/${slug}/settings?tab=matrix_layout`}
-                className="text-xs text-text-muted hover:text-text-main flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 font-bold transition cursor-pointer"
-                title="Configure Seat Matrix Display in Settings"
-              >
-                <span>⚙️</span> Layout Settings
-              </Link>
-            )}
           </div>
 
           {loading ? (

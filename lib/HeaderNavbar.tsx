@@ -66,10 +66,12 @@ function HeaderNavbarContent() {
     setActiveSlug(effective);
 
     const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
-    const hasOwner =
+    const isStaff = session?.role === "staff";
+    const hasOwner = !isStaff && (
       session?.role === "owner" ||
       session?.role === "superadmin" ||
-      ownerAuth === "true";
+      ownerAuth === "true"
+    );
 
     setIsOwner(hasOwner);
   }, [pathname, searchParams, getUrlSlug]);
