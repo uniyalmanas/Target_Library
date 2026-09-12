@@ -14,14 +14,22 @@ function HeaderNavbarContent() {
   const [libraryName, setLibraryName] = useState<string>("");
   const [libraryLogo, setLibraryLogo] = useState<string | null>(null);
 
-  // Detect active library tenant from URL query param or stored session
+  // Derive initial active slug purely from searchParams (identical on SSR & client)
   const slugFromParam = searchParams.get("slug");
-  const storedSession = typeof window !== "undefined" ? getStoredSession() : null;
-  const activeSlug =
-    slugFromParam ||
-    (storedSession?.librarySlug && storedSession.librarySlug !== "target-library"
-      ? storedSession.librarySlug
-      : null);
+  const [activeSlug, setActiveSlug] = useState<string | null>(slugFromParam);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const paramSlug = searchParams.get("slug");
+    const stored = getStoredSession();
+    const effective =
+      paramSlug ||
+      (stored?.librarySlug && stored.librarySlug !== "target-library"
+        ? stored.librarySlug
+        : null);
+    setActiveSlug(effective);
+  }, [searchParams]);
 
   useEffect(() => {
     const authStatus = sessionStorage.getItem("target_lib_auth");
@@ -72,6 +80,7 @@ function HeaderNavbarContent() {
 
   if (
     pathname === "/" ||
+    pathname === "/login" ||
     pathname === "/signup" ||
     pathname.startsWith("/l/") ||
     pathname.startsWith("/superadmin")
@@ -79,8 +88,7 @@ function HeaderNavbarContent() {
     return null;
   }
 
-  const isPublicPath =
-    pathname === "/login" || pathname.startsWith("/receipts/");
+  const isPublicPath = pathname.startsWith("/receipts/");
 
   // URL Generators preserving tenant isolation
   const homeHref = activeSlug ? `/l/${activeSlug}` : "/";

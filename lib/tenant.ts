@@ -120,7 +120,7 @@ export function getEffectiveLogo(slug?: string | null, logoUrl?: string | null):
   if (logoUrl && logoUrl.trim().length > 0) {
     return logoUrl;
   }
-  if (!slug || slug === DEFAULT_LIBRARY_SLUG) {
+  if (slug === DEFAULT_LIBRARY_SLUG) {
     return "/lib-logo.png";
   }
   return null;
