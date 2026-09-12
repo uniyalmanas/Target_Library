@@ -2,236 +2,285 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 import ThemeToggle from "@/lib/ThemeToggle";
-import { getStoredSession, clearStoredSession } from "@/lib/auth";
+import { getStoredSession } from "@/lib/auth";
 import LibraryLogo from "@/lib/LibraryLogo";
+
+interface LibraryHeaderInfo {
+  name: string;
+  logoUrl: string | null;
+  totalSeats: number;
+}
+
+// In-memory cache across tab switches within the session
+const headerCache: Record<string, LibraryHeaderInfo> = {
+  "target-library": {
+    name: "The Target Library",
+    logoUrl: "/lib-logo.png",
+    totalSeats: 297,
+  },
+};
 
 function HeaderNavbarContent() {
   const pathname = usePathname() || "";
   const searchParams = useSearchParams();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [libraryName, setLibraryName] = useState<string>("");
-  const [libraryLogo, setLibraryLogo] = useState<string | null>(null);
 
-  // Derive initial active slug purely from searchParams (identical on SSR & client)
-  const slugFromParam = searchParams.get("slug");
-  const [activeSlug, setActiveSlug] = useState<string | null>(slugFromParam);
-  const [mounted, setMounted] = useState(false);
+  // Helper to extract active slug from pathname or query param
+  const getUrlSlug = useCallback((): string | null => {
+    if (pathname.startsWith("/l/")) {
+      const parts = pathname.split("/");
+      if (parts[2] && parts[2] !== "join" && parts[2] !== "student") {
+        return decodeURIComponent(parts[2]);
+      }
+    }
+    const qSlug = searchParams.get("slug");
+    if (qSlug) return qSlug;
+    return null;
+  }, [pathname, searchParams]);
 
+  const urlSlug = getUrlSlug();
+  const initialSlug = urlSlug || "target-library";
+
+  const [activeSlug, setActiveSlug] = useState<string>(initialSlug);
+  const [libInfo, setLibInfo] = useState<LibraryHeaderInfo>(() => {
+    if (headerCache[initialSlug]) return headerCache[initialSlug];
+    return {
+      name: initialSlug === "target-library" ? "The Target Library" : initialSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      logoUrl: initialSlug === "target-library" ? "/lib-logo.png" : null,
+      totalSeats: 297,
+    };
+  });
+  const [isOwner, setIsOwner] = useState(false);
+
+  // Synchronize active slug and owner authentication role
   useEffect(() => {
-    setMounted(true);
-    const paramSlug = searchParams.get("slug");
-    const stored = getStoredSession();
-    const effective =
-      paramSlug ||
-      (stored?.librarySlug && stored.librarySlug !== "target-library"
-        ? stored.librarySlug
-        : null);
-    setActiveSlug(effective);
-  }, [searchParams]);
-
-  useEffect(() => {
-    const authStatus = sessionStorage.getItem("target_lib_auth");
-    const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
+    const currentSlug = getUrlSlug();
     const session = getStoredSession();
-    const authed =
-      authStatus === "true" ||
-      ownerAuth === "true" ||
-      session.role === "owner" ||
-      session.role === "staff" ||
-      session.role === "superadmin" ||
-      !!activeSlug;
+    const effective =
+      currentSlug ||
+      (session?.librarySlug && session.librarySlug !== "target-library"
+        ? session.librarySlug
+        : "target-library");
 
-    setIsAuthenticated(authed);
-  }, [pathname, activeSlug]);
+    setActiveSlug(effective);
 
-  // Dynamically load active library name and logo if on tenant workspace
-  useEffect(() => {
-    if (!activeSlug || activeSlug === "target-library") {
-      setLibraryName("THE TARGET LIBRARY");
-      setLibraryLogo("/lib-logo.png");
+    const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
+    const hasOwner =
+      session?.role === "owner" ||
+      session?.role === "superadmin" ||
+      ownerAuth === "true";
+
+    setIsOwner(hasOwner);
+  }, [pathname, searchParams, getUrlSlug]);
+
+  // Fetch or load cached library settings & branding
+  const loadLibraryInfo = useCallback(async (slug: string, force = false) => {
+    if (!force && headerCache[slug]) {
+      setLibInfo(headerCache[slug]);
       return;
     }
 
-    let isMounted = true;
-    fetch(`/api/libraries/${encodeURIComponent(activeSlug)}/settings`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!isMounted) return;
-        if (d.library?.name) {
-          setLibraryName(d.library.name.toUpperCase());
-        } else {
-          setLibraryName(activeSlug.replace(/-/g, " ").toUpperCase());
-        }
-        setLibraryLogo(d.library?.logo_url || null);
-      })
-      .catch(() => {
-        if (isMounted) {
-          setLibraryName(activeSlug.replace(/-/g, " ").toUpperCase());
-          setLibraryLogo(null);
-        }
-      });
+    try {
+      const res = await fetch(`/api/libraries/${encodeURIComponent(slug)}/settings`);
+      if (res.ok) {
+        const data = await res.json();
+        const info: LibraryHeaderInfo = {
+          name: data.library?.name || slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+          logoUrl: data.library?.logo_url || null,
+          totalSeats: data.settings?.total_seats || 297,
+        };
+        headerCache[slug] = info;
+        setLibInfo(info);
+      }
+    } catch {
+      // Keep existing or fallback state
+    }
+  }, []);
 
-    return () => {
-      isMounted = false;
+  useEffect(() => {
+    if (activeSlug) {
+      loadLibraryInfo(activeSlug);
+    }
+  }, [activeSlug, loadLibraryInfo]);
+
+  // Listen for real-time library updates (e.g. name or logo saved in settings)
+  useEffect(() => {
+    const handleSettingsUpdated = () => {
+      if (activeSlug) {
+        delete headerCache[activeSlug];
+        loadLibraryInfo(activeSlug, true);
+      }
     };
-  }, [activeSlug]);
 
-  if (
+    window.addEventListener("library-settings-updated", handleSettingsUpdated);
+    return () => {
+      window.removeEventListener("library-settings-updated", handleSettingsUpdated);
+    };
+  }, [activeSlug, loadLibraryInfo]);
+
+  // Exclude navbar from public landing, login, registration, and isolated student views
+  const isExcluded =
     pathname === "/" ||
     pathname === "/login" ||
     pathname === "/signup" ||
-    pathname.startsWith("/l/") ||
-    pathname.startsWith("/superadmin")
-  ) {
+    pathname.startsWith("/superadmin") ||
+    pathname.endsWith("/join") ||
+    pathname.endsWith("/student") ||
+    pathname.startsWith("/receipts/");
+
+  if (isExcluded) {
     return null;
   }
 
-  const isPublicPath = pathname.startsWith("/receipts/");
-
-  // URL Generators preserving tenant isolation
-  const homeHref = activeSlug ? `/l/${activeSlug}` : "/";
-  const seatsHref = activeSlug ? `/l/${activeSlug}` : "/";
-  const newReceiptHref = activeSlug ? `/new-receipt?slug=${activeSlug}` : "/new-receipt";
-  const dueFeesHref = activeSlug ? `/due-fees?slug=${activeSlug}` : "/due-fees";
-  const collectionsHref = activeSlug ? `/collections?slug=${activeSlug}` : "/collections";
-  const dashboardHref = activeSlug ? `/dashboard?slug=${activeSlug}` : "/dashboard";
-  const membersHref = activeSlug ? `/members?slug=${activeSlug}` : "/members";
-  const importHref = activeSlug ? `/import?slug=${activeSlug}` : "/import";
-  const settingsHref = activeSlug ? `/l/${activeSlug}/settings` : null;
-
-  const handleLogout = () => {
-    sessionStorage.removeItem("target_lib_auth");
-    sessionStorage.removeItem("target_lib_owner_auth");
-    clearStoredSession();
-    window.location.href = activeSlug ? `/login?slug=${encodeURIComponent(activeSlug)}` : "/login";
-  };
+  // Determine active route highlighting
+  const isDeskActive = pathname === `/l/${activeSlug}` || (pathname === "/" && activeSlug === "target-library");
+  const isMembersActive = pathname.startsWith("/members");
+  const isCollectionsActive = pathname.startsWith("/collections");
+  const isDueFeesActive = pathname.startsWith("/due-fees");
+  const isDashboardActive = pathname.startsWith("/dashboard");
+  const isSettingsActive = pathname.startsWith(`/l/${activeSlug}/settings`);
+  const isNewReceiptActive = pathname.startsWith("/new-receipt");
 
   return (
-    <nav className="border-b border-panel-border bg-background/70 backdrop-blur-md sticky top-0 z-50 transition-all duration-200">
-      <div className="max-w-7xl mx-auto px-6 py-3.5 flex items-center justify-between gap-4 flex-wrap">
+    <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-md border-b border-panel-border px-3 sm:px-6 py-2.5 transition-colors print:hidden">
+      <div className="w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Left: Brand, Logo & Badges */}
         <div className="flex items-center gap-3">
-          <Link href={homeHref} className="flex items-center gap-2.5 group">
-            <LibraryLogo
-              slug={activeSlug}
-              logoUrl={libraryLogo}
-              name={libraryName}
-              size="sm"
-              className="group-hover:scale-105 transition-transform duration-200"
-            />
-            <span className="font-extrabold text-sm tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-amber-500 dark:from-rose-500 dark:to-amber-400">
-              {libraryName || "THE TARGET LIBRARY"}
+          <LibraryLogo
+            slug={activeSlug}
+            logoUrl={libInfo.logoUrl}
+            name={libInfo.name}
+            size="md"
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              href={`/l/${activeSlug}`}
+              className="text-base sm:text-lg font-black tracking-tight text-text-main hover:opacity-90 transition-opacity"
+            >
+              {libInfo.name}
+            </Link>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+              {isOwner ? "👑 Owner Desk" : "💻 Front Desk"}
             </span>
-          </Link>
-          {activeSlug && activeSlug !== "target-library" && (
-            <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-              Active Workspace
+            <span className="text-[10px] font-mono text-text-muted font-bold px-2 py-0.5 rounded-full bg-neutral-500/10">
+              {libInfo.totalSeats} Seats
             </span>
-          )}
+          </div>
         </div>
 
-        {/* Only show navigation links if logged in and not on a public path */}
-        {!isPublicPath && isAuthenticated && (
-          <div className="flex items-center gap-4 sm:gap-6 text-sm flex-wrap">
+        {/* Right: Unified Navigation Group & Actions */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* Main Navigation Pill */}
+          <nav className="flex items-center bg-card-bg border border-panel-border rounded-xl p-0.5 shadow-xs overflow-x-auto">
             <Link
-              href={seatsHref}
-              className={`${
-                pathname === "/" || pathname.startsWith("/l/")
-                  ? "text-rose-600 dark:text-rose-400 font-bold"
-                  : "text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium"
-              } transition-colors`}
+              href={`/l/${activeSlug}`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
+                isDeskActive
+                  ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
+                  : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
+              }`}
             >
-              Seats
+              <span>🪑</span> Desk
             </Link>
-            <Link
-              href={newReceiptHref}
-              className={`${
-                pathname === "/new-receipt"
-                  ? "text-rose-600 dark:text-rose-400 font-bold"
-                  : "text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium"
-              } transition-colors`}
-            >
-              New Receipt
-            </Link>
-            <Link
-              href={dueFeesHref}
-              className={`${
-                pathname === "/due-fees"
-                  ? "text-blue-600 dark:text-blue-400 font-bold"
-                  : "text-text-muted hover:text-blue-500 dark:hover:text-blue-400 font-medium"
-              } transition-colors flex items-center gap-1.5`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block animate-pulse" />
-              Due Fees
-            </Link>
-            <Link
-              href={collectionsHref}
-              className={`${
-                pathname === "/collections"
-                  ? "text-rose-600 dark:text-rose-400 font-bold"
-                  : "text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium"
-              } transition-colors`}
-            >
-              Daily Fees
-            </Link>
-            <Link
-              href={dashboardHref}
-              className={`${
-                pathname === "/dashboard"
-                  ? "text-rose-600 dark:text-rose-400 font-bold"
-                  : "text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium"
-              } transition-colors`}
-            >
-              Dashboard
-            </Link>
-            <Link
-              href={membersHref}
-              className={`${
-                pathname.startsWith("/members")
-                  ? "text-rose-600 dark:text-rose-400 font-bold"
-                  : "text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium"
-              } transition-colors`}
-            >
-              Members
-            </Link>
-            {settingsHref && (
-              <Link
-                href={settingsHref}
-                className="text-text-muted hover:text-sky-500 dark:hover:text-sky-400 font-medium transition-colors"
-                title="Library Owner Settings"
-              >
-                👑 Settings
-              </Link>
-            )}
-            <Link
-              href={importHref}
-              className={`${
-                pathname === "/import"
-                  ? "text-rose-600 dark:text-rose-400 font-bold"
-                  : "text-text-muted hover:text-rose-500 dark:hover:text-rose-400 font-medium"
-              } transition-colors`}
-            >
-              Bulk Import
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="text-rose-600 dark:text-rose-400 hover:underline text-xs font-semibold cursor-pointer"
-            >
-              Logout
-            </button>
-            <ThemeToggle />
-          </div>
-        )}
 
-        {/* If public path, only show ThemeToggle */}
-        {isPublicPath && (
-          <div className="flex items-center gap-6">
+            <Link
+              href={`/members?slug=${encodeURIComponent(activeSlug)}`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
+                isMembersActive
+                  ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
+                  : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
+              }`}
+            >
+              <span>👥</span> Members
+            </Link>
+
+            <Link
+              href={`/collections?slug=${encodeURIComponent(activeSlug)}`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
+                isCollectionsActive
+                  ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
+                  : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
+              }`}
+            >
+              <span>💰</span> Daily Fees
+            </Link>
+
+            <Link
+              href={`/due-fees?slug=${encodeURIComponent(activeSlug)}`}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
+                isDueFeesActive
+                  ? "bg-blue-500/20 text-blue-600 dark:text-blue-400 font-extrabold shadow-2xs"
+                  : "text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
+              }`}
+            >
+              <span>🔵</span> Due Fees
+            </Link>
+
+            <Link
+              href={`/l/${activeSlug}/join`}
+              target="_blank"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-1 whitespace-nowrap"
+              title="Open Student Entrance QR Code in new tab"
+            >
+              <span>📱</span> Door QR
+            </Link>
+
+            {/* Owner-Only Privileged Links */}
+            {isOwner && (
+              <>
+                <Link
+                  href={`/dashboard?slug=${encodeURIComponent(activeSlug)}`}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
+                    isDashboardActive
+                      ? "bg-purple-500/20 text-purple-600 dark:text-purple-400 font-extrabold shadow-2xs"
+                      : "text-purple-600 dark:text-purple-400 hover:bg-purple-500/10"
+                  }`}
+                >
+                  <span>📊</span> Dashboard
+                </Link>
+
+                <Link
+                  href={`/l/${activeSlug}/settings`}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
+                    isSettingsActive
+                      ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold shadow-2xs"
+                      : "text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                  }`}
+                >
+                  <span>👑</span> Settings
+                </Link>
+              </>
+            )}
+          </nav>
+
+          {/* Primary CTA: Walk-in Admission */}
+          <Link
+            href={`/new-receipt?slug=${encodeURIComponent(activeSlug)}`}
+            className={`px-3.5 py-2 rounded-xl text-xs font-extrabold shadow-sm transition active:scale-95 whitespace-nowrap ${
+              isNewReceiptActive
+                ? "bg-rose-700 text-white ring-2 ring-rose-500 ring-offset-2 ring-offset-background"
+                : "bg-rose-600 hover:bg-rose-500 text-white"
+            }`}
+          >
+            + Walk-in Admission
+          </Link>
+
+          {/* Switch Portal & Theme Toggle */}
+          <div className="flex items-center gap-1">
+            <Link
+              href={`/login?slug=${encodeURIComponent(activeSlug)}`}
+              className="px-2.5 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-text-muted hover:text-text-main text-xs font-bold transition flex items-center gap-1"
+              title="Switch Workspace or Portal"
+            >
+              <span>🚪</span>
+              <span className="hidden sm:inline">Switch</span>
+            </Link>
             <ThemeToggle />
           </div>
-        )}
+        </div>
       </div>
-    </nav>
+    </header>
   );
 }
 

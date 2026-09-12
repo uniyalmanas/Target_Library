@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import HeaderNavbar from "@/lib/HeaderNavbar";
+import TenantFooter from "@/lib/TenantFooter";
 import AuthGate from "@/lib/AuthGate";
 import "./globals.css";
 
@@ -11,8 +12,8 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "The Target Library — Management System",
-  description: "Seat, member and subscription management",
+  title: "Library Management System",
+  description: "Seat, member and subscription management workspace",
 };
 
 export default function RootLayout({
@@ -37,18 +38,14 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans relative overflow-x-hidden transition-colors duration-200">
         {/* Glow effect in background */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[500px] bg-radial from-rose-500/[calc(var(--glow-opacity)*0.7)] via-transparent to-transparent pointer-events-none z-0" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1850px] h-[500px] bg-radial from-rose-500/[calc(var(--glow-opacity)*0.7)] via-transparent to-transparent pointer-events-none z-0" />
         
         <HeaderNavbar />
-        <main className="max-w-6xl mx-auto px-6 py-8 w-full flex-1 relative z-10">
+        <main className="w-full flex-1 relative z-10 flex flex-col">
           <AuthGate>{children}</AuthGate>
         </main>
         
-        <footer className="border-t border-panel-border bg-background py-6 mt-auto">
-          <div className="max-w-6xl mx-auto px-6 text-center text-xs text-text-muted">
-            &copy; {new Date().getFullYear()} The Target Library, Dehradun. Internal Study Space Management System.
-          </div>
-        </footer>
+        <TenantFooter />
       </body>
     </html>
   );

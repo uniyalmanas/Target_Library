@@ -215,7 +215,7 @@ function DueFeesContent() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto px-4 md:px-8 py-6 space-y-6">
       {/* Header Banner */}
       <div className="flex items-center justify-between flex-wrap gap-4 bg-panel-bg border border-panel-border rounded-xl p-6 backdrop-blur-md">
         <div>

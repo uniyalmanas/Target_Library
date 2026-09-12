@@ -305,8 +305,8 @@ function NewReceiptForm() {
   }
 
   return (
-    <div className="max-w-lg mx-auto">
-      <div className="bg-panel-bg border border-panel-border rounded-2xl p-8 backdrop-blur-md shadow-xl relative overflow-hidden">
+    <div className="w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto bg-panel-bg border border-panel-border rounded-2xl p-8 backdrop-blur-md shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-rose-500/[calc(var(--glow-opacity)*0.5)] to-transparent pointer-events-none" />
         
         <div className="flex items-center justify-between mb-6 pb-3 border-b border-panel-border">
@@ -314,12 +314,6 @@ function NewReceiptForm() {
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
             Create Receipt &amp; Renewal
           </h1>
-          <Link
-            href={`/l/${slug}`}
-            className="px-2.5 py-1 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition"
-          >
-            ← Desk Portal
-          </Link>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">

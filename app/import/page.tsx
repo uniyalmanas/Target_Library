@@ -250,22 +250,7 @@ function ImportContent() {
   const errorCount = rows.filter((r) => r._error).length;
 
   return (
-    <div className="space-y-6">
-      {/* Top Breadcrumb Navigation */}
-      <div className="flex items-center justify-between pb-3 border-b border-panel-border">
-        <Link
-          href={`/l/${slug}`}
-          className="text-xs font-bold text-text-muted hover:text-text-main flex items-center gap-1.5 transition"
-        >
-          ← Back to Desk Portal
-        </Link>
-        {slug !== "target-library" && (
-          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-            Workspace: {slug}
-          </span>
-        )}
-      </div>
-
+    <div className="w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto px-4 md:px-8 py-6 space-y-6">
       <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md">
         <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" />

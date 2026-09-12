@@ -246,17 +246,11 @@ function DailyCollectionsContent() {
   })();
 
   return (
-    <main className="min-h-screen pb-20 pt-6 px-4 md:px-8 max-w-7xl mx-auto">
+    <div className="w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto px-4 md:px-8 pb-20 pt-4 space-y-6">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-panel-border pb-6 print:hidden">
         <div>
           <div className="flex items-center gap-3">
-            <Link
-              href={`/l/${slug}`}
-              className="px-2.5 py-1 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition"
-            >
-              ← Desk Portal
-            </Link>
             <span className="text-2xl">💰</span>
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
               Daily Fee Collections
@@ -788,7 +782,7 @@ function DailyCollectionsContent() {
           onSuccess={() => fetchCollections(selectedDate, true)}
         />
       )}
-    </main>
+    </div>
   );
 }
 

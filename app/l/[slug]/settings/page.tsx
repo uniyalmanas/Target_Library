@@ -380,6 +380,9 @@ export default function LibraryOwnerSettingsPage({
       }
 
       setSaveSuccess(true);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("library-settings-updated"));
+      }
       setTimeout(() => setSaveSuccess(false), 4000);
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : "Error saving settings");
@@ -528,57 +531,44 @@ export default function LibraryOwnerSettingsPage({
   }
 
   return (
-    <main className="min-h-screen bg-background text-text-main pb-24 print:bg-white print:text-black print:p-0">
-      {/* Top Navbar */}
-      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-panel-border px-4 py-3 print:hidden">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link
-              href={`/l/${slug}`}
-              className="px-2.5 py-1.5 rounded-lg border border-panel-border text-xs font-semibold hover:bg-neutral-500/10 transition"
-            >
-              ← Desk Portal
-            </Link>
-            <div className="flex items-center gap-3">
-              <LibraryLogo
-                slug={slug}
-                logoUrl={logoUrl || library.logo_url}
-                name={name || library.name}
-                size="md"
-              />
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base font-extrabold tracking-tight">{name || library.name}</h1>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                    👑 Owner Settings
-                  </span>
-                </div>
-                <p className="text-[11px] text-text-muted">Slug: <span className="font-mono">{slug}</span></p>
-              </div>
+    <div className="min-h-screen bg-background text-text-main pb-24 print:bg-white print:text-black print:p-0">
+      {/* Settings Top Action Bar */}
+      <div className="w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto px-4 md:px-8 pt-4 pb-2 print:hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-panel-border">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                Library Owner Settings
+              </h1>
+              <span className="text-[10px] font-mono text-text-muted bg-neutral-500/10 px-2.5 py-0.5 rounded-full border border-panel-border">
+                {slug}
+              </span>
             </div>
+            <p className="text-xs text-text-muted mt-1">
+              Configure library profile, logo emblem, seat layout, pricing, and staff passcodes.
+            </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-sm transition active:scale-95 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
-            >
-              {saving ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                  Saving...
-                </>
-              ) : (
-                <>💾 Save All Changes</>
-              )}
-            </button>
-          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-sm transition active:scale-95 disabled:opacity-50 flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+          >
+            {saving ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                Saving...
+              </>
+            ) : (
+              <>💾 Save All Changes</>
+            )}
+          </button>
         </div>
-      </header>
+      </div>
 
       {/* Main Container */}
-      <div className="max-w-5xl mx-auto px-4 pt-6 print:p-0 print:max-w-none">
+      <div className="w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto px-4 md:px-8 pt-4 print:p-0 print:max-w-none">
         {/* Feedback Notifications */}
         {saveSuccess && (
           <div className="mb-5 p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200 print:hidden">
@@ -2017,6 +2007,6 @@ export default function LibraryOwnerSettingsPage({
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }
