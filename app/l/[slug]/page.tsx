@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Library, LibrarySettings, AdmissionRequest } from "@/lib/types";
 import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS } from "@/lib/tenant";
@@ -41,6 +41,8 @@ interface SeatData {
   receipts: ReceiptData[];
 }
 
+type SizePreset = "fit" | "compact" | "standard" | "large" | "custom";
+
 export default function TenantDeskPage({
   params,
 }: {
@@ -56,6 +58,14 @@ export default function TenantDeskPage({
   const [vacating, setVacating] = useState<number | null>(null);
   const [editingReceipt, setEditingReceipt] = useState<EditableReceipt | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "double_shift" | "full_day" | "half_day" | "free" | "due">("all");
+
+  // Seat Matrix Layout & Resizing States
+  const [sizePreset, setSizePreset] = useState<SizePreset>("fit");
+  const [tileSize, setTileSize] = useState<number>(44);
+  const [computedCols, setComputedCols] = useState<number>(20);
+  const [isWideLayout, setIsWideLayout] = useState<boolean>(true);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const matrixContainerRef = useRef<HTMLDivElement>(null);
 
   // Incoming Admission Requests (Method B Entrance QR)
   const [admissionRequests, setAdmissionRequests] = useState<AdmissionRequest[]>([]);
@@ -265,6 +275,124 @@ export default function TenantDeskPage({
     return "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 hover:shadow-[0_0_10px_rgba(245,158,11,0.15)] hover:-translate-y-0.5";
   };
 
+  // Auto-fit calculation to scale seats so they fit within the visible desktop screen
+  const calculateFit = useCallback(() => {
+    if (!matrixContainerRef.current) return;
+    const container = matrixContainerRef.current;
+    const rect = container.getBoundingClientRect();
+    const windowHeight = window.innerHeight;
+    const windowWidth = window.innerWidth;
+
+    // Mobile / small tablet fallback
+    if (windowWidth < 640) {
+      setComputedCols(6);
+      setTileSize(44);
+      return;
+    }
+
+    const availableWidth = rect.width > 0 ? rect.width : (windowWidth > 1280 ? 1200 : windowWidth - 48);
+    // Calculate visible vertical room available on desktop screen
+    const availableHeight = isFullscreen
+      ? windowHeight - 120
+      : Math.max(340, windowHeight - rect.top - 45);
+
+    const filteredSeats = seats.filter(matchesFilter);
+    const visibleCount = Math.max(1, filteredSeats.length);
+    const gap = 5;
+
+    let bestCols = 16;
+    let bestSize = 42;
+    let maxFoundSize = 0;
+
+    // Find the column count (from 10 to 32) that gives the largest legible tile size fitting within availableHeight
+    for (let c = 10; c <= 32; c++) {
+      const rows = Math.ceil(visibleCount / c);
+      const widthPerCol = (availableWidth - (c - 1) * gap) / c;
+      const heightPerRow = (availableHeight - (rows - 1) * gap) / rows;
+      const s = Math.min(widthPerCol, heightPerRow);
+
+      if (s > maxFoundSize && s >= 24) {
+        maxFoundSize = s;
+        bestCols = c;
+        bestSize = Math.floor(s);
+      }
+    }
+
+    if (maxFoundSize > 0) {
+      setComputedCols(bestCols);
+      setTileSize(Math.min(bestSize, 68));
+    } else {
+      const fallbackCols = visibleCount > 150 ? 22 : 14;
+      setComputedCols(fallbackCols);
+      setTileSize(38);
+    }
+  }, [seats, filterStatus, isFullscreen, matchesFilter]);
+
+  // Restore saved layout & size preferences from localStorage
+  useEffect(() => {
+    try {
+      const savedPreset = localStorage.getItem("library_seat_matrix_preset") as SizePreset | null;
+      const savedTileSize = localStorage.getItem("library_seat_matrix_tile_size");
+      const savedWide = localStorage.getItem("library_seat_matrix_is_wide");
+
+      if (savedPreset) setSizePreset(savedPreset);
+      if (savedTileSize) setTileSize(Number(savedTileSize));
+      if (savedWide !== null) setIsWideLayout(savedWide === "true");
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Save layout & size preferences
+  useEffect(() => {
+    try {
+      localStorage.setItem("library_seat_matrix_preset", sizePreset);
+      localStorage.setItem("library_seat_matrix_tile_size", tileSize.toString());
+      localStorage.setItem("library_seat_matrix_is_wide", isWideLayout.toString());
+    } catch {
+      // ignore
+    }
+  }, [sizePreset, tileSize, isWideLayout]);
+
+  // Listen for native Fullscreen events (Esc key or browser exit)
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+  }, []);
+
+  // Trigger calculateFit whenever seats or filters update in "fit" mode
+  useEffect(() => {
+    if (sizePreset === "fit" && seats.length > 0) {
+      const t = setTimeout(calculateFit, 60);
+      return () => clearTimeout(t);
+    }
+  }, [seats.length, filterStatus, sizePreset, isWideLayout, isFullscreen, calculateFit]);
+
+  // Recalculate on window resize when in "fit" mode
+  useEffect(() => {
+    if (sizePreset !== "fit") return;
+    const handleResize = () => {
+      calculateFit();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [sizePreset, calculateFit]);
+
+  // Fullscreen monitor mode toggle
+  const toggleFullscreen = () => {
+    if (!matrixContainerRef.current) return;
+    if (!document.fullscreenElement) {
+      matrixContainerRef.current.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+    }
+  };
+
   const handleVacateSeat = async (receiptNo: number) => {
     if (!confirm("Are you sure you want to officially vacate this student?")) return;
     setVacating(receiptNo);
@@ -374,7 +502,7 @@ export default function TenantDeskPage({
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-5 space-y-5">
+      <main className={`flex-1 w-full mx-auto px-4 py-5 space-y-5 transition-all duration-300 ${isWideLayout ? "max-w-[98vw]" : "max-w-7xl"}`}>
         {/* Section: Real-Time Incoming Admission Requests Drawer */}
         {admissionRequests.length > 0 && (
           <div className="bg-card-bg border-2 border-emerald-500/40 rounded-3xl p-5 shadow-lg space-y-4 animate-in fade-in slide-in-from-top-3">
@@ -547,13 +675,174 @@ export default function TenantDeskPage({
         </div>
 
         {/* Cinema Seats Matrix */}
-        <div className="bg-card-bg border border-panel-border rounded-3xl p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-panel-border pb-3.5">
-            <h2 className="font-black text-sm flex items-center gap-2">
-              <span>🎬</span> Real-Time Seat Matrix Layout
-            </h2>
-            <div className="text-xs text-text-muted font-medium">
-              Showing {seats.filter(matchesFilter).length} of {seats.length} seats
+        <div
+          ref={matrixContainerRef}
+          className={`bg-card-bg border border-panel-border rounded-3xl p-4 sm:p-5 shadow-sm space-y-4 transition-all ${
+            isFullscreen ? "fixed inset-0 z-50 rounded-none overflow-y-auto p-6 bg-background" : ""
+          }`}
+        >
+          {/* Header with Title and Control Toolbar */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-panel-border pb-3.5">
+            {/* Left: Title & Seat counts */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="font-black text-sm sm:text-base flex items-center gap-2">
+                <span>🎬</span> Real-Time Seat Matrix Layout
+              </h2>
+              <span className="text-xs text-text-muted font-medium bg-neutral-500/10 px-2.5 py-0.5 rounded-full">
+                Showing {seats.filter(matchesFilter).length} of {seats.length} seats
+              </span>
+              {sizePreset === "fit" && (
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                  <span>🖥️</span> Screen-Fit Active ({computedCols} cols)
+                </span>
+              )}
+            </div>
+
+            {/* Right: Resizer & Fit Toolbar */}
+            <div className="flex items-center gap-2 flex-wrap text-xs">
+              {/* Presets Segmented Buttons */}
+              <div className="flex items-center bg-background border border-panel-border rounded-xl p-0.5 shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSizePreset("fit");
+                    setTimeout(calculateFit, 50);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-xs transition flex items-center gap-1 cursor-pointer ${
+                    sizePreset === "fit"
+                      ? "bg-rose-600 text-white shadow-xs"
+                      : "text-text-muted hover:text-text-main"
+                  }`}
+                  title="Auto-scale seats to fit desktop screen without vertical scrolling"
+                >
+                  <span>🖥️</span> Fit Screen
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSizePreset("compact");
+                    setTileSize(36);
+                    setComputedCols(20);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
+                    sizePreset === "compact"
+                      ? "bg-rose-600 text-white shadow-xs"
+                      : "text-text-muted hover:text-text-main"
+                  }`}
+                  title="High-density compact view"
+                >
+                  Compact
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSizePreset("standard");
+                    setTileSize(54);
+                    setComputedCols(12);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
+                    sizePreset === "standard"
+                      ? "bg-rose-600 text-white shadow-xs"
+                      : "text-text-muted hover:text-text-main"
+                  }`}
+                  title="Standard balanced view"
+                >
+                  Standard
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSizePreset("large");
+                    setTileSize(72);
+                    setComputedCols(8);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
+                    sizePreset === "large"
+                      ? "bg-rose-600 text-white shadow-xs"
+                      : "text-text-muted hover:text-text-main"
+                  }`}
+                  title="Large touch/click view"
+                >
+                  Large
+                </button>
+              </div>
+
+              {/* Zoom Controls (Minus / Range / Plus) */}
+              <div className="flex items-center gap-1.5 bg-background border border-panel-border rounded-xl px-2.5 py-1 shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSizePreset("custom");
+                    setTileSize((prev) => Math.max(26, prev - 4));
+                  }}
+                  disabled={tileSize <= 26}
+                  className="w-5 h-5 rounded hover:bg-neutral-500/15 flex items-center justify-center font-bold text-sm text-text-muted hover:text-text-main disabled:opacity-30 cursor-pointer"
+                  title="Zoom out (shrink seats)"
+                >
+                  −
+                </button>
+
+                <input
+                  type="range"
+                  min={26}
+                  max={84}
+                  step={2}
+                  value={tileSize}
+                  onChange={(e) => {
+                    setSizePreset("custom");
+                    setTileSize(Number(e.target.value));
+                  }}
+                  className="w-16 sm:w-20 accent-rose-600 cursor-pointer h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-lg"
+                  title={`Tile size: ${tileSize}px`}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSizePreset("custom");
+                    setTileSize((prev) => Math.min(84, prev + 4));
+                  }}
+                  disabled={tileSize >= 84}
+                  className="w-5 h-5 rounded hover:bg-neutral-500/15 flex items-center justify-center font-bold text-sm text-text-muted hover:text-text-main disabled:opacity-30 cursor-pointer"
+                  title="Zoom in (enlarge seats)"
+                >
+                  +
+                </button>
+
+                <span className="font-mono text-[11px] font-extrabold text-text-muted w-8 text-right">
+                  {tileSize}px
+                </span>
+              </div>
+
+              {/* Wide Monitor Toggle */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsWideLayout((prev) => !prev);
+                  setTimeout(calculateFit, 60);
+                }}
+                className={`px-2.5 py-1 rounded-xl border text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                  isWideLayout
+                    ? "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                    : "border-panel-border bg-background text-text-muted hover:text-text-main"
+                }`}
+                title={isWideLayout ? "Switch to standard width (1280px)" : "Expand to full desktop monitor width"}
+              >
+                <span>↔</span> {isWideLayout ? "Wide" : "Normal"}
+              </button>
+
+              {/* Fullscreen Kiosk Mode */}
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="px-2.5 py-1 rounded-xl border border-panel-border bg-background hover:bg-neutral-500/10 text-text-muted hover:text-text-main text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                title={isFullscreen ? "Exit Fullscreen (Esc)" : "Fullscreen Monitor Mode (for wall TVs & reception kiosks)"}
+              >
+                <span>{isFullscreen ? "✕" : "⛶"}</span> {isFullscreen ? "Exit" : "Expand"}
+              </button>
             </div>
           </div>
 
@@ -562,24 +851,87 @@ export default function TenantDeskPage({
               <div className="w-8 h-8 border-3 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
           ) : (
-            <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
-              {seats.filter(matchesFilter).map((seat) => (
-                <button
-                  key={seat.seat_id}
-                  onClick={() => setSelected(seat)}
-                  className={`aspect-square rounded-xl flex flex-col items-center justify-center p-1 font-bold text-xs cursor-pointer transition-all duration-150 ${seatColor(
-                    seat
-                  )}`}
-                >
-                  <span className="font-mono text-sm">{seat.seat_number}</span>
-                  {isSeatDoubleShift(seat) && (
-                    <span className="text-[8px] font-black uppercase tracking-tighter">2x Shift</span>
-                  )}
-                  {seat.is_overdue && (
-                    <span className="text-[8px] font-black uppercase tracking-tighter">Due</span>
-                  )}
-                </button>
-              ))}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  sizePreset === "fit"
+                    ? `repeat(${computedCols}, minmax(0, 1fr))`
+                    : sizePreset === "custom"
+                    ? `repeat(auto-fill, minmax(${tileSize}px, 1fr))`
+                    : sizePreset === "compact"
+                    ? `repeat(auto-fill, minmax(36px, 1fr))`
+                    : sizePreset === "standard"
+                    ? `repeat(auto-fill, minmax(54px, 1fr))`
+                    : `repeat(auto-fill, minmax(72px, 1fr))`,
+                gap: tileSize < 36 ? "4px" : "6px",
+              }}
+              className="w-full transition-all duration-200"
+            >
+              {seats.filter(matchesFilter).map((seat) => {
+                const isTiny = tileSize < 34;
+                const isSmall = tileSize >= 34 && tileSize < 46;
+                const isMedium = tileSize >= 46 && tileSize < 62;
+
+                return (
+                  <button
+                    key={seat.seat_id}
+                    onClick={() => setSelected(seat)}
+                    style={{
+                      height: sizePreset === "fit" ? `${Math.max(26, tileSize)}px` : undefined,
+                      minHeight: sizePreset !== "fit" ? `${tileSize}px` : undefined,
+                    }}
+                    title={`Seat #${seat.seat_number} • ${
+                      !seat.occupied
+                        ? "Free (Available)"
+                        : seat.is_overdue
+                        ? `Due • ${seat.receipts?.[0]?.member?.name || "Student"}`
+                        : isSeatDoubleShift(seat)
+                        ? `2x Shift • ${seat.receipts?.map((r) => r.member?.name).filter(Boolean).join(" & ") || "2 Students"}`
+                        : `${seat.status?.replace("_", " ") || "Occupied"} • ${seat.receipts?.[0]?.member?.name || "Student"}`
+                    }`}
+                    className={`rounded-lg sm:rounded-xl flex flex-col items-center justify-center p-0.5 font-bold cursor-pointer transition-all duration-150 relative group ${seatColor(
+                      seat
+                    )}`}
+                  >
+                    <span
+                      className={`font-mono leading-none ${
+                        isTiny
+                          ? "text-[9px] font-extrabold"
+                          : isSmall
+                          ? "text-[11px] font-extrabold"
+                          : isMedium
+                          ? "text-xs font-black"
+                          : "text-sm font-black"
+                      }`}
+                    >
+                      {seat.seat_number}
+                    </span>
+
+                    {!isTiny && isSeatDoubleShift(seat) && (
+                      <span
+                        className={`font-black uppercase tracking-tighter leading-none mt-0.5 ${
+                          isSmall ? "text-[6px]" : "text-[8px]"
+                        }`}
+                      >
+                        2x
+                      </span>
+                    )}
+                    {!isTiny && seat.is_overdue && (
+                      <span
+                        className={`font-black uppercase tracking-tighter leading-none mt-0.5 text-rose-600 dark:text-rose-400 ${
+                          isSmall ? "text-[6px]" : "text-[8px]"
+                        }`}
+                      >
+                        Due
+                      </span>
+                    )}
+                    {isTiny && (isSeatDoubleShift(seat) || seat.is_overdue) && (
+                      <span className="w-1 h-1 rounded-full bg-current mt-0.5" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
