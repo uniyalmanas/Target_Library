@@ -271,7 +271,7 @@ Whether managing a 50-seat quiet study hall or a 300-seat multi-shift reading li
 ```bash
 git clone https://github.com/uniyalmanas/Target_Library.git
 cd Target_Library
-git checkout feat/multi-tenant-saas
+git checkout main
 ```
 
 ### 2. Configure Environment Variables
@@ -281,7 +281,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-supabase-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
 
 # Master Founder Passcode for Super Admin and emergency overrides
-NEXT_PUBLIC_ADMIN_PASSWORD=Target2026
+NEXT_PUBLIC_FOUNDER_PASSWORD=your_secure_founder_passcode
 
 # Optional: Background WhatsApp delivery provider
 ULTRAMSG_INSTANCE_ID=your_instance_id

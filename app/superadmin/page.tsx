@@ -514,7 +514,7 @@ export default function SuperAdminPage() {
                 type="password"
                 required
                 autoFocus
-                placeholder="Enter founder master passcode (e.g. Manas@12)"
+                placeholder="Enter founder master passcode..."
                 value={passcodeInput}
                 onChange={(e) => setPasscodeInput(e.target.value)}
                 className="w-full bg-background border border-panel-border rounded-xl px-3.5 py-2.5 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
@@ -1330,7 +1330,7 @@ export default function SuperAdminPage() {
               <div className="text-[11px] text-text-muted bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl flex items-start gap-2">
                 <span className="text-base">💡</span>
                 <div>
-                  <strong>Master SuperAdmin Override:</strong> You never need any library's password. You can always sign into any library using your founder master passcode (<code className="font-mono font-bold text-amber-600 dark:text-amber-400">Manas@12</code>) or click <strong>Enter Now</strong> above.
+                  <strong>Master SuperAdmin Override:</strong> You never need any library's password. You can always sign into any library using your founder master passcode or click <strong>Enter Now</strong> above.
                 </div>
               </div>
 
