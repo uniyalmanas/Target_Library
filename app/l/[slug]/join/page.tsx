@@ -124,6 +124,14 @@ export default function StudentEntranceQRJoinPage({
         <p className="text-xs text-text-muted mt-0.5">
           📍 {library.city || "Dehradun"} • Self-Service Admission & Pass Portal
         </p>
+        <div className="mt-2">
+          <Link
+            href={`/l/${slug}/student`}
+            className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline inline-flex items-center gap-1"
+          >
+            <span>🪪 Already a member? View My Digital Pass →</span>
+          </Link>
+        </div>
       </div>
 
       {submittedSuccess ? (
@@ -162,15 +170,24 @@ export default function StudentEntranceQRJoinPage({
             The librarian will verify the transaction on the desk soundbox and assign your seat number shortly.
           </p>
 
-          <button
-            onClick={() => {
-              setSubmittedSuccess(false);
-              setUtrNumber("");
-            }}
-            className="w-full py-2.5 rounded-xl border border-panel-border text-xs font-semibold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
-          >
-            Submit Another Admission
-          </button>
+          <div className="space-y-2.5">
+            <Link
+              href={`/l/${slug}/student?phone=${encodeURIComponent(studentPhone)}`}
+              className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5"
+            >
+              <span>🪪</span> View My Digital Student Pass
+            </Link>
+
+            <button
+              onClick={() => {
+                setSubmittedSuccess(false);
+                setUtrNumber("");
+              }}
+              className="w-full py-2.5 rounded-xl border border-panel-border text-xs font-semibold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+            >
+              Submit Another Admission
+            </button>
+          </div>
         </div>
       ) : (
         /* Multi-Step Admission Form */

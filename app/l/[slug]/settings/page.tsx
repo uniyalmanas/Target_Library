@@ -42,7 +42,18 @@ export default function LibraryOwnerSettingsPage({
   const [newShiftSheetPrice, setNewShiftSheetPrice] = useState<number>(900);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<"seats_shifts" | "upi_soundbox" | "general" | "poster">("seats_shifts");
+  const [activeTab, setActiveTab] = useState<"seats_shifts" | "upi_soundbox" | "passwords" | "general" | "poster">("seats_shifts");
+
+  // Password Management State
+  const [newStaffPassword, setNewStaffPassword] = useState("");
+  const [confirmStaffPassword, setConfirmStaffPassword] = useState("");
+  const [savingStaffPass, setSavingStaffPass] = useState(false);
+  const [staffPassSuccess, setStaffPassSuccess] = useState(false);
+
+  const [newOwnerPassword, setNewOwnerPassword] = useState("");
+  const [savingOwnerPass, setSavingOwnerPass] = useState(false);
+  const [ownerPassSuccess, setOwnerPassSuccess] = useState(false);
+  const [passwordErrorMessage, setPasswordErrorMessage] = useState<string | null>(null);
 
   // Fetch initial settings
   useEffect(() => {
@@ -150,6 +161,71 @@ export default function LibraryOwnerSettingsPage({
     }
   };
 
+  // Update Staff Password
+  const handleUpdateStaffPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStaffPassword.trim()) return;
+    if (newStaffPassword !== confirmStaffPassword) {
+      setPasswordErrorMessage("Staff passwords do not match.");
+      return;
+    }
+
+    setSavingStaffPass(true);
+    setPasswordErrorMessage(null);
+    try {
+      const res = await fetch(`/api/libraries/${slug}/staff-password`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target_role: "staff",
+          new_password: newStaffPassword.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update staff password");
+
+      setStaffPassSuccess(true);
+      setNewStaffPassword("");
+      setConfirmStaffPassword("");
+      setTimeout(() => setStaffPassSuccess(false), 4000);
+    } catch (err: unknown) {
+      setPasswordErrorMessage(err instanceof Error ? err.message : "Error updating staff password");
+    } finally {
+      setSavingStaffPass(false);
+    }
+  };
+
+  // Update Owner Password
+  const handleUpdateOwnerPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOwnerPassword.trim()) return;
+
+    setSavingOwnerPass(true);
+    setPasswordErrorMessage(null);
+    try {
+      const res = await fetch(`/api/libraries/${slug}/staff-password`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target_role: "owner",
+          new_password: newOwnerPassword.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update owner password");
+
+      setOwnerPassSuccess(true);
+      setNewOwnerPassword("");
+      setTimeout(() => setOwnerPassSuccess(false), 4000);
+    } catch (err: unknown) {
+      setPasswordErrorMessage(err instanceof Error ? err.message : "Error updating owner password");
+    } finally {
+      setSavingOwnerPass(false);
+    }
+  };
+
   // Door QR URL
   const origin = typeof window !== "undefined" ? window.location.origin : "https://library-ms-three.vercel.app";
   const entranceJoinUrl = `${origin}/l/${slug}/join`;
@@ -243,6 +319,16 @@ export default function LibraryOwnerSettingsPage({
             }`}
           >
             🔊 Soundbox & UPI Setup
+          </button>
+          <button
+            onClick={() => setActiveTab("passwords")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === "passwords"
+                ? "bg-rose-600 text-white shadow-xs"
+                : "text-text-muted hover:text-text-main hover:bg-neutral-500/5"
+            }`}
+          >
+            🔐 Staff & Owner Passwords
           </button>
           <button
             onClick={() => setActiveTab("general")}
@@ -679,6 +765,173 @@ export default function LibraryOwnerSettingsPage({
                   />
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: Staff & Owner Passwords Management */}
+        {activeTab === "passwords" && (
+          <div className="space-y-6">
+            {passwordErrorMessage && (
+              <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
+                <span>⚠️</span> {passwordErrorMessage}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Card 1: Front-Desk Staff Passcode */}
+              <div className="bg-card-bg border border-panel-border rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl p-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                        💻
+                      </span>
+                      <div>
+                        <h3 className="font-extrabold text-sm text-text-main">
+                          Desk Staff Passcode
+                        </h3>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                          Receptionist Access
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-text-muted leading-relaxed mb-5">
+                    Give this password to your front-desk librarians and staff. They can manage the seat grid, admit students, and create receipts, but <span className="font-semibold text-text-main">cannot</span> change pricing or view owner revenue settings.
+                  </p>
+
+                  <form onSubmit={handleUpdateStaffPassword} className="space-y-3.5">
+                    <div>
+                      <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block mb-1">
+                        New Staff Passcode
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="e.g. 1234 or staff2026"
+                        value={newStaffPassword}
+                        onChange={(e) => setNewStaffPassword(e.target.value)}
+                        required
+                        className="w-full bg-background border border-panel-border rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block mb-1">
+                        Confirm Staff Passcode
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="Re-enter passcode"
+                        value={confirmStaffPassword}
+                        onChange={(e) => setConfirmStaffPassword(e.target.value)}
+                        required
+                        className="w-full bg-background border border-panel-border rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      />
+                    </div>
+
+                    {staffPassSuccess && (
+                      <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 animate-in fade-in">
+                        <span>✅</span> Staff passcode updated successfully!
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={savingStaffPass || !newStaffPassword.trim()}
+                      className="w-full mt-2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      {savingStaffPass ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                          Saving Staff Passcode...
+                        </>
+                      ) : (
+                        <>🔑 Update Staff Passcode</>
+                      )}
+                    </button>
+                  </form>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-panel-border text-[11px] text-text-muted">
+                  Default: <span className="font-mono font-semibold">Target2026</span>
+                </div>
+              </div>
+
+              {/* Card 2: Library Owner Master Password */}
+              <div className="bg-card-bg border border-panel-border rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl p-2 rounded-xl bg-sky-500/10 border border-sky-500/20">
+                        👑
+                      </span>
+                      <div>
+                        <h3 className="font-extrabold text-sm text-text-main">
+                          Owner Master Password
+                        </h3>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                          Owner Full Access
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-text-muted leading-relaxed mb-5">
+                    This master password unlocks your Library Settings, Shift Timings, Soundbox UPI ID, and Fee Configuration. Keep this strictly private.
+                  </p>
+
+                  <form onSubmit={handleUpdateOwnerPassword} className="space-y-3.5">
+                    <div>
+                      <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block mb-1">
+                        New Owner Password
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="Enter secure master password"
+                        value={newOwnerPassword}
+                        onChange={(e) => setNewOwnerPassword(e.target.value)}
+                        required
+                        className="w-full bg-background border border-panel-border rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                    </div>
+
+                    {ownerPassSuccess && (
+                      <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 animate-in fade-in">
+                        <span>✅</span> Owner password updated successfully!
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={savingOwnerPass || !newOwnerPassword.trim()}
+                      className="w-full mt-2 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      {savingOwnerPass ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                          Saving Master Password...
+                        </>
+                      ) : (
+                        <>🛡️ Update Master Password</>
+                      )}
+                    </button>
+                  </form>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-panel-border text-[11px] text-text-muted">
+                  Default: <span className="font-mono font-semibold">TargetOwner2026</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Security Advisory Callout */}
+            <div className="bg-neutral-500/5 border border-panel-border rounded-2xl p-4 text-xs text-text-muted flex items-start gap-3">
+              <span className="text-base">💡</span>
+              <p className="leading-relaxed">
+                <span className="font-bold text-text-main">Instant Credential Sync:</span> Password updates take effect immediately across all sessions. Staff and owner can log in with their newly assigned credentials from the universal login portal or direct library link.
+              </p>
             </div>
           </div>
         )}

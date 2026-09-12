@@ -34,8 +34,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     if (!checking) {
       if (!isAuthenticated && !isPublicPath) {
         router.replace("/login");
-      } else if (isAuthenticated && pathname === "/login") {
-        router.replace("/");
       }
     }
   }, [checking, isAuthenticated, isPublicPath, pathname, router]);

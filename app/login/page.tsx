@@ -7,10 +7,25 @@ import { setStoredSession, UserRole } from "@/lib/auth";
 import { Library } from "@/lib/types";
 import { FALLBACK_TARGET_LIBRARY } from "@/lib/tenant";
 
+interface AuthModalState {
+  role: "staff" | "owner" | "superadmin";
+  title: string;
+  subtitle: string;
+  icon: string;
+  defaultHint: string;
+  destination: string;
+}
+
 export default function UniversalLoginPage() {
   const router = useRouter();
   const [libraries, setLibraries] = useState<Library[]>([FALLBACK_TARGET_LIBRARY]);
   const [selectedSlug, setSelectedSlug] = useState<string>("target-library");
+
+  // Modal Auth State
+  const [activeModal, setActiveModal] = useState<AuthModalState | null>(null);
+  const [password, setPassword] = useState("");
+  const [loggingIn, setLoggingIn] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadLibraries() {
@@ -51,6 +66,59 @@ export default function UniversalLoginPage() {
     router.push(destination);
   };
 
+  const openAuthModal = (modalInfo: AuthModalState) => {
+    setPassword("");
+    setAuthError(null);
+    setActiveModal(modalInfo);
+  };
+
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeModal) return;
+    if (!password.trim()) {
+      setAuthError("Please enter your password.");
+      return;
+    }
+
+    setLoggingIn(true);
+    setAuthError(null);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug: activeModal.role === "superadmin" ? "target-library" : selectedSlug,
+          role: activeModal.role,
+          password: password.trim(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Authentication failed");
+      }
+
+      // Save real user session
+      setStoredSession({
+        role: data.user.role,
+        libraryId: data.user.libraryId || selectedLib.id,
+        librarySlug: data.user.slug || selectedLib.slug,
+        username: data.user.username,
+        fullName: data.user.fullName,
+      });
+
+      sessionStorage.setItem("target_lib_auth", "true");
+      setActiveModal(null);
+      router.push(activeModal.destination);
+    } catch (err: unknown) {
+      setAuthError(err instanceof Error ? err.message : "Authentication failed");
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-background text-text-main flex flex-col items-center justify-center p-4 md:p-8">
       <div className="w-full max-w-xl">
@@ -63,7 +131,7 @@ export default function UniversalLoginPage() {
             Library Operating System
           </h1>
           <p className="text-xs text-text-muted mt-1 max-w-md mx-auto">
-            Select your portal below. Zero password friction enabled for rapid development and live client demos.
+            Choose your login portal below. Real credential authentication with instant demo bypass is enabled.
           </p>
         </div>
 
@@ -97,7 +165,16 @@ export default function UniversalLoginPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           {/* Card 1: Desk Librarian */}
           <button
-            onClick={() => handleQuickLogin("staff", `/l/${selectedSlug}`)}
+            onClick={() =>
+              openAuthModal({
+                role: "staff",
+                title: "Front Desk Staff Login",
+                subtitle: `Librarian Desk for ${selectedLib.name}`,
+                icon: "💻",
+                defaultHint: "Target2026",
+                destination: `/l/${selectedSlug}`,
+              })
+            }
             className="text-left bg-card-bg border border-panel-border hover:border-rose-500/40 rounded-2xl p-4.5 shadow-sm transition-all hover:scale-[1.01] group cursor-pointer"
           >
             <div className="flex items-center justify-between mb-2">
@@ -116,9 +193,9 @@ export default function UniversalLoginPage() {
             </p>
           </button>
 
-          {/* Card 2: Student Entrance QR Portal */}
+          {/* Card 2: Student Entrance QR & Pass Portal */}
           <button
-            onClick={() => handleQuickLogin("student", `/l/${selectedSlug}/join`)}
+            onClick={() => router.push(`/l/${selectedSlug}/student`)}
             className="text-left bg-card-bg border border-panel-border hover:border-emerald-500/40 rounded-2xl p-4.5 shadow-sm transition-all hover:scale-[1.01] group cursor-pointer"
           >
             <div className="flex items-center justify-between mb-2">
@@ -126,20 +203,29 @@ export default function UniversalLoginPage() {
                 📱
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                Student View
+                Student Portal
               </span>
             </div>
             <h3 className="font-extrabold text-sm text-text-main group-hover:text-emerald-600 transition">
-              Entrance QR Self-Admission
+              Digital Pass & Admission
             </h3>
             <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
-              What students see when scanning the front door QR code: pick plan & pay via UPI.
+              View digital ID card, assigned seat, shift timing, and past fee receipts.
             </p>
           </button>
 
           {/* Card 3: Library Owner Settings */}
           <button
-            onClick={() => handleQuickLogin("owner", `/l/${selectedSlug}/settings`)}
+            onClick={() =>
+              openAuthModal({
+                role: "owner",
+                title: "Library Owner Login",
+                subtitle: `Admin configuration for ${selectedLib.name}`,
+                icon: "👑",
+                defaultHint: "TargetOwner2026",
+                destination: `/l/${selectedSlug}/settings`,
+              })
+            }
             className="text-left bg-card-bg border border-panel-border hover:border-sky-500/40 rounded-2xl p-4.5 shadow-sm transition-all hover:scale-[1.01] group cursor-pointer"
           >
             <div className="flex items-center justify-between mb-2">
@@ -160,7 +246,16 @@ export default function UniversalLoginPage() {
 
           {/* Card 4: SaaS Founder Super-Admin */}
           <button
-            onClick={() => handleQuickLogin("superadmin", `/superadmin`)}
+            onClick={() =>
+              openAuthModal({
+                role: "superadmin",
+                title: "SaaS Founder Login",
+                subtitle: "Platform-wide SaaS Super-Admin & MRR metrics",
+                icon: "🛡️",
+                defaultHint: "Founder2026",
+                destination: `/superadmin`,
+              })
+            }
             className="text-left bg-card-bg border border-amber-500/30 hover:border-amber-500/60 bg-amber-500/5 rounded-2xl p-4.5 shadow-sm transition-all hover:scale-[1.01] group cursor-pointer"
           >
             <div className="flex items-center justify-between mb-2">
@@ -190,6 +285,92 @@ export default function UniversalLoginPage() {
           </Link>
         </div>
       </div>
+
+      {/* Password Authentication Modal */}
+      {activeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="bg-card-bg border border-panel-border rounded-3xl p-6 w-full max-w-md shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setActiveModal(null)}
+              className="absolute top-4 right-4 text-text-muted hover:text-text-main p-1.5 rounded-xl hover:bg-neutral-500/10 transition cursor-pointer text-sm font-bold"
+            >
+              ✕
+            </button>
+
+            {/* Modal Header */}
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-2xl p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+                {activeModal.icon}
+              </span>
+              <div>
+                <h2 className="text-base font-extrabold text-text-main">
+                  {activeModal.title}
+                </h2>
+                <p className="text-xs text-text-muted">{activeModal.subtitle}</p>
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {authError && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
+                <span>⚠️</span> {authError}
+              </div>
+            )}
+
+            {/* Password Form */}
+            <form onSubmit={handlePasswordLogin} className="space-y-4">
+              <div>
+                <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block mb-1">
+                  Enter Password
+                </label>
+                <input
+                  type="password"
+                  autoFocus
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password..."
+                  required
+                  className="w-full bg-background border border-panel-border rounded-xl px-3.5 py-2.5 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
+                />
+                <div className="text-[11px] text-text-muted mt-1.5 flex items-center justify-between">
+                  <span>Default Passcode: <span className="font-mono font-semibold">{activeModal.defaultHint}</span></span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loggingIn || !password.trim()}
+                className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {loggingIn ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    Verifying...
+                  </>
+                ) : (
+                  <>🔒 Login to Portal</>
+                )}
+              </button>
+            </form>
+
+            {/* Instant Demo Bypass Option */}
+            <div className="mt-5 pt-4 border-t border-panel-border text-center">
+              <button
+                type="button"
+                onClick={() => handleQuickLogin(activeModal.role, activeModal.destination)}
+                className="text-xs text-text-muted hover:text-amber-500 dark:hover:text-amber-400 font-semibold inline-flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <span>⚡</span>
+                <span>Demo Mode: Bypass Password & Enter Directly</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

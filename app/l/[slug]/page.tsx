@@ -97,13 +97,43 @@ export default function TenantDeskPage({
     fetchSeats();
   }, [settings.total_seats]);
 
+  // Sound Notification Chime for Incoming Entrance QR Admissions
+  const playAdmissionChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12); // A5
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.38);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.38);
+    } catch {
+      // Audio autoplay policy fallback
+    }
+  };
+
   // Poll for Incoming Admission Requests
   const fetchAdmissionRequests = async () => {
     try {
       const res = await fetch(`/api/admission-requests?slug=${slug}&status=pending`);
       if (res.ok) {
         const data = await res.json();
-        setAdmissionRequests(data.requests || []);
+        const incoming: AdmissionRequest[] = data.requests || [];
+        setAdmissionRequests((prev) => {
+          if (incoming.length > prev.length && prev.length > 0) {
+            playAdmissionChime();
+          }
+          return incoming;
+        });
       }
     } catch {
       // Table may not exist yet or offline
@@ -112,7 +142,7 @@ export default function TenantDeskPage({
 
   useEffect(() => {
     fetchAdmissionRequests();
-    const interval = setInterval(fetchAdmissionRequests, 12000); // Check every 12 seconds
+    const interval = setInterval(fetchAdmissionRequests, 10000); // Check every 10 seconds
     return () => clearInterval(interval);
   }, [slug]);
 
