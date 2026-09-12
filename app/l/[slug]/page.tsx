@@ -7,6 +7,7 @@ import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS } from "@/lib/tenant";
 import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 import ThemeToggle from "@/lib/ThemeToggle";
 import LibraryLogo from "@/lib/LibraryLogo";
+import { getStoredSession } from "@/lib/auth";
 
 interface MemberData {
   student_id: number;
@@ -72,6 +73,19 @@ export default function TenantDeskPage({
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
   const [selectedSeatForApproval, setSelectedSeatForApproval] = useState<Record<string, number>>({});
   const [approvalFeedback, setApprovalFeedback] = useState<{ id: string; message: string; receiptNo?: number } | null>(null);
+
+  // User Authentication & Role Detection
+  const [isOwner, setIsOwner] = useState<boolean>(false);
+
+  useEffect(() => {
+    const session = getStoredSession();
+    const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
+    const hasOwner =
+      session?.role === "owner" ||
+      session?.role === "superadmin" ||
+      ownerAuth === "true";
+    setIsOwner(hasOwner);
+  }, []);
 
   // Load Library & Settings
   useEffect(() => {
@@ -424,80 +438,94 @@ export default function TenantDeskPage({
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
       {/* Top Navbar */}
       <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-panel-border px-4 py-3">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className={`w-full mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 ${isWideLayout ? "max-w-[98vw]" : "max-w-7xl"}`}>
+          {/* Left: Logo and Library Brand */}
           <div className="flex items-center gap-3">
-            <Link
-              href={`/login?slug=${slug}`}
-              className="text-xs text-text-muted hover:text-text-main transition px-2 py-1 rounded-lg border border-panel-border"
-            >
-              🔄 Portals
-            </Link>
-            <div className="flex items-center gap-3">
-              <LibraryLogo
-                slug={slug}
-                logoUrl={library.logo_url}
-                name={library.name}
-                size="md"
-              />
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base font-extrabold tracking-tight">{library.name}</h1>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                    Librarian Desk
-                  </span>
-                </div>
-                <p className="text-[11px] text-text-muted">
-                  📍 {library.city || "Dehradun"} • Capacity: {settings.total_seats || 297} Seats
-                </p>
-              </div>
+            <LibraryLogo
+              slug={slug}
+              logoUrl={library.logo_url}
+              name={library.name}
+              size="md"
+            />
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-base sm:text-lg font-black tracking-tight">{library.name}</h1>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                {isOwner ? "👑 Owner Desk" : "💻 Front Desk"}
+              </span>
+              <span className="text-[10px] font-mono text-text-muted font-bold px-2 py-0.5 rounded-full bg-neutral-500/10">
+                {settings.total_seats || seats.length || 297} Seats
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <Link
-              href={`/dashboard?slug=${slug}`}
-              className="px-3 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition flex items-center gap-1.5"
-            >
-              <span>📊</span> Dashboard
-            </Link>
-            <Link
-              href={`/members?slug=${slug}`}
-              className="px-3 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition flex items-center gap-1.5"
-            >
-              <span>👥</span> Members
-            </Link>
-            <Link
-              href={`/collections?slug=${slug}`}
-              className="px-3 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition flex items-center gap-1.5"
-            >
-              <span>💰</span> Collections
-            </Link>
-            <Link
-              href={`/due-fees?slug=${slug}`}
-              className="px-3 py-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-bold hover:bg-blue-500/20 transition flex items-center gap-1.5"
-            >
-              <span>🔵</span> Due Fees
-            </Link>
-            <Link
-              href={`/l/${slug}/settings`}
-              className="px-3 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition flex items-center gap-1.5"
-            >
-              <span>👑</span> Settings
-            </Link>
-            <Link
-              href={`/l/${slug}/join`}
-              target="_blank"
-              className="px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold hover:bg-emerald-500/20 transition flex items-center gap-1.5"
-            >
-              <span>📱</span> Door QR
-            </Link>
+          {/* Right: Clean Organized Action Navigation */}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {/* Operational Navigation Links */}
+            <div className="flex items-center bg-card-bg border border-panel-border rounded-xl p-0.5 shadow-xs">
+              <Link
+                href={`/members?slug=${slug}`}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-text-muted hover:text-text-main hover:bg-neutral-500/10 transition flex items-center gap-1"
+              >
+                <span>👥</span> Members
+              </Link>
+              <Link
+                href={`/collections?slug=${slug}`}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-text-muted hover:text-text-main hover:bg-neutral-500/10 transition flex items-center gap-1"
+              >
+                <span>💰</span> Daily Fees
+              </Link>
+              <Link
+                href={`/due-fees?slug=${slug}`}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 transition flex items-center gap-1"
+              >
+                <span>🔵</span> Due Fees
+              </Link>
+              <Link
+                href={`/l/${slug}/join`}
+                target="_blank"
+                className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-1"
+              >
+                <span>📱</span> Door QR
+              </Link>
+
+              {/* Owner-Only Privileged Links */}
+              {isOwner && (
+                <>
+                  <Link
+                    href={`/dashboard?slug=${slug}`}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 transition flex items-center gap-1"
+                  >
+                    <span>📊</span> Dashboard
+                  </Link>
+                  <Link
+                    href={`/l/${slug}/settings`}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition flex items-center gap-1"
+                  >
+                    <span>👑</span> Settings
+                  </Link>
+                </>
+              )}
+            </div>
+
+            {/* Primary Action CTA */}
             <Link
               href={`/new-receipt?slug=${slug}`}
-              className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-xs transition active:scale-95"
+              className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold shadow-sm transition active:scale-95 whitespace-nowrap"
             >
               + Walk-in Admission
             </Link>
-            <ThemeToggle />
+
+            {/* Switch Portal & Theme */}
+            <div className="flex items-center gap-1">
+              <Link
+                href={`/login?slug=${slug}`}
+                className="px-2.5 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-semibold text-text-muted hover:text-text-main transition"
+                title="Switch Portal / Logout"
+              >
+                🔄 Switch
+              </Link>
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </header>
@@ -692,13 +720,15 @@ export default function TenantDeskPage({
               </span>
             </div>
 
-            <Link
-              href={`/l/${slug}/settings?tab=matrix_layout`}
-              className="text-xs text-text-muted hover:text-text-main flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 font-bold transition cursor-pointer"
-              title="Configure Seat Matrix Display in Settings"
-            >
-              <span>⚙️</span> Layout Settings
-            </Link>
+            {isOwner && (
+              <Link
+                href={`/l/${slug}/settings?tab=matrix_layout`}
+                className="text-xs text-text-muted hover:text-text-main flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 font-bold transition cursor-pointer"
+                title="Configure Seat Matrix Display in Settings"
+              >
+                <span>⚙️</span> Layout Settings
+              </Link>
+            )}
           </div>
 
           {loading ? (

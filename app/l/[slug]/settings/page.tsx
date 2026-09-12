@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Library, LibrarySettings, ShiftConfig } from "@/lib/types";
 import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, getEffectiveLogo } from "@/lib/tenant";
 import LibraryLogo from "@/lib/LibraryLogo";
+import { getStoredSession, setStoredSession } from "@/lib/auth";
 
 export const PRESET_EMBLEMS = [
   { id: "academy", label: "Academy Crest", icon: "🏛️", gradient: ["#8B5CF6", "#6D28D9"] },
@@ -85,6 +86,13 @@ export default function LibraryOwnerSettingsPage({
   const [matrixTileSize, setMatrixTileSize] = useState<number>(44);
   const [matrixIsWide, setMatrixIsWide] = useState<boolean>(true);
   const [matrixSaveSuccess, setMatrixSaveSuccess] = useState(false);
+
+  // Owner Access Control & Security Gate
+  const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState(false);
+  const [checkingOwnerAuth, setCheckingOwnerAuth] = useState(true);
+  const [ownerPassInput, setOwnerPassInput] = useState("");
+  const [ownerPassError, setOwnerPassError] = useState("");
+  const [unlockingOwner, setUnlockingOwner] = useState(false);
 
   // Password Management State
   const [newStaffPassword, setNewStaffPassword] = useState("");
@@ -172,6 +180,63 @@ export default function LibraryOwnerSettingsPage({
       setTimeout(() => setMatrixSaveSuccess(false), 3500);
     } catch {
       // ignore
+    }
+  };
+
+  // Verify Owner Credentials & Role
+  useEffect(() => {
+    const session = getStoredSession();
+    const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
+    const isOwnerRole = session.role === "owner" || session.role === "superadmin";
+    const isMatchingSlug = session.librarySlug === slug || session.role === "superadmin";
+
+    if ((isOwnerRole && isMatchingSlug) || ownerAuth === "true") {
+      setIsOwnerAuthenticated(true);
+    } else {
+      setIsOwnerAuthenticated(false);
+    }
+    setCheckingOwnerAuth(false);
+  }, [slug]);
+
+  const handleUnlockOwner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ownerPassInput.trim()) {
+      setOwnerPassError("Please enter your owner passcode.");
+      return;
+    }
+
+    setUnlockingOwner(true);
+    setOwnerPassError("");
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          role: "owner",
+          password: ownerPassInput.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        sessionStorage.setItem("target_lib_owner_auth", "true");
+        setStoredSession({
+          role: "owner",
+          libraryId: library?.id || "",
+          librarySlug: slug,
+          username: data.user?.username || "owner",
+          fullName: data.user?.fullName || "Library Owner",
+        });
+        setIsOwnerAuthenticated(true);
+      } else {
+        setOwnerPassError(data.error || "Incorrect owner passcode. Access denied.");
+      }
+    } catch {
+      setOwnerPassError("Authentication service error. Please try again.");
+    } finally {
+      setUnlockingOwner(false);
     }
   };
 
@@ -395,11 +460,70 @@ export default function LibraryOwnerSettingsPage({
     entranceJoinUrl
   )}`;
 
-  if (loading) {
+  if (loading || checkingOwnerAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="w-8 h-8 border-3 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
+    );
+  }
+
+  if (!isOwnerAuthenticated) {
+    return (
+      <main className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="bg-card-bg border border-panel-border rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-5 text-center animate-in zoom-in-95">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-3xl mx-auto shadow-inner">
+            👑
+          </div>
+
+          <div>
+            <h1 className="text-xl font-black text-text-main tracking-tight">
+              Owner Credentials Required
+            </h1>
+            <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
+              Library settings, pricing, soundbox UPI, and staff passwords are restricted strictly to the Library Owner. Staff members do not have access.
+            </p>
+          </div>
+
+          <form onSubmit={handleUnlockOwner} className="space-y-4 text-left pt-1">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted block">
+                Owner Passcode
+              </label>
+              <input
+                type="password"
+                placeholder="Enter owner password"
+                value={ownerPassInput}
+                onChange={(e) => {
+                  setOwnerPassInput(e.target.value);
+                  setOwnerPassError("");
+                }}
+                className="w-full bg-background border border-panel-border rounded-xl px-3.5 py-2.5 text-xs text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
+                autoFocus
+              />
+              {ownerPassError && (
+                <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{ownerPassError}</p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <Link
+                href={`/l/${slug}`}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-panel-border hover:bg-neutral-500/10 text-xs font-bold text-center text-text-muted hover:text-text-main transition"
+              >
+                ← Return to Desk
+              </Link>
+              <button
+                type="submit"
+                disabled={unlockingOwner}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {unlockingOwner ? "Verifying..." : "Unlock Settings"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </main>
     );
   }
 
