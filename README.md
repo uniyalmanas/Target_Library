@@ -94,6 +94,18 @@ Whether managing a 50-seat quiet study hall or a 300-seat multi-shift reading li
 
 ---
 
+### 📊 9. 1-Click Excel & CSV Accounting Export Engine
+- **Accountant-Ready Formats**: Full RFC-4180 CSV export designed specifically for Indian Chartered Accountants (CAs), tax filings, and audit books.
+- **UTF-8 BOM Encoding**: Pre-encoded with byte order mark (`\uFEFF`) ensuring Microsoft Excel (Windows & macOS) opens Indian names, Hindi text, and rupee currency symbols (`₹`) without character scrambling.
+- **Phone Number Text Preservation**: Automatically formats Indian 10-digit phone numbers (`="9876543210"`) so Excel doesn't turn them into scientific notation (like `9.87E+09`) or drop leading zeros.
+- **Multi-Module Coverage**:
+  - **`/collections`**: Daily fee collections with Cash vs. Soundbox UPI breakdown and total summary calculation rows.
+  - **`/members`**: Full permanent member ledger with active seat numbers, shift names, joining dates, and validity windows.
+  - **`/due-fees`**: Overdue candidates register with severity classifications (1-3 days, 4-7 days, 7+ days) and estimated pending revenues.
+  - **`/superadmin`**: SaaS tenant directory with onboarding dates, monthly rates, seat counts, and trial states.
+
+---
+
 ## 🗺️ Key Routes Directory
 
 | Route | Access Level | Description |
