@@ -1,6 +1,6 @@
 /**
  * Synthetic Demo Data for LibraryOS Interactive Demo Lounge
- * Provides realistic, safe, and dynamic sample records for prospective library owners.
+ * Scaled to 200 Seats capacity with realistic, safe, and dynamic sample records.
  * Completely isolated from real customer accounts and operational databases.
  */
 
@@ -67,115 +67,55 @@ export function getDemoISTDate(daysOffset: number = 0): string {
   }).format(d);
 }
 
+const FIRST_NAMES = [
+  "Rahul", "Priya", "Amit", "Sneha", "Aarav", "Ananya", "Rohan", "Mansi",
+  "Vikram", "Kavita", "Sushil", "Neeraj", "Vikas", "Ankit", "Aarti", "Mohit",
+  "Alok", "Sonia", "Harish", "Pooja", "Ritu", "Kabir", "Tanmay", "Divya",
+  "Nikhil", "Aditi", "Varun", "Karan", "Meera", "Shweta", "Abhishek", "Gaurav",
+  "Ishaan", "Tara", "Prateek", "Jaspreet", "Manish", "Riddhima", "Siddharth",
+  "Zoya", "Farhan", "Kunal", "Deepak", "Rajat", "Simran", "Chetan", "Bhavna",
+  "Kailash", "Nandini", "Yash", "Monika", "Sachin", "Swati", "Tushar", "Preeti",
+  "Umesh", "Deepika", "Kartik", "Komal", "Lalit", "Shalini", "Arnav", "Poonam"
+];
+
+const LAST_NAMES = [
+  "Sharma", "Verma", "Patel", "Singh", "Gupta", "Malhotra", "Joshi", "Das",
+  "Rawat", "Chauhan", "Panwar", "Mehra", "Bhatt", "Tiwari", "Gandhi", "Bisht",
+  "Saini", "Rathore", "Reddy", "Mehta", "Deshmukh", "Nambiar", "Chawla", "Sen",
+  "Nair", "Johar", "Roy", "Pandey", "Khattar", "Sutaria", "Kuhad", "Kaur",
+  "Paul", "Kapoor", "Anand", "Akhtar", "Khemu", "Negi", "Mishra", "Dubey",
+  "Yadav", "Tripathi", "Shukla", "Agrawal", "Bansal", "Bhatia", "Saxena", "Chopra"
+];
+
+function getDemoStudentName(seed: number): string {
+  const f = FIRST_NAMES[seed % FIRST_NAMES.length];
+  const l = LAST_NAMES[(seed * 3 + 7) % LAST_NAMES.length];
+  return `${f} ${l}`;
+}
+
 /**
- * Generate 60 realistic seats for LibraryOS Demo Lounge
+ * Generate 200 realistic seats for LibraryOS Demo Lounge
  */
 export function getDemoSeats(): DemoSeat[] {
   const seats: DemoSeat[] = [];
 
-  // Pre-configured profiles for key demo seats
-  const profiles: Record<number, {
-    type: "full" | "double" | "half" | "due" | "free";
-    s1?: { name: string; phone: string; shift: "shift_1" | "shift_2" | "morning" | "evening" | null; daysOffsetStart: number; daysOffsetEnd: number; amount: number; hasSheet?: boolean; overdue?: boolean; daysOverdue?: number };
-    s2?: { name: string; phone: string; shift: "shift_1" | "shift_2" | "morning" | "evening" | null; daysOffsetStart: number; daysOffsetEnd: number; amount: number; hasSheet?: boolean };
-  }> = {
-    1: { type: "full", s1: { name: "Rahul Sharma", phone: "98765 00001", shift: null, daysOffsetStart: -14, daysOffsetEnd: 16, amount: 900 } },
-    2: {
-      type: "double",
-      s1: { name: "Amit Verma", phone: "98765 00002", shift: "shift_1", daysOffsetStart: -10, daysOffsetEnd: 20, amount: 600 },
-      s2: { name: "Priya Malhotra", phone: "98765 00003", shift: "shift_2", daysOffsetStart: -8, daysOffsetEnd: 22, amount: 600 },
-    },
-    3: { type: "free" },
-    4: { type: "half", s1: { name: "Sushil Das", phone: "98765 00004", shift: "shift_1", daysOffsetStart: -12, daysOffsetEnd: 18, amount: 600 } },
-    5: { type: "due", s1: { name: "Neeraj Rawat", phone: "98765 00005", shift: null, daysOffsetStart: -33, daysOffsetEnd: -3, amount: 900, overdue: true, daysOverdue: 3 } },
-    6: { type: "free" },
-    7: { type: "full", s1: { name: "Mansi Joshi", phone: "98765 00006", shift: null, daysOffsetStart: -5, daysOffsetEnd: 25, amount: 900 } },
-    8: {
-      type: "double",
-      s1: { name: "Vikas Chauhan", phone: "98765 00007", shift: "shift_1", daysOffsetStart: -15, daysOffsetEnd: 15, amount: 600 },
-      s2: { name: "Ankit Panwar", phone: "98765 00008", shift: "shift_2", daysOffsetStart: -18, daysOffsetEnd: 12, amount: 600 },
-    },
-    9: { type: "free" },
-    10: { type: "free" },
-    11: { type: "half", s1: { name: "Rohan Kumar", phone: "98765 00009", shift: "shift_2", daysOffsetStart: -9, daysOffsetEnd: 21, amount: 600 } },
-    12: { type: "full", s1: { name: "Kavita Negi", phone: "98765 00010", shift: null, daysOffsetStart: -16, daysOffsetEnd: 14, amount: 1200, hasSheet: true } },
-    13: { type: "due", s1: { name: "Deepak Singh", phone: "98765 00011", shift: null, daysOffsetStart: -35, daysOffsetEnd: -5, amount: 900, overdue: true, daysOverdue: 5 } },
-    14: { type: "free" },
-    15: {
-      type: "double",
-      s1: { name: "Mohit Bhatt", phone: "98765 00012", shift: "shift_1", daysOffsetStart: -11, daysOffsetEnd: 19, amount: 600 },
-      s2: { name: "Aarti Mehra", phone: "98765 00013", shift: "shift_2", daysOffsetStart: -7, daysOffsetEnd: 23, amount: 600 },
-    },
-    16: { type: "free" },
-    17: { type: "full", s1: { name: "Alok Tiwari", phone: "98765 00014", shift: null, daysOffsetStart: -8, daysOffsetEnd: 22, amount: 900 } },
-    18: { type: "free" },
-    19: { type: "half", s1: { name: "Sonia Gandhi", phone: "98765 00015", shift: "shift_1", daysOffsetStart: -4, daysOffsetEnd: 26, amount: 600 } },
-    20: { type: "free" },
-    21: { type: "full", s1: { name: "Harish Bisht", phone: "98765 00016", shift: null, daysOffsetStart: -15, daysOffsetEnd: 15, amount: 900 } },
-    22: {
-      type: "double",
-      s1: { name: "Pooja Gupta", phone: "98765 00017", shift: "shift_1", daysOffsetStart: -13, daysOffsetEnd: 17, amount: 600 },
-      s2: { name: "Ritu Saini", phone: "98765 00018", shift: "shift_2", daysOffsetStart: -10, daysOffsetEnd: 20, amount: 600 },
-    },
-    23: { type: "free" },
-    24: { type: "free" },
-    25: { type: "full", s1: { name: "Vikram Rathore", phone: "98765 00019", shift: null, daysOffsetStart: -3, daysOffsetEnd: 27, amount: 900 } },
-    26: { type: "full", s1: { name: "Ananya Reddy", phone: "98765 00020", shift: null, daysOffsetStart: -19, daysOffsetEnd: 11, amount: 1200, hasSheet: true } },
-    27: { type: "half", s1: { name: "Kabir Mehta", phone: "98765 00021", shift: "shift_1", daysOffsetStart: -14, daysOffsetEnd: 16, amount: 600 } },
-    28: { type: "due", s1: { name: "Sneha Kapoor", phone: "98765 00022", shift: null, daysOffsetStart: -38, daysOffsetEnd: -8, amount: 900, overdue: true, daysOverdue: 8 } },
-    29: { type: "free" },
-    30: {
-      type: "double",
-      s1: { name: "Tanmay Deshmukh", phone: "98765 00023", shift: "shift_1", daysOffsetStart: -14, daysOffsetEnd: 16, amount: 600 },
-      s2: { name: "Divya Nambiar", phone: "98765 00024", shift: "shift_2", daysOffsetStart: -14, daysOffsetEnd: 16, amount: 600 },
-    },
-    31: { type: "full", s1: { name: "Nikhil Chawla", phone: "98765 00025", shift: null, daysOffsetStart: -6, daysOffsetEnd: 24, amount: 900 } },
-    32: { type: "free" },
-    33: { type: "full", s1: { name: "Aditi Sen", phone: "98765 00026", shift: null, daysOffsetStart: -12, daysOffsetEnd: 18, amount: 900 } },
-    34: { type: "half", s1: { name: "Varun Nair", phone: "98765 00027", shift: "shift_2", daysOffsetStart: -11, daysOffsetEnd: 19, amount: 600 } },
-    35: { type: "free" },
-    36: {
-      type: "double",
-      s1: { name: "Karan Johar", phone: "98765 00028", shift: "shift_1", daysOffsetStart: -10, daysOffsetEnd: 20, amount: 600 },
-      s2: { name: "Meera Sen", phone: "98765 00029", shift: "shift_2", daysOffsetStart: -10, daysOffsetEnd: 20, amount: 600 },
-    },
-    37: { type: "full", s1: { name: "Shweta Tiwari", phone: "98765 00030", shift: null, daysOffsetStart: -18, daysOffsetEnd: 12, amount: 900 } },
-    38: { type: "free" },
-    39: { type: "due", s1: { name: "Abhishek Roy", phone: "98765 00031", shift: null, daysOffsetStart: -32, daysOffsetEnd: -2, amount: 900, overdue: true, daysOverdue: 2 } },
-    40: { type: "free" },
-    41: { type: "full", s1: { name: "Gaurav Pandey", phone: "98765 00032", shift: null, daysOffsetStart: -10, daysOffsetEnd: 20, amount: 900 } },
-    42: {
-      type: "double",
-      s1: { name: "Ishaan Khattar", phone: "98765 00033", shift: "shift_1", daysOffsetStart: -12, daysOffsetEnd: 18, amount: 600 },
-      s2: { name: "Tara Sutaria", phone: "98765 00034", shift: "shift_2", daysOffsetStart: -12, daysOffsetEnd: 18, amount: 600 },
-    },
-    43: { type: "free" },
-    44: { type: "half", s1: { name: "Prateek Kuhad", phone: "98765 00035", shift: "shift_1", daysOffsetStart: -5, daysOffsetEnd: 25, amount: 600 } },
-    45: { type: "free" },
-    46: { type: "full", s1: { name: "Jaspreet Kaur", phone: "98765 00036", shift: null, daysOffsetStart: -7, daysOffsetEnd: 23, amount: 900 } },
-    47: { type: "free" },
-    48: {
-      type: "double",
-      s1: { name: "Manish Paul", phone: "98765 00037", shift: "shift_1", daysOffsetStart: -15, daysOffsetEnd: 15, amount: 600 },
-      s2: { name: "Riddhima Kapoor", phone: "98765 00038", shift: "shift_2", daysOffsetStart: -15, daysOffsetEnd: 15, amount: 600 },
-    },
-    49: { type: "free" },
-    50: { type: "free" },
-    51: { type: "full", s1: { name: "Siddharth Anand", phone: "98765 00039", shift: null, daysOffsetStart: -2, daysOffsetEnd: 28, amount: 900 } },
-    52: { type: "free" },
-    53: { type: "half", s1: { name: "Zoya Akhtar", phone: "98765 00040", shift: "shift_2", daysOffsetStart: -9, daysOffsetEnd: 21, amount: 600 } },
-    54: { type: "free" },
-    55: { type: "full", s1: { name: "Farhan Akhtar", phone: "98765 00041", shift: null, daysOffsetStart: -11, daysOffsetEnd: 19, amount: 900 } },
-    56: { type: "free" },
-    57: { type: "free" },
-    58: { type: "full", s1: { name: "Kunal Khemu", phone: "98765 00042", shift: null, daysOffsetStart: -4, daysOffsetEnd: 26, amount: 900 } },
-    59: { type: "free" },
-    60: { type: "free" },
-  };
+  for (let i = 1; i <= 200; i++) {
+    // Determine seat category procedurally for a natural, rich 200-seat matrix
+    let category: "free" | "double" | "due" | "half" | "full";
 
-  for (let i = 1; i <= 60; i++) {
-    const prof = profiles[i] || { type: "free" };
-    if (prof.type === "free" || !prof.s1) {
+    if (i % 13 === 5 || i === 13 || i === 28 || i === 39) {
+      category = "due";
+    } else if (i % 6 === 2) {
+      category = "double";
+    } else if (i % 6 === 4) {
+      category = "half";
+    } else if (i % 5 === 0 || i % 7 === 3) {
+      category = "free";
+    } else {
+      category = "full";
+    }
+
+    if (category === "free") {
       seats.push({
         seat_id: i,
         seat_number: i,
@@ -190,65 +130,170 @@ export function getDemoSeats(): DemoSeat[] {
     }
 
     const receipts: DemoSeatReceipt[] = [];
+    const student1Id = 1000 + i * 2;
+    const phoneNum1 = `98765 ${String(student1Id % 10000).padStart(5, "0")}`;
+    const name1 = getDemoStudentName(i);
+    const hasSheet = i % 4 === 0;
 
-    // First student receipt
-    receipts.push({
-      receipt_no: 8000 + i * 2,
-      student_id: 1000 + i * 2,
-      subscription_type: prof.s1.shift ? "half_day" : "full_day",
-      shift_type: prof.s1.shift,
-      has_sheet: Boolean(prof.s1.hasSheet),
-      amount_paid: prof.s1.amount,
-      start_date: getDemoISTDate(prof.s1.daysOffsetStart),
-      end_date: getDemoISTDate(prof.s1.daysOffsetEnd),
-      is_vacated: false,
-      is_overdue: Boolean(prof.s1.overdue),
-      days_overdue: prof.s1.daysOverdue || 0,
-      member: {
-        student_id: 1000 + i * 2,
-        name: prof.s1.name,
-        phone: prof.s1.phone,
-        aadhar_no: `XXXX-XXXX-${1000 + i}`,
-      },
-    });
-
-    // Second student receipt for double shifts
-    if (prof.s2) {
+    if (category === "due") {
+      const daysOverdue = (i % 7) + 2; // 2 to 8 days overdue
       receipts.push({
-        receipt_no: 8000 + i * 2 + 1,
-        student_id: 1000 + i * 2 + 1,
+        receipt_no: 8000 + i * 2,
+        student_id: student1Id,
+        subscription_type: "full_day",
+        shift_type: null,
+        has_sheet: hasSheet,
+        amount_paid: hasSheet ? 1200 : 900,
+        start_date: getDemoISTDate(-30 - daysOverdue),
+        end_date: getDemoISTDate(-daysOverdue),
+        is_vacated: false,
+        is_overdue: true,
+        days_overdue: daysOverdue,
+        member: {
+          student_id: student1Id,
+          name: name1,
+          phone: phoneNum1,
+          aadhar_no: `XXXX-XXXX-${1000 + i}`,
+        },
+      });
+
+      seats.push({
+        seat_id: i,
+        seat_number: i,
+        occupied: true,
+        is_overdue: true,
+        has_due: true,
+        is_double_shift: false,
+        status: "due",
+        receipts,
+      });
+      continue;
+    }
+
+    if (category === "double") {
+      // Morning Shift Student (Shift 1)
+      receipts.push({
+        receipt_no: 8000 + i * 2,
+        student_id: student1Id,
         subscription_type: "half_day",
-        shift_type: prof.s2.shift,
-        has_sheet: Boolean(prof.s2.hasSheet),
-        amount_paid: prof.s2.amount,
-        start_date: getDemoISTDate(prof.s2.daysOffsetStart),
-        end_date: getDemoISTDate(prof.s2.daysOffsetEnd),
+        shift_type: "shift_1",
+        has_sheet: false,
+        amount_paid: 600,
+        start_date: getDemoISTDate(-10 - (i % 10)),
+        end_date: getDemoISTDate(20 - (i % 10)),
         is_vacated: false,
         is_overdue: false,
         days_overdue: 0,
         member: {
-          student_id: 1000 + i * 2 + 1,
-          name: prof.s2.name,
-          phone: prof.s2.phone,
+          student_id: student1Id,
+          name: name1,
+          phone: phoneNum1,
+          aadhar_no: `XXXX-XXXX-${1000 + i}`,
+        },
+      });
+
+      // Evening Shift Student (Shift 2)
+      const student2Id = 1000 + i * 2 + 1;
+      const phoneNum2 = `98765 ${String(student2Id % 10000).padStart(5, "0")}`;
+      const name2 = getDemoStudentName(i + 100);
+
+      receipts.push({
+        receipt_no: 8000 + i * 2 + 1,
+        student_id: student2Id,
+        subscription_type: "half_day",
+        shift_type: "shift_2",
+        has_sheet: false,
+        amount_paid: 600,
+        start_date: getDemoISTDate(-8 - (i % 8)),
+        end_date: getDemoISTDate(22 - (i % 8)),
+        is_vacated: false,
+        is_overdue: false,
+        days_overdue: 0,
+        member: {
+          student_id: student2Id,
+          name: name2,
+          phone: phoneNum2,
           aadhar_no: `XXXX-XXXX-${2000 + i}`,
         },
       });
+
+      seats.push({
+        seat_id: i,
+        seat_number: i,
+        occupied: true,
+        is_overdue: false,
+        has_due: false,
+        is_double_shift: true,
+        status: "double_shift",
+        receipts,
+      });
+      continue;
     }
 
-    let status = "occupied";
-    if (prof.type === "due") status = "due";
-    else if (prof.type === "double") status = "double_shift";
-    else if (prof.type === "half") status = "half_day";
-    else if (prof.type === "full") status = "full_day";
+    if (category === "half") {
+      const shiftType = i % 2 === 0 ? "shift_1" : "shift_2";
+      receipts.push({
+        receipt_no: 8000 + i * 2,
+        student_id: student1Id,
+        subscription_type: "half_day",
+        shift_type: shiftType,
+        has_sheet: false,
+        amount_paid: 600,
+        start_date: getDemoISTDate(-12 - (i % 6)),
+        end_date: getDemoISTDate(18 - (i % 6)),
+        is_vacated: false,
+        is_overdue: false,
+        days_overdue: 0,
+        member: {
+          student_id: student1Id,
+          name: name1,
+          phone: phoneNum1,
+          aadhar_no: `XXXX-XXXX-${1000 + i}`,
+        },
+      });
+
+      seats.push({
+        seat_id: i,
+        seat_number: i,
+        occupied: true,
+        is_overdue: false,
+        has_due: false,
+        is_double_shift: false,
+        status: "half_day",
+        receipts,
+      });
+      continue;
+    }
+
+    // Default: Full Day
+    receipts.push({
+      receipt_no: 8000 + i * 2,
+      student_id: student1Id,
+      subscription_type: "full_day",
+      shift_type: null,
+      has_sheet: hasSheet,
+      amount_paid: hasSheet ? 1200 : 900,
+      start_date: getDemoISTDate(-14 - (i % 10)),
+      end_date: getDemoISTDate(16 - (i % 10)),
+      is_vacated: false,
+      is_overdue: false,
+      days_overdue: 0,
+      member: {
+        student_id: student1Id,
+        name: name1,
+        phone: phoneNum1,
+        aadhar_no: `XXXX-XXXX-${1000 + i}`,
+      },
+    });
 
     seats.push({
       seat_id: i,
       seat_number: i,
       occupied: true,
-      is_overdue: prof.type === "due",
-      has_due: prof.type === "due",
-      is_double_shift: prof.type === "double",
-      status,
+      is_overdue: false,
+      has_due: false,
+      is_double_shift: false,
+      status: "full_day",
       receipts,
     });
   }
@@ -271,7 +316,7 @@ export function getDemoMembers(query?: string | null): DemoMember[] {
           name: r.member.name,
           phone: r.member.phone,
           aadhar_no: r.member.aadhar_no || "XXXX-XXXX-9999",
-          date_of_joining: getDemoISTDate(-60),
+          date_of_joining: getDemoISTDate(-60 - (r.student_id % 30)),
           library_id: DEMO_LIBRARY_ID,
           receipts: [
             {
@@ -310,16 +355,16 @@ export function getDemoCollections(targetDate?: string | null) {
 
   return {
     summary: {
-      total_amount: isToday ? 4500 : 3600,
-      total_count: isToday ? 5 : 4,
-      cash_amount: isToday ? 1500 : 1200,
-      cash_count: isToday ? 2 : 2,
-      online_amount: isToday ? 3000 : 2400,
-      online_count: isToday ? 3 : 2,
-      full_day_count: isToday ? 3 : 2,
-      half_day_count: isToday ? 2 : 2,
-      new_admissions: isToday ? 2 : 1,
-      renewals: isToday ? 3 : 3,
+      total_amount: isToday ? 18600 : 15300,
+      total_count: isToday ? 22 : 18,
+      cash_amount: isToday ? 5400 : 4200,
+      cash_count: isToday ? 6 : 5,
+      online_amount: isToday ? 13200 : 11100,
+      online_count: isToday ? 16 : 13,
+      full_day_count: isToday ? 12 : 10,
+      half_day_count: isToday ? 10 : 8,
+      new_admissions: isToday ? 6 : 4,
+      renewals: isToday ? 16 : 14,
     },
     payments: [
       {
@@ -336,16 +381,16 @@ export function getDemoCollections(targetDate?: string | null) {
         payment_mode: "online",
         start_date: getDemoISTDate(0),
         end_date: getDemoISTDate(30),
-        created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+        created_at: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
         payment_type: "renewal",
       },
       {
         receipt_no: 8902,
-        student_id: 1002,
+        student_id: 1004,
         seat_id: 2,
         seat_number: 2,
         student_name: "Amit Verma",
-        phone: "98765 00002",
+        phone: "98765 00004",
         subscription_type: "half_day",
         shift_type: "shift_1",
         has_sheet: false,
@@ -353,7 +398,7 @@ export function getDemoCollections(targetDate?: string | null) {
         payment_mode: "online",
         start_date: getDemoISTDate(0),
         end_date: getDemoISTDate(30),
-        created_at: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
+        created_at: new Date(Date.now() - 65 * 60 * 1000).toISOString(),
         payment_type: "new",
       },
       {
@@ -370,16 +415,16 @@ export function getDemoCollections(targetDate?: string | null) {
         payment_mode: "cash",
         start_date: getDemoISTDate(0),
         end_date: getDemoISTDate(30),
-        created_at: new Date(Date.now() - 180 * 60 * 1000).toISOString(),
+        created_at: new Date(Date.now() - 110 * 60 * 1000).toISOString(),
         payment_type: "renewal",
       },
       {
         receipt_no: 8904,
-        student_id: 1019,
+        student_id: 1050,
         seat_id: 25,
         seat_number: 25,
         student_name: "Vikram Rathore",
-        phone: "98765 00019",
+        phone: "98765 00050",
         subscription_type: "full_day",
         shift_type: null,
         has_sheet: false,
@@ -387,16 +432,16 @@ export function getDemoCollections(targetDate?: string | null) {
         payment_mode: "online",
         start_date: getDemoISTDate(0),
         end_date: getDemoISTDate(30),
-        created_at: new Date(Date.now() - 240 * 60 * 1000).toISOString(),
+        created_at: new Date(Date.now() - 150 * 60 * 1000).toISOString(),
         payment_type: "new",
       },
       {
         receipt_no: 8905,
-        student_id: 1009,
+        student_id: 1022,
         seat_id: 11,
         seat_number: 11,
         student_name: "Rohan Kumar",
-        phone: "98765 00009",
+        phone: "98765 00022",
         subscription_type: "half_day",
         shift_type: "shift_2",
         has_sheet: false,
@@ -404,8 +449,93 @@ export function getDemoCollections(targetDate?: string | null) {
         payment_mode: "cash",
         start_date: getDemoISTDate(0),
         end_date: getDemoISTDate(30),
-        created_at: new Date(Date.now() - 310 * 60 * 1000).toISOString(),
+        created_at: new Date(Date.now() - 195 * 60 * 1000).toISOString(),
         payment_type: "renewal",
+      },
+      {
+        receipt_no: 8906,
+        student_id: 1144,
+        seat_id: 72,
+        seat_number: 72,
+        student_name: "Pooja Gupta",
+        phone: "98765 00144",
+        subscription_type: "half_day",
+        shift_type: "shift_1",
+        has_sheet: false,
+        amount_paid: 600,
+        payment_mode: "online",
+        start_date: getDemoISTDate(0),
+        end_date: getDemoISTDate(30),
+        created_at: new Date(Date.now() - 240 * 60 * 1000).toISOString(),
+        payment_type: "renewal",
+      },
+      {
+        receipt_no: 8907,
+        student_id: 1196,
+        seat_id: 98,
+        seat_number: 98,
+        student_name: "Nikhil Chawla",
+        phone: "98765 00196",
+        subscription_type: "full_day",
+        shift_type: null,
+        has_sheet: false,
+        amount_paid: 900,
+        payment_mode: "online",
+        start_date: getDemoISTDate(0),
+        end_date: getDemoISTDate(30),
+        created_at: new Date(Date.now() - 310 * 60 * 1000).toISOString(),
+        payment_type: "new",
+      },
+      {
+        receipt_no: 8908,
+        student_id: 1240,
+        seat_id: 120,
+        seat_number: 120,
+        student_name: "Jaspreet Kaur",
+        phone: "98765 00240",
+        subscription_type: "full_day",
+        shift_type: null,
+        has_sheet: true,
+        amount_paid: 1200,
+        payment_mode: "cash",
+        start_date: getDemoISTDate(0),
+        end_date: getDemoISTDate(30),
+        created_at: new Date(Date.now() - 380 * 60 * 1000).toISOString(),
+        payment_type: "renewal",
+      },
+      {
+        receipt_no: 8909,
+        student_id: 1312,
+        seat_id: 156,
+        seat_number: 156,
+        student_name: "Farhan Akhtar",
+        phone: "98765 00312",
+        subscription_type: "half_day",
+        shift_type: "shift_2",
+        has_sheet: false,
+        amount_paid: 600,
+        payment_mode: "online",
+        start_date: getDemoISTDate(0),
+        end_date: getDemoISTDate(30),
+        created_at: new Date(Date.now() - 440 * 60 * 1000).toISOString(),
+        payment_type: "renewal",
+      },
+      {
+        receipt_no: 8910,
+        student_id: 1378,
+        seat_id: 189,
+        seat_number: 189,
+        student_name: "Siddharth Anand",
+        phone: "98765 00378",
+        subscription_type: "full_day",
+        shift_type: null,
+        has_sheet: false,
+        amount_paid: 900,
+        payment_mode: "online",
+        start_date: getDemoISTDate(0),
+        end_date: getDemoISTDate(30),
+        created_at: new Date(Date.now() - 500 * 60 * 1000).toISOString(),
+        payment_type: "new",
       },
     ],
   };
@@ -415,80 +545,48 @@ export function getDemoCollections(targetDate?: string | null) {
  * Generate synthetic due fees candidates for /due-fees?slug=demo-library
  */
 export function getDemoDueFees() {
+  const seats = getDemoSeats();
+  const overdueSeats = seats.filter((s) => s.is_overdue && s.receipts.length > 0);
+
+  const candidates = overdueSeats.map((s, idx) => {
+    const r = s.receipts[0];
+    const days = r.days_overdue || (idx % 7) + 2;
+    let severity: "1_to_3_days" | "4_to_7_days" | "7_plus_days" = "1_to_3_days";
+    if (days >= 7) severity = "7_plus_days";
+    else if (days >= 4) severity = "4_to_7_days";
+
+    return {
+      receipt_no: r.receipt_no,
+      student_id: r.student_id,
+      name: r.member.name,
+      phone: r.member.phone,
+      seat_id: s.seat_id,
+      seat_number: s.seat_number,
+      subscription_type: r.subscription_type,
+      shift_type: r.shift_type,
+      has_sheet: r.has_sheet,
+      amount_paid: r.amount_paid,
+      start_date: r.start_date,
+      end_date: r.end_date,
+      days_overdue: days,
+      severity,
+    };
+  });
+
+  const d1_3 = candidates.filter((c) => c.severity === "1_to_3_days").length;
+  const d4_7 = candidates.filter((c) => c.severity === "4_to_7_days").length;
+  const d7p = candidates.filter((c) => c.severity === "7_plus_days").length;
+  const totalAmount = candidates.reduce((sum, c) => sum + c.amount_paid, 0);
+
   return {
     summary: {
-      total_due_count: 4,
-      days_1_to_3: 2,
-      days_4_to_7: 1,
-      days_7_plus: 1,
-      estimated_pending_fees: 3300,
+      total_due_count: candidates.length,
+      days_1_to_3: d1_3,
+      days_4_to_7: d4_7,
+      days_7_plus: d7p,
+      estimated_pending_fees: totalAmount,
     },
-    candidates: [
-      {
-        receipt_no: 8501,
-        student_id: 1005,
-        name: "Neeraj Rawat",
-        phone: "98765 00005",
-        seat_id: 5,
-        seat_number: 5,
-        subscription_type: "full_day",
-        shift_type: null,
-        has_sheet: false,
-        amount_paid: 900,
-        start_date: getDemoISTDate(-33),
-        end_date: getDemoISTDate(-3),
-        days_overdue: 3,
-        severity: "1_to_3_days",
-      },
-      {
-        receipt_no: 8502,
-        student_id: 1011,
-        name: "Deepak Singh",
-        phone: "98765 00011",
-        seat_id: 13,
-        seat_number: 13,
-        subscription_type: "full_day",
-        shift_type: null,
-        has_sheet: false,
-        amount_paid: 900,
-        start_date: getDemoISTDate(-35),
-        end_date: getDemoISTDate(-5),
-        days_overdue: 5,
-        severity: "4_to_7_days",
-      },
-      {
-        receipt_no: 8503,
-        student_id: 1022,
-        name: "Sneha Kapoor",
-        phone: "98765 00022",
-        seat_id: 28,
-        seat_number: 28,
-        subscription_type: "full_day",
-        shift_type: null,
-        has_sheet: false,
-        amount_paid: 900,
-        start_date: getDemoISTDate(-38),
-        end_date: getDemoISTDate(-8),
-        days_overdue: 8,
-        severity: "7_plus_days",
-      },
-      {
-        receipt_no: 8504,
-        student_id: 1031,
-        name: "Abhishek Roy",
-        phone: "98765 00031",
-        seat_id: 39,
-        seat_number: 39,
-        subscription_type: "half_day",
-        shift_type: "shift_1",
-        has_sheet: false,
-        amount_paid: 600,
-        start_date: getDemoISTDate(-32),
-        end_date: getDemoISTDate(-2),
-        days_overdue: 2,
-        severity: "1_to_3_days",
-      },
-    ],
+    candidates,
   };
 }
 

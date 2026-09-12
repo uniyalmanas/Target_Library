@@ -70,7 +70,7 @@ export const DEMO_LIBRARY: Library = {
 
 export const DEMO_SETTINGS: LibrarySettings = {
   library_id: DEMO_LIBRARY_ID,
-  total_seats: 60,
+  total_seats: 200,
   shifts_config: DEFAULT_SHIFTS,
   has_sheet_enabled: true,
   sheet_price_monthly: 300,

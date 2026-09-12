@@ -25,12 +25,12 @@ const headerCache: Record<string, LibraryHeaderInfo> = {
   "demo-library": {
     name: "LibraryOS Demo Lounge",
     logoUrl: null,
-    totalSeats: 60,
+    totalSeats: 200,
   },
   "demo": {
     name: "LibraryOS Demo Lounge",
     logoUrl: null,
-    totalSeats: 60,
+    totalSeats: 200,
   },
 };
 
@@ -65,7 +65,7 @@ function HeaderNavbarContent() {
           ? "LibraryOS Demo Lounge"
           : initialSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
       logoUrl: initialSlug === "target-library" ? "/lib-logo.png" : null,
-      totalSeats: isDemoSlug(initialSlug) ? 60 : 297,
+      totalSeats: isDemoSlug(initialSlug) ? 200 : 297,
     };
   });
   const [isOwner, setIsOwner] = useState(false);

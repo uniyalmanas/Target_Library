@@ -480,7 +480,7 @@ export default function TenantDeskPage({
                   </span>
                 </div>
                 <p className="text-text-muted mt-0.5 leading-relaxed">
-                  All 60 seats, double-shifts, daily collections, and student profiles are simulated sample records. Click any seat to test inspections, view shifts, and test approval chimes!
+                  All 200 seats, double-shifts, daily collections, and student profiles are simulated sample records. Click any seat to test inspections, view shifts, and test approval chimes!
                 </p>
               </div>
             </div>
