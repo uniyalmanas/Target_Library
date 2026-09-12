@@ -892,11 +892,13 @@ export default function TenantDeskPage({
           onClick={() => setSelected(null)}
         >
           <div
-            className="my-auto bg-card-bg border border-panel-border rounded-3xl max-w-lg w-full shadow-2xl relative overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[88vh]"
+            className={`my-auto bg-card-bg border border-panel-border rounded-3xl ${
+              selected.receipts && selected.receipts.length > 1 ? "max-w-4xl" : "max-w-lg"
+            } w-full shadow-2xl relative overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[92vh]`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header: shrink-0 pinned at top so it never scrolls or gets cut off */}
-            <div className="p-4 sm:p-5 border-b border-panel-border bg-card-bg shrink-0 flex justify-between items-center gap-3">
+            <div className="px-5 py-3.5 border-b border-panel-border bg-card-bg shrink-0 flex justify-between items-center gap-3">
               <div className="min-w-0 flex-1">
                 <h2 className="text-xl font-black text-text-main flex items-center gap-2 truncate">
                   Seat #{selected.seat_number}
@@ -943,352 +945,331 @@ export default function TenantDeskPage({
               </div>
             </div>
 
-            {/* Scrollable Body: flex-1 overflow-y-auto */}
-            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 overscroll-contain">
+            {/* Content Body: compact and side-by-side for multiple shifts */}
+            <div className="p-3.5 sm:p-4 overflow-y-auto flex-1 space-y-3 overscroll-contain">
               {selected.occupied && selected.receipts && selected.receipts.length > 0 ? (
-              <div className="space-y-4">
-                {isSeatDoubleShift(selected) && (
-                  <div className="bg-purple-500/10 border border-purple-500/25 rounded-2xl p-3 text-xs text-purple-700 dark:text-purple-300 flex items-center justify-between">
-                    <span className="font-bold flex items-center gap-1.5">
-                      <span>👥</span> Double Shifted Seat
-                    </span>
-                    <span className="text-[10px] bg-purple-500/20 text-purple-700 dark:text-purple-200 px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider">
-                      2 Active Shifts
-                    </span>
-                  </div>
-                )}
+                <div className="space-y-3">
+                  {/* Occupants: Side-by-Side 2 columns when dual seat */}
+                  <div className={`grid ${selected.receipts.length > 1 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"} gap-3`}>
+                    {selected.receipts.map((r, idx) => {
+                      const today = new Date().toISOString().split("T")[0];
+                      const diffTime = new Date(r.end_date).getTime() - new Date(today).getTime();
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      const isOverdue = r.is_overdue || diffDays < 0;
+                      const daysOverdue = isOverdue ? Math.abs(diffDays) || r.days_overdue || 1 : 0;
 
-                {selected.receipts.map((r, idx) => {
-                  const today = new Date().toISOString().split("T")[0];
-                  const diffTime = new Date(r.end_date).getTime() - new Date(today).getTime();
-                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                  const isOverdue = r.is_overdue || diffDays < 0;
-                  const daysOverdue = isOverdue ? Math.abs(diffDays) || r.days_overdue || 1 : 0;
-
-                  return (
-                    <div
-                      key={r.receipt_no || idx}
-                      className="bg-background border border-panel-border rounded-2xl p-4 relative shadow-sm space-y-3"
-                    >
-                      {/* Overdue alert banner if overdue */}
-                      {isOverdue && (
-                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-2.5 text-xs text-blue-700 dark:text-blue-300 flex items-center justify-between">
-                          <span className="font-bold flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse inline-block" />
-                            Fees Overdue ({daysOverdue} day{daysOverdue === 1 ? "" : "s"})
-                          </span>
-                          <span className="text-[10px] bg-blue-500/20 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded font-bold">
-                            Expired {r.end_date}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Occupant indicator for multiple shifts */}
-                      {selected.receipts.length > 1 && (
+                      return (
                         <div
-                          className={`text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ${
-                            isSeatDoubleShift(selected)
-                              ? "text-purple-600 dark:text-purple-400"
-                              : "text-rose-600 dark:text-rose-400"
-                          }`}
+                          key={r.receipt_no || idx}
+                          className="bg-background border border-panel-border rounded-2xl p-3.5 relative shadow-xs flex flex-col justify-between space-y-2.5"
                         >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full inline-block ${
-                              isSeatDoubleShift(selected) ? "bg-purple-500" : "bg-rose-500 animate-pulse"
-                            }`}
-                          />
-                          Occupant {idx + 1} &middot; {shiftLabel(r.shift_type, r.subscription_type)}
-                        </div>
-                      )}
-
-                      {/* Details Table List */}
-                      <div className="space-y-1.5 text-xs">
-                        <div className="flex justify-between items-center py-1 border-b border-panel-border/40">
-                          <span className="text-text-muted">Name:</span>
-                          <span className="font-bold text-text-main text-sm">
-                            {r.member?.name || "Student"}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between items-center py-1 border-b border-panel-border/40">
-                          <span className="text-text-muted">Member ID:</span>
-                          <Link
-                            href={`/members/${r.student_id}?slug=${slug}`}
-                            className="font-mono text-blue-600 dark:text-blue-400 font-bold hover:underline"
-                            title="View member profile"
-                          >
-                            #{r.student_id}
-                          </Link>
-                        </div>
-
-                        {r.member?.phone && (
-                          <div className="flex justify-between items-center py-1 border-b border-panel-border/40">
-                            <span className="text-text-muted">Phone:</span>
-                            <span className="font-mono font-bold text-text-main">{r.member.phone}</span>
-                          </div>
-                        )}
-
-                        {r.member?.aadhar_no && (
-                          <div className="flex justify-between items-center py-1 border-b border-panel-border/40">
-                            <span className="text-text-muted">Aadhaar:</span>
-                            <span className="font-mono text-text-muted text-[11px]">
-                              •••• •••• {r.member.aadhar_no.replace(/\s+/g, "").slice(-4)}
-                            </span>
-                          </div>
-                        )}
-
-                        <div className="flex justify-between items-center py-1 border-b border-panel-border/40">
-                          <span className="text-text-muted">Subscription:</span>
-                          <span className="font-semibold text-text-main">
-                            {r.subscription_type === "full_day"
-                              ? "Full day (6am–12am)"
-                              : `Half day (${shiftLabel(r.shift_type, r.subscription_type)})`}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between items-center py-1 border-b border-panel-border/40">
-                          <span className="text-text-muted">Sheets Desk:</span>
-                          <span className="text-text-main font-medium">
-                            {r.has_sheet ? "Included (₹300)" : "None"}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between items-center py-1 border-b border-panel-border/40">
-                          <span className="text-text-muted">Valid till:</span>
-                          <span className="font-semibold text-text-main flex items-center gap-1.5">
-                            <span
-                              className={
-                                isOverdue
-                                  ? "text-blue-600 dark:text-blue-400 font-bold"
-                                  : "text-text-main"
-                              }
-                            >
-                              {r.end_date}
-                            </span>
+                          {/* Card Top: Shift Name & Overdue / Days Left status */}
+                          <div className="flex items-center justify-between pb-2 border-b border-panel-border/40">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span
+                                className={`w-2 h-2 rounded-full shrink-0 ${
+                                  isSeatDoubleShift(selected)
+                                    ? idx === 0
+                                      ? "bg-purple-500"
+                                      : "bg-indigo-500"
+                                    : "bg-emerald-500"
+                                }`}
+                              />
+                              <span className="text-xs font-black uppercase tracking-wider text-text-main truncate">
+                                {selected.receipts.length > 1 ? `Shift ${idx + 1}: ` : ""}
+                                {shiftLabel(r.shift_type, r.subscription_type)}
+                              </span>
+                            </div>
                             {isOverdue ? (
-                              <span className="text-[10px] bg-blue-500/15 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-bold">
+                              <span className="text-[10px] bg-blue-500/15 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-bold border border-blue-500/30 flex items-center gap-1 shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                                 {daysOverdue}d overdue
                               </span>
                             ) : diffDays === 0 ? (
-                              <span className="text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-bold">
+                              <span className="text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-bold shrink-0">
                                 Expires Today
                               </span>
                             ) : (
-                              <span className="text-[10px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">
+                              <span className="text-[10px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold shrink-0">
                                 {diffDays}d left
                               </span>
                             )}
-                          </span>
-                        </div>
-                      </div>
+                          </div>
 
-                      {/* Action Buttons Row */}
-                      <div className="pt-2 flex gap-2 flex-wrap items-center">
-                        {/* Renew */}
-                        <Link
-                          href={getRenewUrl(r)}
-                          className="bg-rose-600 hover:bg-rose-500 text-white text-xs px-3.5 py-1.5 rounded-xl font-bold shadow-sm transition hover:-translate-y-0.5 cursor-pointer"
-                        >
-                          Renew
-                        </Link>
-
-                        {/* Vacate */}
-                        <button
-                          disabled={vacating === r.receipt_no}
-                          onClick={() => handleVacateSeat(r.receipt_no, isOverdue)}
-                          className={`${
-                            isOverdue
-                              ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30"
-                              : "bg-panel-bg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-muted hover:text-red-500 border border-panel-border"
-                          } text-xs px-3 py-1.5 rounded-xl font-bold transition cursor-pointer disabled:opacity-50`}
-                        >
-                          {vacating === r.receipt_no
-                            ? "Vacating..."
-                            : isOverdue
-                            ? "Vacate Seat"
-                            : "Vacate"}
-                        </button>
-
-                        {/* Edit Plan */}
-                        <button
-                          onClick={() =>
-                            setEditingReceipt({
-                              receipt_no: r.receipt_no,
-                              student_id: r.student_id,
-                              student_name: r.member?.name,
-                              student_phone: r.member?.phone,
-                              aadhar_no: r.member?.aadhar_no,
-                              seat_id: selected.seat_id,
-                              seat_number: selected.seat_number,
-                              subscription_type: r.subscription_type,
-                              shift_type: r.shift_type,
-                              has_sheet: r.has_sheet,
-                              amount_paid: r.amount_paid,
-                              start_date: r.start_date,
-                              end_date: r.end_date,
-                            })
-                          }
-                          className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-xs px-3 py-1.5 rounded-xl font-bold transition cursor-pointer"
-                          title="Owner: Edit plan, dates, or fees"
-                        >
-                          ✏️ Edit Plan
-                        </button>
-
-                        {/* Digital Pass */}
-                        <Link
-                          href={`/receipts/${r.receipt_no}`}
-                          className="bg-panel-bg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-details border border-panel-border text-xs px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1"
-                        >
-                          🎟️ Pass
-                        </Link>
-
-                        {/* Overdue UPI QR & WhatsApp triggers */}
-                        {isOverdue && (
-                          <>
-                            <button
-                              onClick={() => {
-                                setSelectedUpiCandidate({
-                                  receipt_no: r.receipt_no,
-                                  student_id: r.student_id,
-                                  student_name: r.member?.name || "Student",
-                                  student_phone: r.member?.phone || null,
-                                  seat_number: selected.seat_number,
-                                  shift_type: r.shift_type,
-                                  subscription_type: r.subscription_type,
-                                  amount_paid: r.amount_paid,
-                                  end_date: r.end_date,
-                                  days_overdue: daysOverdue,
-                                });
-                              }}
-                              className="px-2.5 py-1.5 rounded-xl bg-blue-600/15 hover:bg-blue-600/25 text-blue-700 dark:text-blue-400 border border-blue-500/30 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                              title="Instant Dynamic UPI Intent & QR Code"
-                            >
-                              ⚡ UPI QR
-                            </button>
+                          {/* Student Details List */}
+                          <div className="space-y-1 text-xs">
+                            <div className="flex justify-between items-center py-0.5 border-b border-panel-border/30">
+                              <span className="text-text-muted text-[11px]">Name:</span>
+                              <span className="font-bold text-text-main text-xs flex items-center gap-1.5">
+                                {r.member?.name || "Student"}
+                                <Link
+                                  href={`/members/${r.student_id}?slug=${slug}`}
+                                  className="font-mono text-blue-600 dark:text-blue-400 font-bold hover:underline text-[11px]"
+                                  title="View member profile"
+                                >
+                                  #{r.student_id}
+                                </Link>
+                              </span>
+                            </div>
 
                             {r.member?.phone && (
-                              <a
-                                href={`https://wa.me/91${r.member.phone
-                                  .replace(/[^0-9]/g, "")
-                                  .slice(-10)}?text=${encodeURIComponent(
-                                  generateDueFeeWhatsAppMessage({
-                                    studentName: r.member.name,
-                                    studentPhone: r.member.phone,
-                                    seatNumber: selected.seat_number,
-                                    shiftName: shiftLabel(r.shift_type, r.subscription_type),
-                                    daysOverdue: daysOverdue,
-                                    expiryDate: r.end_date,
-                                    amountDue: r.amount_paid,
-                                    libraryName: library.name,
-                                    upiId: library.upi_id || "targetlibrary@upi",
-                                    upiName: library.upi_name || library.name,
-                                    digitalPassUrl:
-                                      typeof window !== "undefined"
-                                        ? `${window.location.origin}/receipts/${r.receipt_no}`
-                                        : undefined,
-                                  })
-                                )}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-2.5 py-1.5 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                                title="Send WhatsApp payment reminder"
-                              >
-                                💬 WhatsApp
-                              </a>
+                              <div className="flex justify-between items-center py-0.5 border-b border-panel-border/30">
+                                <span className="text-text-muted text-[11px]">Phone:</span>
+                                <span className="font-mono font-bold text-text-main text-[11px]">
+                                  {r.member.phone}
+                                </span>
+                              </div>
                             )}
-                          </>
-                        )}
 
-                        {/* History */}
-                        <Link
-                          href={`/members/${r.student_id}?slug=${slug}`}
-                          className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 text-xs font-bold underline flex items-center ml-auto transition-colors"
-                        >
-                          History &rarr;
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })}
+                            <div className="flex justify-between items-center py-0.5 border-b border-panel-border/30">
+                              <span className="text-text-muted text-[11px]">Subscription:</span>
+                              <span className="font-semibold text-text-main text-[11px]">
+                                {r.subscription_type === "full_day"
+                                  ? "Full day (6am–12am)"
+                                  : `Half day (${shiftLabel(r.shift_type, r.subscription_type)})`}
+                              </span>
+                            </div>
 
-                {/* If seat is half_day and has room for another shift */}
-                {selected.receipts.length === 1 &&
-                  selected.receipts[0].subscription_type === "half_day" && (
-                    <div className="bg-panel-bg/40 border border-panel-border border-dashed rounded-2xl p-4 text-center space-y-2">
-                      <p className="text-xs text-text-muted font-medium">
-                        Assign another non-overlapping shift to this seat:
-                      </p>
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        {selected.receipts[0].shift_type === "shift_1" ||
-                        selected.receipts[0].shift_type === "morning" ? (
-                          <>
+                            <div className="flex justify-between items-center py-0.5 border-b border-panel-border/30">
+                              <span className="text-text-muted text-[11px]">Sheets Desk:</span>
+                              <span className="text-text-main font-medium text-[11px]">
+                                {r.has_sheet ? "Included (₹300)" : "None"}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between items-center py-0.5 border-b border-panel-border/30">
+                              <span className="text-text-muted text-[11px]">Valid till:</span>
+                              <span className="font-semibold text-text-main flex items-center gap-1.5 text-[11px]">
+                                <span
+                                  className={
+                                    isOverdue
+                                      ? "text-blue-600 dark:text-blue-400 font-bold"
+                                      : "text-text-main"
+                                  }
+                                >
+                                  {r.end_date}
+                                </span>
+                                {isOverdue ? (
+                                  <span className="text-[9px] bg-blue-500/15 text-blue-600 dark:text-blue-400 px-1.5 py-0.2 rounded-full font-bold">
+                                    {daysOverdue}d overdue
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.2 rounded-full font-bold">
+                                    {diffDays}d left
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons Row */}
+                          <div className="pt-1 flex gap-1.5 flex-wrap items-center">
+                            {/* Renew */}
                             <Link
-                              href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_2&slug=${slug}`}
+                              href={getRenewUrl(r)}
+                              className="bg-rose-600 hover:bg-rose-500 text-white text-[11px] px-2.5 py-1 rounded-lg font-bold shadow-xs transition hover:-translate-y-0.5 cursor-pointer"
+                            >
+                              Renew
+                            </Link>
+
+                            {/* Vacate */}
+                            <button
+                              disabled={vacating === r.receipt_no}
+                              onClick={() => handleVacateSeat(r.receipt_no, isOverdue)}
+                              className={`${
+                                isOverdue
+                                  ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                                  : "bg-panel-bg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-muted hover:text-red-500 border border-panel-border"
+                              } text-[11px] px-2.5 py-1 rounded-lg font-bold transition cursor-pointer disabled:opacity-50`}
+                            >
+                              {vacating === r.receipt_no
+                                ? "Vacating..."
+                                : isOverdue
+                                ? "Vacate Seat"
+                                : "Vacate"}
+                            </button>
+
+                            {/* Edit Plan */}
+                            <button
+                              onClick={() =>
+                                setEditingReceipt({
+                                  receipt_no: r.receipt_no,
+                                  student_id: r.student_id,
+                                  student_name: r.member?.name,
+                                  student_phone: r.member?.phone,
+                                  aadhar_no: r.member?.aadhar_no,
+                                  seat_id: selected.seat_id,
+                                  seat_number: selected.seat_number,
+                                  subscription_type: r.subscription_type,
+                                  shift_type: r.shift_type,
+                                  has_sheet: r.has_sheet,
+                                  amount_paid: r.amount_paid,
+                                  start_date: r.start_date,
+                                  end_date: r.end_date,
+                                })
+                              }
+                              className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-[11px] px-2.5 py-1 rounded-lg font-bold transition cursor-pointer"
+                              title="Owner: Edit plan, dates, or fees"
+                            >
+                              ✏️ Edit Plan
+                            </button>
+
+                            {/* Digital Pass */}
+                            <Link
+                              href={`/receipts/${r.receipt_no}`}
+                              className="bg-panel-bg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-details border border-panel-border text-[11px] px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1"
+                            >
+                              🎟️ Pass
+                            </Link>
+
+                            {/* Overdue UPI QR & WhatsApp triggers */}
+                            {isOverdue && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setSelectedUpiCandidate({
+                                      receipt_no: r.receipt_no,
+                                      student_id: r.student_id,
+                                      student_name: r.member?.name || "Student",
+                                      student_phone: r.member?.phone || null,
+                                      seat_number: selected.seat_number,
+                                      shift_type: r.shift_type,
+                                      subscription_type: r.subscription_type,
+                                      amount_paid: r.amount_paid,
+                                      end_date: r.end_date,
+                                      days_overdue: daysOverdue,
+                                    });
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-blue-600/15 hover:bg-blue-600/25 text-blue-700 dark:text-blue-400 border border-blue-500/30 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                  title="Instant Dynamic UPI Intent & QR Code"
+                                >
+                                  ⚡ UPI QR
+                                </button>
+
+                                {r.member?.phone && (
+                                  <a
+                                    href={`https://wa.me/91${r.member.phone
+                                      .replace(/[^0-9]/g, "")
+                                      .slice(-10)}?text=${encodeURIComponent(
+                                      generateDueFeeWhatsAppMessage({
+                                        studentName: r.member.name,
+                                        studentPhone: r.member.phone,
+                                        seatNumber: selected.seat_number,
+                                        shiftName: shiftLabel(r.shift_type, r.subscription_type),
+                                        daysOverdue: daysOverdue,
+                                        expiryDate: r.end_date,
+                                        amountDue: r.amount_paid,
+                                        libraryName: library.name,
+                                        upiId: library.upi_id || "targetlibrary@upi",
+                                        upiName: library.upi_name || library.name,
+                                        digitalPassUrl:
+                                          typeof window !== "undefined"
+                                            ? `${window.location.origin}/receipts/${r.receipt_no}`
+                                            : undefined,
+                                      })
+                                    )}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2 py-1 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                    title="Send WhatsApp payment reminder"
+                                  >
+                                    💬 WhatsApp
+                                  </a>
+                                )}
+                              </>
+                            )}
+
+                            {/* History */}
+                            <Link
+                              href={`/members/${r.student_id}?slug=${slug}`}
+                              className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 text-[11px] font-bold underline flex items-center ml-auto transition-colors"
+                            >
+                              History &rarr;
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* If seat is half_day and has room for another shift */}
+                  {selected.receipts.length === 1 &&
+                    selected.receipts[0].subscription_type === "half_day" && (
+                      <div className="bg-panel-bg/40 border border-panel-border border-dashed rounded-2xl p-3 text-center space-y-2">
+                        <p className="text-xs text-text-muted font-medium">
+                          Assign another non-overlapping shift to this seat:
+                        </p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {selected.receipts[0].shift_type === "shift_1" ||
+                          selected.receipts[0].shift_type === "morning" ? (
+                            <>
+                              <Link
+                                href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_2&slug=${slug}`}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] px-3.5 py-1.5 rounded-xl font-bold transition shadow-sm cursor-pointer"
+                              >
+                                + Shift 2 (2pm-12am)
+                              </Link>
+                              <Link
+                                href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_3&slug=${slug}`}
+                                className="bg-blue-600 hover:bg-blue-500 text-white text-[11px] px-3.5 py-1.5 rounded-xl font-bold transition shadow-sm cursor-pointer"
+                              >
+                                + Shift 3 (4pm-12am)
+                              </Link>
+                            </>
+                          ) : (
+                            <Link
+                              href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_1&slug=${slug}`}
                               className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] px-3.5 py-1.5 rounded-xl font-bold transition shadow-sm cursor-pointer"
                             >
-                              + Shift 2 (2pm-12am)
+                              + Shift 1 (6am-2pm)
                             </Link>
-                            <Link
-                              href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_3&slug=${slug}`}
-                              className="bg-blue-600 hover:bg-blue-500 text-white text-[11px] px-3.5 py-1.5 rounded-xl font-bold transition shadow-sm cursor-pointer"
-                            >
-                              + Shift 3 (4pm-12am)
-                            </Link>
-                          </>
-                        ) : (
-                          <Link
-                            href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_1&slug=${slug}`}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] px-3.5 py-1.5 rounded-xl font-bold transition shadow-sm cursor-pointer"
-                          >
-                            + Shift 1 (6am-2pm)
-                          </Link>
-                        )}
+                          )}
+                        </div>
                       </div>
+                    )}
+                </div>
+              ) : (
+                <div className="space-y-3 py-2">
+                  <p className="text-text-muted text-xs">
+                    This seat is completely unoccupied for both shifts.
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <Link
+                      href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=full_day&slug=${slug}`}
+                      className="block text-center bg-rose-600 hover:bg-rose-500 text-white text-xs py-2 rounded-xl font-bold shadow-md shadow-rose-600/20 transition hover:-translate-y-0.5 cursor-pointer"
+                    >
+                      Assign Full Day (₹{settings.shifts_config?.find((s) => s.id === "full_day")?.base_price || 900} / ₹{settings.shifts_config?.find((s) => s.id === "full_day")?.sheet_price || 1200})
+                    </Link>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Link
+                        href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_1&slug=${slug}`}
+                        className="block text-center bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] py-1.5 rounded-xl font-bold shadow-sm transition hover:-translate-y-0.5 cursor-pointer"
+                      >
+                        Shift 1 (₹{settings.shifts_config?.find((s) => s.id === "shift_1")?.base_price || 600})
+                      </Link>
+                      <Link
+                        href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_2&slug=${slug}`}
+                        className="block text-center bg-amber-500 hover:bg-amber-400 text-neutral-900 text-[11px] py-1.5 rounded-xl font-bold shadow-sm transition hover:-translate-y-0.5 cursor-pointer"
+                      >
+                        Shift 2 (₹{settings.shifts_config?.find((s) => s.id === "shift_2")?.base_price || 600})
+                      </Link>
+                      <Link
+                        href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_3&slug=${slug}`}
+                        className="block text-center bg-blue-600 hover:bg-blue-500 text-white text-[11px] py-1.5 rounded-xl font-bold shadow-sm transition hover:-translate-y-0.5 cursor-pointer"
+                      >
+                        Shift 3 (₹{settings.shifts_config?.find((s) => s.id === "shift_3")?.base_price || 500})
+                      </Link>
                     </div>
-                  )}
-              </div>
-            ) : (
-              <div className="space-y-4 py-2">
-                <p className="text-text-muted text-xs">
-                  This seat is completely unoccupied for both shifts.
-                </p>
-                <div className="flex flex-col gap-2.5">
-                  <Link
-                    href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=full_day&slug=${slug}`}
-                    className="block text-center bg-rose-600 hover:bg-rose-500 text-white text-xs py-2.5 rounded-xl font-bold shadow-md shadow-rose-600/20 transition hover:-translate-y-0.5 cursor-pointer"
-                  >
-                    Assign Full Day (₹{settings.shifts_config?.find((s) => s.id === "full_day")?.base_price || 900} / ₹{settings.shifts_config?.find((s) => s.id === "full_day")?.sheet_price || 1200})
-                  </Link>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Link
-                      href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_1&slug=${slug}`}
-                      className="block text-center bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] py-2 rounded-xl font-bold shadow-sm transition hover:-translate-y-0.5 cursor-pointer"
-                    >
-                      Shift 1 (₹{settings.shifts_config?.find((s) => s.id === "shift_1")?.base_price || 600})
-                    </Link>
-                    <Link
-                      href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_2&slug=${slug}`}
-                      className="block text-center bg-amber-500 hover:bg-amber-400 text-neutral-900 text-[11px] py-2 rounded-xl font-bold shadow-sm transition hover:-translate-y-0.5 cursor-pointer"
-                    >
-                      Shift 2 (₹{settings.shifts_config?.find((s) => s.id === "shift_2")?.base_price || 600})
-                    </Link>
-                    <Link
-                      href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_3&slug=${slug}`}
-                      className="block text-center bg-blue-600 hover:bg-blue-500 text-white text-[11px] py-2 rounded-xl font-bold shadow-sm transition hover:-translate-y-0.5 cursor-pointer"
-                    >
-                      Shift 3 (₹{settings.shifts_config?.find((s) => s.id === "shift_3")?.base_price || 500})
-                    </Link>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
             </div>
 
             {/* Modal Footer: shrink-0 pinned at bottom */}
-            <div className="p-3.5 sm:p-4 border-t border-panel-border bg-card-bg shrink-0 flex justify-end">
+            <div className="px-5 py-2.5 border-t border-panel-border bg-card-bg shrink-0 flex justify-end">
               <button
                 onClick={() => setSelected(null)}
-                className="bg-panel-bg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-details border border-panel-border px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer"
+                className="bg-panel-bg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-details border border-panel-border px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer"
               >
                 Close Layout
               </button>
