@@ -7,6 +7,8 @@ import ThemeToggle from "@/lib/ThemeToggle";
 import { getStoredSession } from "@/lib/auth";
 import LibraryLogo from "@/lib/LibraryLogo";
 
+import { isDemoSlug } from "./tenant";
+
 interface LibraryHeaderInfo {
   name: string;
   logoUrl: string | null;
@@ -19,6 +21,16 @@ const headerCache: Record<string, LibraryHeaderInfo> = {
     name: "The Target Library",
     logoUrl: "/lib-logo.png",
     totalSeats: 297,
+  },
+  "demo-library": {
+    name: "LibraryOS Demo Lounge",
+    logoUrl: null,
+    totalSeats: 60,
+  },
+  "demo": {
+    name: "LibraryOS Demo Lounge",
+    logoUrl: null,
+    totalSeats: 60,
   },
 };
 
@@ -46,9 +58,14 @@ function HeaderNavbarContent() {
   const [libInfo, setLibInfo] = useState<LibraryHeaderInfo>(() => {
     if (headerCache[initialSlug]) return headerCache[initialSlug];
     return {
-      name: initialSlug === "target-library" ? "The Target Library" : initialSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      name:
+        initialSlug === "target-library"
+          ? "The Target Library"
+          : isDemoSlug(initialSlug)
+          ? "LibraryOS Demo Lounge"
+          : initialSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
       logoUrl: initialSlug === "target-library" ? "/lib-logo.png" : null,
-      totalSeats: 297,
+      totalSeats: isDemoSlug(initialSlug) ? 60 : 297,
     };
   });
   const [isOwner, setIsOwner] = useState(false);
@@ -67,11 +84,12 @@ function HeaderNavbarContent() {
 
     const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
     const isStaff = session?.role === "staff";
-    const hasOwner = !isStaff && (
+    const isDemo = isDemoSlug(effective);
+    const hasOwner = isDemo || (!isStaff && (
       session?.role === "owner" ||
       session?.role === "superadmin" ||
       ownerAuth === "true"
-    );
+    ));
 
     setIsOwner(hasOwner);
   }, [pathname, searchParams, getUrlSlug]);
@@ -164,9 +182,15 @@ function HeaderNavbarContent() {
               >
                 {libInfo.name}
               </Link>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 whitespace-nowrap">
-                {isOwner ? "👑 Owner Desk" : "💻 Front Desk"}
-              </span>
+              {isDemoSlug(activeSlug) ? (
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 whitespace-nowrap flex items-center gap-1">
+                  <span>✨</span> Demo Lounge
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 whitespace-nowrap">
+                  {isOwner ? "👑 Owner Desk" : "💻 Front Desk"}
+                </span>
+              )}
               <span className="text-[10px] font-mono text-text-muted font-bold px-2 py-0.5 rounded-full bg-neutral-500/10 whitespace-nowrap hidden sm:inline">
                 {libInfo.totalSeats} Seats
               </span>
@@ -284,6 +308,15 @@ function HeaderNavbarContent() {
 
           {/* Desktop-Only Actions */}
           <div className="hidden md:flex items-center gap-2 shrink-0">
+            {isDemoSlug(activeSlug) && (
+              <Link
+                href="/signup"
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white text-xs font-black shadow-sm shadow-rose-600/20 transition active:scale-95 whitespace-nowrap"
+              >
+                Launch Your Library 🚀
+              </Link>
+            )}
+
             <Link
               href={`/new-receipt?slug=${encodeURIComponent(activeSlug)}`}
               className={`px-3.5 py-2 rounded-xl text-xs font-extrabold shadow-sm transition active:scale-95 whitespace-nowrap ${

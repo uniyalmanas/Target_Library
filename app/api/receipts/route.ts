@@ -348,6 +348,10 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Missing receipt_no" }, { status: 400 });
   }
 
+  if (Number(receipt_no) >= 8000) {
+    return NextResponse.json({ ok: true, receipt: { receipt_no, is_vacated: true } });
+  }
+
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().split("T")[0];

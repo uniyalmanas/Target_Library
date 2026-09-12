@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug, getLibrarySettings } from "@/lib/tenant";
+import { getLibraryBySlug, getLibrarySettings, isDemoSlug } from "@/lib/tenant";
+import { getDemoSeats } from "@/lib/demoData";
 
 // Returns seats, each annotated with whether it's currently occupied
 // (an active receipt with end_date >= today) and by whom.
@@ -9,6 +10,10 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const slug = searchParams.get("slug");
+
+    if (isDemoSlug(slug)) {
+      return NextResponse.json(getDemoSeats());
+    }
 
     let libraryId = "00000000-0000-0000-0000-000000000001";
     let totalSeatsLimit: number | null = null;

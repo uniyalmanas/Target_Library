@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug, DEFAULT_LIBRARY_ID } from "@/lib/tenant";
+import { getLibraryBySlug, DEFAULT_LIBRARY_ID, isDemoSlug } from "@/lib/tenant";
+import { getDemoDueFees } from "@/lib/demoData";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const slug = searchParams.get("slug");
+
+    if (isDemoSlug(slug)) {
+      return NextResponse.json(getDemoDueFees());
+    }
 
     let libraryId = DEFAULT_LIBRARY_ID;
     if (slug) {

@@ -3,7 +3,7 @@
 import { useEffect, useState, use, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Library, LibrarySettings, AdmissionRequest } from "@/lib/types";
-import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS } from "@/lib/tenant";
+import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, DEMO_LIBRARY, DEMO_SETTINGS, isDemoSlug, DEFAULT_LIBRARY_SLUG } from "@/lib/tenant";
 import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 import ThemeToggle from "@/lib/ThemeToggle";
 import LibraryLogo from "@/lib/LibraryLogo";
@@ -51,8 +51,33 @@ export default function TenantDeskPage({
 }) {
   const { slug } = use(params);
 
-  const [library, setLibrary] = useState<Library>(FALLBACK_TARGET_LIBRARY);
-  const [settings, setSettings] = useState<LibrarySettings>(FALLBACK_SETTINGS);
+  const [library, setLibrary] = useState<Library>(() => {
+    if (isDemoSlug(slug)) return DEMO_LIBRARY;
+    if (slug === DEFAULT_LIBRARY_SLUG) return FALLBACK_TARGET_LIBRARY;
+    return {
+      id: `tenant-${slug}`,
+      slug,
+      name: slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      city: "City",
+      phone: "",
+      address: "",
+      logo_url: null,
+      upi_id: "",
+      upi_name: "",
+      monthly_fee: 600,
+      discount_code: null,
+      is_lifetime_fixed: false,
+      subscription_status: "trial",
+      trial_ends_at: null,
+      subscription_ends_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  });
+  const [settings, setSettings] = useState<LibrarySettings>(() => {
+    if (isDemoSlug(slug)) return DEMO_SETTINGS;
+    return FALLBACK_SETTINGS;
+  });
   const [seats, setSeats] = useState<SeatData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<SeatData | null>(null);
@@ -81,13 +106,14 @@ export default function TenantDeskPage({
     const session = getStoredSession();
     const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
     const isStaff = session?.role === "staff";
-    const hasOwner = !isStaff && (
+    const isDemo = isDemoSlug(slug);
+    const hasOwner = isDemo || (!isStaff && (
       session?.role === "owner" ||
       session?.role === "superadmin" ||
       ownerAuth === "true"
-    );
+    ));
     setIsOwner(hasOwner);
-  }, []);
+  }, [slug]);
 
   // Load Library & Settings
   useEffect(() => {
@@ -439,6 +465,34 @@ export default function TenantDeskPage({
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
       <div className={`flex-1 w-full mx-auto px-3 sm:px-6 py-4 space-y-4 transition-all duration-300 ${isWideLayout ? "max-w-[98vw]" : "max-w-[1680px]"}`}>
+        {/* Interactive Demo Top Banner */}
+        {isDemoSlug(slug) && (
+          <div className="bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-amber-500/10 border border-amber-500/25 rounded-3xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl p-2 rounded-2xl bg-amber-500/15 border border-amber-500/25 shrink-0">
+                🧪
+              </span>
+              <div>
+                <div className="font-extrabold text-sm text-text-main flex items-center gap-2">
+                  <span>Interactive Demo Desk</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                    Synthetic Sample Records
+                  </span>
+                </div>
+                <p className="text-text-muted mt-0.5 leading-relaxed">
+                  All 60 seats, double-shifts, daily collections, and student profiles are simulated sample records. Click any seat to test inspections, view shifts, and test approval chimes!
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/signup"
+              className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md shadow-rose-600/20 transition active:scale-95 text-center shrink-0"
+            >
+              Launch Your Own Library (7-Day Trial) 🚀
+            </Link>
+          </div>
+        )}
+
         {/* Section: Real-Time Incoming Admission Requests Drawer */}
         {admissionRequests.length > 0 && (
           <div className="bg-card-bg border-2 border-emerald-500/40 rounded-3xl p-5 shadow-lg space-y-4 animate-in fade-in slide-in-from-top-3">

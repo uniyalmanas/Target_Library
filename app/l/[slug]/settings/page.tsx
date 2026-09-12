@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { Library, LibrarySettings, ShiftConfig } from "@/lib/types";
-import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, getEffectiveLogo } from "@/lib/tenant";
+import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, DEMO_LIBRARY, DEMO_SETTINGS, isDemoSlug, getEffectiveLogo } from "@/lib/tenant";
 import LibraryLogo from "@/lib/LibraryLogo";
 import { getStoredSession, setStoredSession } from "@/lib/auth";
 
@@ -112,15 +112,16 @@ export default function LibraryOwnerSettingsPage({
         const res = await fetch(`/api/libraries/${slug}/settings`);
         if (res.ok) {
           const data = await res.json();
-          const lib = data.library || FALLBACK_TARGET_LIBRARY;
-          const sett = data.settings || FALLBACK_SETTINGS;
+          const isDemo = isDemoSlug(slug);
+          const lib = data.library || (isDemo ? DEMO_LIBRARY : FALLBACK_TARGET_LIBRARY);
+          const sett = data.settings || (isDemo ? DEMO_SETTINGS : FALLBACK_SETTINGS);
 
           setLibrary(lib);
           setSettings(sett);
 
           setName(lib.name || "");
           setPhone(lib.phone || "");
-          setCity(lib.city || "Dehradun");
+          setCity(lib.city || (isDemo ? "Innovation Hub" : "Dehradun"));
           setAddress(lib.address || "");
           setUpiId(lib.upi_id || "");
           setUpiName(lib.upi_name || "");
@@ -191,7 +192,8 @@ export default function LibraryOwnerSettingsPage({
     const isOwnerRole = (session.role === "owner" || session.role === "superadmin") && !isStaff;
     const isMatchingSlug = session.librarySlug === slug || session.role === "superadmin";
 
-    if (!isStaff && ((isOwnerRole && isMatchingSlug) || ownerAuth === "true")) {
+    const isDemo = isDemoSlug(slug);
+    if (isDemo || (!isStaff && ((isOwnerRole && isMatchingSlug) || ownerAuth === "true"))) {
       setIsOwnerAuthenticated(true);
     } else {
       setIsOwnerAuthenticated(false);

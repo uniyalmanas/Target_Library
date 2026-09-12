@@ -68,6 +68,9 @@ export default function SaaSMarketingLandingPage() {
           {/* Center Nav Links */}
           <nav className="hidden md:flex items-center gap-7 text-xs font-semibold text-text-muted">
             <a href="#features" className="hover:text-text-main transition">Features</a>
+            <Link href="/l/demo-library" className="hover:text-text-main text-rose-600 dark:text-rose-400 font-bold transition flex items-center gap-1">
+              <span>✨</span> Live Demo
+            </Link>
             <a href="#interactive-demo" className="hover:text-text-main transition">Live Simulator</a>
             <a href="#how-it-works" className="hover:text-text-main transition">How It Works</a>
             <a href="#pricing" className="hover:text-text-main transition">Pricing</a>
@@ -125,10 +128,10 @@ export default function SaaSMarketingLandingPage() {
           </Link>
 
           <Link
-            href="/l/target-library"
+            href="/l/demo-library"
             className="w-full sm:w-auto px-6 py-3.5 rounded-2xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition text-center flex items-center justify-center gap-2"
           >
-            <span>👀</span> Explore Target Library Live Demo
+            <span>👀</span> Explore Live Demo Desk ↗
           </Link>
         </div>
 
@@ -463,7 +466,7 @@ export default function SaaSMarketingLandingPage() {
           <div className="flex items-center gap-5 font-semibold">
             <Link href="/login" className="hover:text-text-main transition">Client Login</Link>
             <Link href="/signup" className="hover:text-text-main transition">Sign Up</Link>
-            <Link href="/l/target-library" className="hover:text-text-main transition">Live Demo</Link>
+            <Link href="/l/demo-library" className="hover:text-text-main transition">Live Demo</Link>
             <Link href="/superadmin" className="hover:text-amber-600 transition">Founder Portal</Link>
           </div>
         </div>

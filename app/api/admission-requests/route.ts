@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug, DEFAULT_LIBRARY_ID } from "@/lib/tenant";
+import { getLibraryBySlug, DEFAULT_LIBRARY_ID, isDemoSlug } from "@/lib/tenant";
+import { getDemoAdmissionRequests } from "@/lib/demoData";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,12 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const slug = searchParams.get("slug");
     const status = searchParams.get("status") || "pending";
+
+    if (isDemoSlug(slug)) {
+      return NextResponse.json({
+        requests: status === "pending" ? getDemoAdmissionRequests() : [],
+      });
+    }
 
     let libraryId = DEFAULT_LIBRARY_ID;
     if (slug) {
@@ -112,6 +119,19 @@ export async function PUT(req: Request) {
 
     if (!id || !status) {
       return NextResponse.json({ error: "ID and status are required" }, { status: 400 });
+    }
+
+    if (id.startsWith("demo-")) {
+      if (status === "rejected") {
+        return NextResponse.json({ success: true, status: "rejected" });
+      }
+      return NextResponse.json({
+        success: true,
+        status: "approved",
+        student_id: 1099,
+        receipt_no: 8999,
+        message: `Allocated Seat #${seat_id || 3} to Arjun Kapoor (Demo)`,
+      });
     }
 
     // Fetch the admission request

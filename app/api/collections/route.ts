@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug, DEFAULT_LIBRARY_ID } from "@/lib/tenant";
+import { getLibraryBySlug, DEFAULT_LIBRARY_ID, isDemoSlug } from "@/lib/tenant";
+import { getDemoCollections } from "@/lib/demoData";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get("date");
     const slug = searchParams.get("slug");
+
+    if (isDemoSlug(slug)) {
+      return NextResponse.json(getDemoCollections(dateParam));
+    }
 
     // Compute target date in Indian Standard Time (IST) if not provided
     let targetDate = dateParam;

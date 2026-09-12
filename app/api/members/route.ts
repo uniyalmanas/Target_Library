@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug } from "@/lib/tenant";
+import { getLibraryBySlug, isDemoSlug } from "@/lib/tenant";
+import { getDemoMembers } from "@/lib/demoData";
 
 // GET /api/members?q=manas&slug=testing-library-1 -> search by name or student_id
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
   const slug = searchParams.get("slug");
+
+  if (isDemoSlug(slug)) {
+    return NextResponse.json(getDemoMembers(q));
+  }
 
   let libraryId = "00000000-0000-0000-0000-000000000001";
   if (slug) {
