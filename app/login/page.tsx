@@ -56,6 +56,17 @@ function LoginContent() {
     }
   }, [querySlug]);
 
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && activeModal) {
+        setActiveModal(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeModal]);
+
   const loadLibrary = async (slugToLoad: string) => {
     setLoadingLib(true);
     setLookupError(null);
@@ -296,9 +307,12 @@ function LoginContent() {
 
         {/* Modal Auth Dialog */}
         {activeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex items-start sm:items-center justify-center animate-in fade-in duration-150"
+            onClick={() => setActiveModal(null)}
+          >
             <div
-              className="bg-card-bg border border-panel-border rounded-3xl p-6 w-full max-w-md shadow-2xl relative"
+              className="my-auto bg-card-bg border border-panel-border rounded-3xl p-6 w-full max-w-md shadow-2xl relative max-h-[calc(100vh-2rem)] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <button

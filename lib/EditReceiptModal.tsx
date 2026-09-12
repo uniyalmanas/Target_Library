@@ -232,24 +232,31 @@ export default function EditReceiptModal({
   const amountDiff = Number(amount) - Number(receipt.amount_paid);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="bg-card-bg border border-panel-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden my-8">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-panel-border bg-neutral-500/5">
-          <div className="flex items-center gap-2.5">
-            <span className="text-xl">✏️</span>
-            <div>
-              <h2 className="text-base font-extrabold text-text-main">
+    <div
+      className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 md:p-6 bg-black/75 backdrop-blur-sm animate-fade-in overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="my-auto bg-card-bg border border-panel-border rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[88vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header: shrink-0 pinned at top */}
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-panel-border bg-neutral-500/5 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="text-xl shrink-0">✏️</span>
+            <div className="min-w-0">
+              <h2 className="text-base font-extrabold text-text-main truncate">
                 Edit Receipt #{receipt.receipt_no}
               </h2>
-              <p className="text-[11px] text-text-muted">
+              <p className="text-[11px] text-text-muted truncate">
                 Owner Control &bull; Candidate #{receipt.student_id} &bull; Seat {receipt.seat_number}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-text-muted hover:text-text-main text-lg font-bold p-1 rounded-lg hover:bg-neutral-500/10 transition cursor-pointer"
+            className="w-8 h-8 rounded-full bg-neutral-500/10 hover:bg-neutral-500/20 text-text-muted hover:text-text-main flex items-center justify-center text-sm font-bold cursor-pointer transition shrink-0 ml-2"
+            title="Close"
           >
             ✕
           </button>
@@ -257,7 +264,7 @@ export default function EditReceiptModal({
 
         {/* OWNER PASSCODE GATE */}
         {!isOwnerAuthenticated ? (
-          <form onSubmit={handlePasscodeSubmit} className="p-6 space-y-4 text-center">
+          <form onSubmit={handlePasscodeSubmit} className="p-6 space-y-4 text-center overflow-y-auto flex-1 overscroll-contain">
             <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center text-2xl mx-auto mb-2">
               🔒
             </div>
@@ -303,7 +310,7 @@ export default function EditReceiptModal({
           </form>
         ) : (
           /* EDIT FORM */
-          <form onSubmit={handleSaveChanges} className="p-6 space-y-4">
+          <form onSubmit={handleSaveChanges} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
             {error && (
               <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-600 dark:text-rose-400 font-semibold">
                 {error}

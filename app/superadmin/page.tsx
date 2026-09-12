@@ -89,6 +89,18 @@ export default function SuperAdminPage() {
     };
   }, [libraries]);
 
+  // Close modals on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (showAddModal) setShowAddModal(false);
+        if (editingLibrary) setEditingLibrary(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showAddModal, editingLibrary]);
+
   // Handle Slug Auto-generation
   const handleNameChange = (name: string) => {
     const generatedSlug = name
@@ -577,9 +589,15 @@ export default function SuperAdminPage() {
 
       {/* Onboard New Library Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-card-bg border border-panel-border rounded-3xl p-6 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center justify-between border-b border-panel-border pb-4 mb-4">
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 md:p-6 z-50 overflow-y-auto animate-in fade-in"
+          onClick={() => setShowAddModal(false)}
+        >
+          <div
+            className="my-auto bg-card-bg border border-panel-border rounded-3xl max-w-lg w-full shadow-2xl animate-in fade-in zoom-in duration-150 flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[88vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-panel-border p-4 sm:p-5 shrink-0 bg-card-bg">
               <div>
                 <h3 className="font-extrabold text-lg text-text-main">
                   Onboard New Study Library
@@ -590,13 +608,14 @@ export default function SuperAdminPage() {
               </div>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="text-text-muted hover:text-text-main text-lg font-bold"
+                className="w-8 h-8 rounded-full bg-neutral-500/10 hover:bg-neutral-500/20 text-text-muted hover:text-text-main flex items-center justify-center text-sm font-bold cursor-pointer transition shrink-0"
+                title="Close (Esc)"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateLibrary} className="space-y-3.5 text-xs">
+            <form onSubmit={handleCreateLibrary} className="p-4 sm:p-6 space-y-3.5 text-xs overflow-y-auto flex-1 overscroll-contain">
               <div>
                 <label className="font-semibold block mb-1">Library Name *</label>
                 <input
@@ -710,8 +729,14 @@ export default function SuperAdminPage() {
 
       {/* Edit Rate Modal */}
       {editingLibrary && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-card-bg border border-panel-border rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-150">
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 md:p-6 z-50 overflow-y-auto animate-in fade-in"
+          onClick={() => setEditingLibrary(null)}
+        >
+          <div
+            className="my-auto bg-card-bg border border-panel-border rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-150 max-h-[calc(100vh-2rem)] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="font-extrabold text-base text-text-main mb-1">
               Adjust Monthly Rate
             </h3>

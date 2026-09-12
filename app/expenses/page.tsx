@@ -84,6 +84,17 @@ function ExpensesContent() {
   const [ownerPassError, setOwnerPassError] = useState("");
   const [unlockingOwner, setUnlockingOwner] = useState(false);
 
+  // Close modal on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isModalOpen) {
+        setIsModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isModalOpen]);
+
   useEffect(() => {
     const session = getStoredSession();
     const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
@@ -657,150 +668,161 @@ function ExpensesContent() {
 
       {/* Record Expense Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-card-bg border border-panel-border rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-panel-border pb-3">
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-xs p-3 sm:p-4 md:p-6 flex items-start sm:items-center justify-center animate-in fade-in"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div
+            className="my-auto bg-card-bg border border-panel-border rounded-3xl max-w-lg w-full shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[88vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header: shrink-0 pinned at top */}
+            <div className="flex items-center justify-between border-b border-panel-border p-4 sm:p-5 shrink-0 bg-card-bg">
               <div>
                 <h2 className="text-lg font-black text-foreground">Record Operating Expense</h2>
                 <p className="text-xs text-text-muted">Enter bill details or click a preset below</p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-neutral-500/10 hover:bg-neutral-500/20 text-text-muted flex items-center justify-center text-sm font-bold cursor-pointer"
+                className="w-8 h-8 rounded-full bg-neutral-500/10 hover:bg-neutral-500/20 text-text-muted hover:text-text-main flex items-center justify-center text-sm font-bold cursor-pointer transition shrink-0"
+                title="Close popup (Esc)"
               >
                 ✕
               </button>
             </div>
 
-            {/* Quick 1-Click Presets */}
-            <div className="space-y-1.5">
-              <div className="text-[10px] font-black uppercase tracking-wider text-text-muted">
-                ⚡ 1-Click Presets (Autofills title & category)
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {PRESETS.map((p, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleApplyPreset(p)}
-                    className="text-[11px] px-2.5 py-1 rounded-lg bg-neutral-500/10 hover:bg-rose-500/15 hover:text-rose-600 border border-panel-border transition cursor-pointer text-text-main font-medium"
-                  >
-                    {p.title.split(" ")[0]} {p.title.split(" ")[1]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <form onSubmit={handleCreateExpense} className="space-y-4">
-              {/* Category */}
-              <div>
-                <label className="block text-xs font-bold text-text-muted mb-1">Expense Category *</label>
-                <select
-                  value={modalCategory}
-                  onChange={(e) => setModalCategory(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-background border border-panel-border text-xs font-bold text-foreground cursor-pointer"
-                  required
-                >
-                  {CATEGORIES.filter((c) => c.id !== "all").map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.icon} {cat.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Title */}
-              <div>
-                <label className="block text-xs font-bold text-text-muted mb-1">Expense Title / Description *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Electricity Bill for July ACs"
-                  value={modalTitle}
-                  onChange={(e) => setModalTitle(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-background border border-panel-border text-xs text-foreground focus:outline-none focus:border-rose-500"
-                  required
-                />
-              </div>
-
-              {/* Amount & Date */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-text-muted mb-1">Amount (₹) *</label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    placeholder="e.g. 12500"
-                    value={modalAmount}
-                    onChange={(e) => setModalAmount(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-panel-border text-xs font-mono font-bold text-foreground focus:outline-none focus:border-rose-500"
-                    required
-                  />
+            {/* Scrollable Modal Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 overscroll-contain">
+              {/* Quick 1-Click Presets */}
+              <div className="space-y-1.5">
+                <div className="text-[10px] font-black uppercase tracking-wider text-text-muted">
+                  ⚡ 1-Click Presets (Autofills title & category)
                 </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-text-muted mb-1">Expense Date *</label>
-                  <input
-                    type="date"
-                    value={modalDate}
-                    onChange={(e) => setModalDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-panel-border text-xs font-mono text-foreground focus:outline-none focus:border-rose-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Payment Mode */}
-              <div>
-                <label className="block text-xs font-bold text-text-muted mb-1">Payment Mode</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["cash", "online", "upi"] as const).map((mode) => (
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESETS.map((p, idx) => (
                     <button
-                      key={mode}
+                      key={idx}
                       type="button"
-                      onClick={() => setModalMode(mode)}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer capitalize ${
-                        modalMode === mode
-                          ? "bg-rose-600 text-white border-rose-600 shadow-xs"
-                          : "bg-background border-panel-border text-text-muted hover:text-foreground"
-                      }`}
+                      onClick={() => handleApplyPreset(p)}
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-neutral-500/10 hover:bg-rose-500/15 hover:text-rose-600 border border-panel-border transition cursor-pointer text-text-main font-medium"
                     >
-                      {mode === "cash" ? "💵 Cash" : mode === "upi" ? "⚡ UPI" : "📱 Online"}
+                      {p.title.split(" ")[0]} {p.title.split(" ")[1]}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Notes */}
-              <div>
-                <label className="block text-xs font-bold text-text-muted mb-1">Notes / Receipt Ref (Optional)</label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Electricity bill receipt #EB-92019, paid to landlord"
-                  value={modalNotes}
-                  onChange={(e) => setModalNotes(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-background border border-panel-border text-xs text-foreground focus:outline-none focus:border-rose-500 resize-none"
-                />
-              </div>
+              <form onSubmit={handleCreateExpense} className="space-y-4">
+                {/* Category */}
+                <div>
+                  <label className="block text-xs font-bold text-text-muted mb-1">Expense Category *</label>
+                  <select
+                    value={modalCategory}
+                    onChange={(e) => setModalCategory(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-background border border-panel-border text-xs font-bold text-foreground cursor-pointer"
+                    required
+                  >
+                    {CATEGORIES.filter((c) => c.id !== "all").map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.icon} {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* Modal Actions */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-panel-border">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-neutral-500/10 hover:bg-neutral-500/20 text-xs font-bold text-text-muted transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingExpense}
-                  className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-md shadow-rose-600/20 cursor-pointer disabled:opacity-50"
-                >
-                  {savingExpense ? "Saving..." : "Record Expense"}
-                </button>
-              </div>
-            </form>
+                {/* Title */}
+                <div>
+                  <label className="block text-xs font-bold text-text-muted mb-1">Expense Title / Description *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Electricity Bill for July ACs"
+                    value={modalTitle}
+                    onChange={(e) => setModalTitle(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-background border border-panel-border text-xs text-foreground focus:outline-none focus:border-rose-500"
+                    required
+                  />
+                </div>
+
+                {/* Amount & Date */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-text-muted mb-1">Amount (₹) *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="e.g. 12500"
+                      value={modalAmount}
+                      onChange={(e) => setModalAmount(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-background border border-panel-border text-xs font-mono font-bold text-foreground focus:outline-none focus:border-rose-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-text-muted mb-1">Expense Date *</label>
+                    <input
+                      type="date"
+                      value={modalDate}
+                      onChange={(e) => setModalDate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-background border border-panel-border text-xs font-mono text-foreground focus:outline-none focus:border-rose-500"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Payment Mode */}
+                <div>
+                  <label className="block text-xs font-bold text-text-muted mb-1">Payment Mode</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["cash", "online", "upi"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setModalMode(mode)}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer capitalize ${
+                          modalMode === mode
+                            ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                            : "bg-background border-panel-border text-text-muted hover:text-foreground"
+                        }`}
+                      >
+                        {mode === "cash" ? "💵 Cash" : mode === "upi" ? "⚡ UPI" : "📱 Online"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-xs font-bold text-text-muted mb-1">Notes / Receipt Ref (Optional)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. Electricity bill receipt #EB-92019, paid to landlord"
+                    value={modalNotes}
+                    onChange={(e) => setModalNotes(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-background border border-panel-border text-xs text-foreground focus:outline-none focus:border-rose-500 resize-none"
+                  />
+                </div>
+
+                {/* Modal Actions */}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-panel-border">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 rounded-xl bg-neutral-500/10 hover:bg-neutral-500/20 text-xs font-bold text-text-muted transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingExpense}
+                    className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-md shadow-rose-600/20 cursor-pointer disabled:opacity-50"
+                  >
+                    {savingExpense ? "Saving..." : "Record Expense"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
