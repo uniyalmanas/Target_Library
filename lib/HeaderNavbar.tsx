@@ -143,39 +143,65 @@ function HeaderNavbarContent() {
   const isNewReceiptActive = pathname.startsWith("/new-receipt");
 
   return (
-    <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-md border-b border-panel-border px-3 sm:px-6 py-2.5 transition-colors print:hidden">
-      <div className="w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
-        {/* Left: Brand, Logo & Badges */}
-        <div className="flex items-center gap-3">
-          <LibraryLogo
-            slug={activeSlug}
-            logoUrl={libInfo.logoUrl}
-            name={libInfo.name}
-            size="md"
-          />
-          <div className="flex items-center gap-2 flex-wrap">
+    <header className="sticky top-0 z-40 bg-background/90 backdrop-blur-md border-b border-panel-border px-3 sm:px-6 py-2 md:py-2.5 transition-colors print:hidden">
+      <div className="w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-3">
+        {/* Row 1: Brand on Left, Quick Mobile Controls on Right */}
+        <div className="flex items-center justify-between gap-2 w-full md:w-auto">
+          {/* Brand Info */}
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <LibraryLogo
+              slug={activeSlug}
+              logoUrl={libInfo.logoUrl}
+              name={libInfo.name}
+              size="md"
+            />
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+              <Link
+                href={`/l/${activeSlug}`}
+                className="text-sm sm:text-base md:text-lg font-black tracking-tight text-text-main hover:opacity-90 transition-opacity truncate max-w-[160px] sm:max-w-none"
+              >
+                {libInfo.name}
+              </Link>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 whitespace-nowrap">
+                {isOwner ? "👑 Owner Desk" : "💻 Front Desk"}
+              </span>
+              <span className="text-[10px] font-mono text-text-muted font-bold px-2 py-0.5 rounded-full bg-neutral-500/10 whitespace-nowrap hidden sm:inline">
+                {libInfo.totalSeats} Seats
+              </span>
+            </div>
+          </div>
+
+          {/* Mobile-Only Action Utilities */}
+          <div className="flex md:hidden items-center gap-1.5 shrink-0">
             <Link
-              href={`/l/${activeSlug}`}
-              className="text-base sm:text-lg font-black tracking-tight text-text-main hover:opacity-90 transition-opacity"
+              href={`/new-receipt?slug=${encodeURIComponent(activeSlug)}`}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-extrabold shadow-sm transition active:scale-95 whitespace-nowrap ${
+                isNewReceiptActive
+                  ? "bg-rose-700 text-white"
+                  : "bg-rose-600 hover:bg-rose-500 text-white"
+              }`}
+              title="Walk-in Admission"
             >
-              {libInfo.name}
+              + Admit
             </Link>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-              {isOwner ? "👑 Owner Desk" : "💻 Front Desk"}
-            </span>
-            <span className="text-[10px] font-mono text-text-muted font-bold px-2 py-0.5 rounded-full bg-neutral-500/10">
-              {libInfo.totalSeats} Seats
-            </span>
+            <Link
+              href={`/login?slug=${encodeURIComponent(activeSlug)}`}
+              className="p-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-text-muted hover:text-text-main text-xs font-bold transition flex items-center justify-center"
+              title="Switch Workspace / Logout"
+            >
+              🚪
+            </Link>
+            <ThemeToggle />
           </div>
         </div>
 
-        {/* Right: Unified Navigation Group & Actions */}
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          {/* Main Navigation Pill */}
-          <nav className="flex items-center bg-card-bg border border-panel-border rounded-xl p-0.5 shadow-xs overflow-x-auto">
+        {/* Row 2 on mobile, Right column on desktop: Navigation Pill & Desktop Utilities */}
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          {/* Main Navigation Pill - Smooth touch horizontal swipe on mobile */}
+          <nav className="flex items-center bg-card-bg border border-panel-border rounded-xl p-0.5 shadow-xs overflow-x-auto w-full md:w-auto scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <Link
               href={`/l/${activeSlug}`}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                 isDeskActive
                   ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
                   : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
@@ -186,7 +212,7 @@ function HeaderNavbarContent() {
 
             <Link
               href={`/members?slug=${encodeURIComponent(activeSlug)}`}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                 isMembersActive
                   ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
                   : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
@@ -197,7 +223,7 @@ function HeaderNavbarContent() {
 
             <Link
               href={`/collections?slug=${encodeURIComponent(activeSlug)}`}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                 isCollectionsActive
                   ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
                   : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
@@ -208,7 +234,7 @@ function HeaderNavbarContent() {
 
             <Link
               href={`/due-fees?slug=${encodeURIComponent(activeSlug)}`}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                 isDueFeesActive
                   ? "bg-blue-500/20 text-blue-600 dark:text-blue-400 font-extrabold shadow-2xs"
                   : "text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
@@ -220,7 +246,7 @@ function HeaderNavbarContent() {
             <Link
               href={`/l/${activeSlug}/join`}
               target="_blank"
-              className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-1 whitespace-nowrap"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-1 whitespace-nowrap shrink-0"
               title="Open Student Entrance QR Code in new tab"
             >
               <span>📱</span> Door QR
@@ -231,7 +257,7 @@ function HeaderNavbarContent() {
               <>
                 <Link
                   href={`/dashboard?slug=${encodeURIComponent(activeSlug)}`}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                     isDashboardActive
                       ? "bg-purple-500/20 text-purple-600 dark:text-purple-400 font-extrabold shadow-2xs"
                       : "text-purple-600 dark:text-purple-400 hover:bg-purple-500/10"
@@ -242,7 +268,7 @@ function HeaderNavbarContent() {
 
                 <Link
                   href={`/l/${activeSlug}/settings`}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap ${
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                     isSettingsActive
                       ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold shadow-2xs"
                       : "text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
@@ -254,27 +280,26 @@ function HeaderNavbarContent() {
             )}
           </nav>
 
-          {/* Primary CTA: Walk-in Admission */}
-          <Link
-            href={`/new-receipt?slug=${encodeURIComponent(activeSlug)}`}
-            className={`px-3.5 py-2 rounded-xl text-xs font-extrabold shadow-sm transition active:scale-95 whitespace-nowrap ${
-              isNewReceiptActive
-                ? "bg-rose-700 text-white ring-2 ring-rose-500 ring-offset-2 ring-offset-background"
-                : "bg-rose-600 hover:bg-rose-500 text-white"
-            }`}
-          >
-            + Walk-in Admission
-          </Link>
+          {/* Desktop-Only Actions */}
+          <div className="hidden md:flex items-center gap-2 shrink-0">
+            <Link
+              href={`/new-receipt?slug=${encodeURIComponent(activeSlug)}`}
+              className={`px-3.5 py-2 rounded-xl text-xs font-extrabold shadow-sm transition active:scale-95 whitespace-nowrap ${
+                isNewReceiptActive
+                  ? "bg-rose-700 text-white ring-2 ring-rose-500 ring-offset-2 ring-offset-background"
+                  : "bg-rose-600 hover:bg-rose-500 text-white"
+              }`}
+            >
+              + Walk-in Admission
+            </Link>
 
-          {/* Switch Portal & Theme Toggle */}
-          <div className="flex items-center gap-1">
             <Link
               href={`/login?slug=${encodeURIComponent(activeSlug)}`}
               className="px-2.5 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-text-muted hover:text-text-main text-xs font-bold transition flex items-center gap-1"
               title="Switch Workspace or Portal"
             >
               <span>🚪</span>
-              <span className="hidden sm:inline">Switch</span>
+              <span className="hidden lg:inline">Switch</span>
             </Link>
             <ThemeToggle />
           </div>
