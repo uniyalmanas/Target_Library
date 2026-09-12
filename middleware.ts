@@ -70,8 +70,8 @@ export function middleware(req: NextRequest) {
       return NextResponse.rewrite(new URL(`/l/${matchedSlug}`, req.url));
     }
 
-    // If sub-features (e.g. /join, /print, /kiosk, /student, /settings)
-    const tenantSubRoutes = ["/join", "/print", "/kiosk", "/student", "/settings"];
+    // If sub-features (e.g. /join, /print, /student, /settings)
+    const tenantSubRoutes = ["/join", "/print", "/student", "/settings"];
     if (tenantSubRoutes.some((r) => pathname.startsWith(r))) {
       return NextResponse.rewrite(new URL(`/l/${matchedSlug}${pathname}`, req.url));
     }
