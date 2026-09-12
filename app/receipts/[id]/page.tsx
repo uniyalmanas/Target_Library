@@ -5,13 +5,14 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import EditReceiptModal from "@/lib/EditReceiptModal";
+import LibraryLogo from "@/lib/LibraryLogo";
 
 function ReceiptDetails() {
   const params = useParams();
   const id = params.id as string;
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
-  const [library, setLibrary] = useState<{ name: string; city: string; slug: string } | null>(null);
+  const [library, setLibrary] = useState<{ name: string; city: string; slug: string; logo_url?: string | null } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -66,7 +67,7 @@ function ReceiptDetails() {
         if (receipt?.library_id) {
           const { data: libData } = await supabase
             .from("libraries")
-            .select("name, city, slug")
+            .select("name, city, slug, logo_url")
             .eq("id", receipt.library_id)
             .maybeSingle();
           if (libData) {
@@ -168,9 +169,11 @@ function ReceiptDetails() {
 
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-2">
-                <img 
-                  src="/lib-logo.png" 
-                  alt="Logo" 
+                <LibraryLogo 
+                  slug={libSlug}
+                  logoUrl={library?.logo_url}
+                  name={libName}
+                  size="sm"
                   className="w-6 h-6 object-contain" 
                 />
                 <div>
@@ -230,9 +233,11 @@ function ReceiptDetails() {
                   Paid &middot; {data.payment_mode === "online" ? "Online (UPI)" : "Cash"}
                 </span>
               </div>
-              <img 
-                src="/lib-logo.png" 
-                alt="Logo" 
+              <LibraryLogo 
+                slug={libSlug}
+                logoUrl={library?.logo_url}
+                name={libName}
+                size="md"
                 className="w-7 h-7 object-contain" 
               />
             </div>

@@ -116,6 +116,7 @@ export async function GET(
         city: library.city,
         phone: library.phone,
         address: library.address,
+        logo_url: library.logo_url,
       },
       member: member
         ? {

@@ -3,7 +3,37 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { Library, LibrarySettings, ShiftConfig } from "@/lib/types";
-import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS } from "@/lib/tenant";
+import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, getEffectiveLogo } from "@/lib/tenant";
+import LibraryLogo from "@/lib/LibraryLogo";
+
+export const PRESET_EMBLEMS = [
+  { id: "academy", label: "Academy Crest", icon: "🏛️", gradient: ["#8B5CF6", "#6D28D9"] },
+  { id: "books", label: "Modern Stack", icon: "📚", gradient: ["#F43F5E", "#E11D48"] },
+  { id: "scholar", label: "Scholar Laurel", icon: "🎓", gradient: ["#3B82F6", "#1D4ED8"] },
+  { id: "torch", label: "Wisdom Torch", icon: "💡", gradient: ["#F59E0B", "#D97706"] },
+  { id: "focus", label: "Focus Station", icon: "⚡", gradient: ["#10B981", "#059669"] },
+  { id: "tome", label: "Open Tome", icon: "📖", gradient: ["#EC4899", "#BE185D"] },
+  { id: "apex", label: "Apex Study", icon: "🌟", gradient: ["#6366F1", "#4338CA"] },
+  { id: "haven", label: "Quiet Haven", icon: "☕", gradient: ["#78350F", "#451A03"] },
+];
+
+export const MONOGRAM_PALETTES = [
+  { id: "sunrise", name: "Sunrise (Rose/Amber)", from: "#E11D48", to: "#F59E0B" },
+  { id: "midnight", name: "Midnight (Indigo/Purple)", from: "#4F46E5", to: "#9333EA" },
+  { id: "emerald", name: "Emerald (Teal/Emerald)", from: "#0D9488", to: "#10B981" },
+  { id: "slate", name: "Obsidian (Dark Titanium)", from: "#1E293B", to: "#0F172A" },
+];
+
+function generateEmblemSvg(icon: string, [c1, c2]: string[]) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="200" height="200" rx="44" fill="url(#g)"/><text x="50%" y="54%" font-size="100" text-anchor="middle" dominant-baseline="central">${icon}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function generateMonogramSvg(initials: string, c1: string, c2: string) {
+  const clean = (initials || "LB").trim().slice(0, 2).toUpperCase();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><defs><linearGradient id="mg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="200" height="200" rx="44" fill="url(#mg)"/><rect x="8" y="8" width="184" height="184" rx="36" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="4"/><text x="50%" y="54%" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="80" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central" letter-spacing="-2">${clean}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
 
 export default function LibraryOwnerSettingsPage({
   params,
@@ -27,6 +57,12 @@ export default function LibraryOwnerSettingsPage({
   const [upiId, setUpiId] = useState("");
   const [upiName, setUpiName] = useState("");
 
+  // Branding & Logo State
+  const [logoUrl, setLogoUrl] = useState<string>("");
+  const [selectedPalette, setSelectedPalette] = useState(MONOGRAM_PALETTES[0].id);
+  const [customInitials, setCustomInitials] = useState("");
+  const [logoUploadLoading, setLogoUploadLoading] = useState(false);
+
   // Seats & Shifts Configuration
   const [totalSeats, setTotalSeats] = useState<number>(297);
   const [shifts, setShifts] = useState<ShiftConfig[]>([]);
@@ -42,7 +78,7 @@ export default function LibraryOwnerSettingsPage({
   const [newShiftSheetPrice, setNewShiftSheetPrice] = useState<number>(900);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<"seats_shifts" | "upi_soundbox" | "passwords" | "general" | "poster">("seats_shifts");
+  const [activeTab, setActiveTab] = useState<"branding" | "seats_shifts" | "upi_soundbox" | "passwords" | "general" | "poster">("branding");
 
   // Password Management State
   const [newStaffPassword, setNewStaffPassword] = useState("");
@@ -74,6 +110,8 @@ export default function LibraryOwnerSettingsPage({
           setAddress(lib.address || "");
           setUpiId(lib.upi_id || "");
           setUpiName(lib.upi_name || "");
+          setLogoUrl(lib.logo_url || "");
+          setCustomInitials((lib.name || slug).replace(/^the\s+/i, "").slice(0, 2).toUpperCase());
 
           setTotalSeats(sett.total_seats || 297);
           setShifts(sett.shifts_config || FALLBACK_SETTINGS.shifts_config);
@@ -125,6 +163,76 @@ export default function LibraryOwnerSettingsPage({
     setShowAddShift(false);
   };
 
+  // Handle Logo Upload via HTML5 Canvas Compression
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please choose an image file (PNG, JPG, WebP, or SVG).");
+      return;
+    }
+
+    setLogoUploadLoading(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 256;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL("image/webp", 0.85);
+          setLogoUrl(compressed);
+        }
+        setLogoUploadLoading(false);
+      };
+      img.onerror = () => {
+        alert("Failed to process image file.");
+        setLogoUploadLoading(false);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle Preset Emblem Selection
+  const handleSelectPreset = (preset: (typeof PRESET_EMBLEMS)[number]) => {
+    const svgData = generateEmblemSvg(preset.icon, preset.gradient);
+    setLogoUrl(svgData);
+  };
+
+  // Handle Monogram Generation
+  const handleApplyMonogram = () => {
+    const pal = MONOGRAM_PALETTES.find((p) => p.id === selectedPalette) || MONOGRAM_PALETTES[0];
+    const inits = (customInitials.trim() || (name || slug).replace(/^the\s+/i, "").slice(0, 2)).toUpperCase();
+    const svgData = generateMonogramSvg(inits, pal.from, pal.to);
+    setLogoUrl(svgData);
+  };
+
+  // Reset / Remove Logo
+  const handleRemoveLogo = () => {
+    setLogoUrl("");
+  };
+
   // Save Settings
   const handleSave = async () => {
     setSaving(true);
@@ -140,6 +248,7 @@ export default function LibraryOwnerSettingsPage({
           phone,
           city,
           address,
+          logo_url: logoUrl.trim() || null,
           upi_id: upiId,
           upi_name: upiName,
           total_seats: Number(totalSeats),
@@ -151,6 +260,11 @@ export default function LibraryOwnerSettingsPage({
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update settings");
+
+      if (data.library) {
+        setLibrary(data.library);
+        setLogoUrl(data.library.logo_url || "");
+      }
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 4000);
@@ -253,14 +367,22 @@ export default function LibraryOwnerSettingsPage({
             >
               ← Desk Portal
             </Link>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-extrabold tracking-tight">{name || library.name}</h1>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                  👑 Owner Settings
-                </span>
+            <div className="flex items-center gap-3">
+              <LibraryLogo
+                slug={slug}
+                logoUrl={logoUrl || library.logo_url}
+                name={name || library.name}
+                size="md"
+              />
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base font-extrabold tracking-tight">{name || library.name}</h1>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                    👑 Owner Settings
+                  </span>
+                </div>
+                <p className="text-[11px] text-text-muted">Slug: <span className="font-mono">{slug}</span></p>
               </div>
-              <p className="text-[11px] text-text-muted">Slug: <span className="font-mono">{slug}</span></p>
             </div>
           </div>
 
@@ -300,6 +422,16 @@ export default function LibraryOwnerSettingsPage({
 
         {/* Navigation Tabs */}
         <div className="flex items-center gap-1.5 p-1.5 bg-card-bg border border-panel-border rounded-2xl mb-6 overflow-x-auto print:hidden">
+          <button
+            onClick={() => setActiveTab("branding")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "branding"
+                ? "bg-rose-600 text-white shadow-xs"
+                : "text-text-muted hover:text-text-main hover:bg-neutral-500/5"
+            }`}
+          >
+            <span>🎨</span> Brand & Logo
+          </button>
           <button
             onClick={() => setActiveTab("seats_shifts")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
@@ -351,6 +483,303 @@ export default function LibraryOwnerSettingsPage({
             🖨️ Entrance QR Door Poster
           </button>
         </div>
+
+        {/* TAB 0: Library Brand & Custom Logo Suite */}
+        {activeTab === "branding" && (
+          <div className="space-y-6">
+            {/* Active Logo Hero Card */}
+            <div className="bg-card-bg border border-panel-border rounded-3xl p-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-panel-border pb-5">
+                <div className="flex items-center gap-4">
+                  <div className="relative p-1 rounded-2xl bg-neutral-500/5 border border-panel-border shadow-inner">
+                    <LibraryLogo
+                      slug={slug}
+                      logoUrl={logoUrl || library.logo_url}
+                      name={name || library.name}
+                      size="xl"
+                      className="shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-extrabold tracking-tight">Active Library Logo</h2>
+                      {logoUrl ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          Custom Logo Active
+                        </span>
+                      ) : slug === "target-library" ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                          Target Library Default
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                          Default Monogram Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-text-muted mt-1">
+                      {logoUrl
+                        ? "Your library has a dedicated custom logo configured."
+                        : slug === "target-library"
+                        ? "Currently displaying Target Library's original emblem."
+                        : "Isolated instance: currently using your clean library initials monogram (Target Library logo is removed)."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {logoUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveLogo}
+                      className="px-3.5 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-500/20 transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>🗑️</span> Remove / Reset Logo
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-sm transition active:scale-95 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>💾</span> Save Logo
+                  </button>
+                </div>
+              </div>
+
+              {/* Logo Selection Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
+                {/* Method 1: Upload Image File */}
+                <div className="bg-background border border-panel-border rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">📁</span>
+                      <h3 className="font-extrabold text-sm text-text-main">Method 1: Upload Your Image</h3>
+                    </div>
+                    <p className="text-xs text-text-muted leading-relaxed mb-4">
+                      Upload your official logo (PNG, JPG, SVG, WebP). It is automatically compressed to high-speed WebP and saved directly into your library profile.
+                    </p>
+
+                    <label className="border-2 border-dashed border-panel-border hover:border-rose-500/50 bg-neutral-500/5 hover:bg-rose-500/5 rounded-2xl p-6 text-center cursor-pointer flex flex-col items-center justify-center gap-2 transition group">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      {logoUploadLoading ? (
+                        <div className="w-6 h-6 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center text-lg group-hover:scale-110 transition">
+                          📤
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                          Click to Browse
+                        </span>
+                        <span className="text-xs text-text-muted"> or drag & drop</span>
+                      </div>
+                      <p className="text-[10px] text-text-muted">Supports PNG, JPG, WebP, SVG (Auto-compressed)</p>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Method 2: Preset Emblems */}
+                <div className="bg-background border border-panel-border rounded-2xl p-5 space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">🏛️</span>
+                      <h3 className="font-extrabold text-sm text-text-main">Method 2: 1-Click Emblem Presets</h3>
+                    </div>
+                    <p className="text-xs text-text-muted leading-relaxed mb-3">
+                      Don&apos;t have a graphics designer? Pick one of our curated high-resolution study emblems:
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2.5">
+                    {PRESET_EMBLEMS.map((emblem) => (
+                      <button
+                        key={emblem.id}
+                        type="button"
+                        onClick={() => handleSelectPreset(emblem)}
+                        className="p-2.5 rounded-xl border border-panel-border hover:border-rose-500/50 hover:bg-rose-500/5 transition flex flex-col items-center gap-1.5 cursor-pointer text-center group"
+                      >
+                        <span className="text-2xl group-hover:scale-110 transition">{emblem.icon}</span>
+                        <span className="text-[9px] font-bold text-text-muted group-hover:text-text-main leading-tight line-clamp-1">
+                          {emblem.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Method 3: Custom Monogram Generator */}
+                <div className="bg-background border border-panel-border rounded-2xl p-5 space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">✨</span>
+                      <h3 className="font-extrabold text-sm text-text-main">Method 3: Monogram Generator</h3>
+                    </div>
+                    <p className="text-xs text-text-muted leading-relaxed mb-3">
+                      Create an initial badge with luxury gradients tailored to your library name:
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">
+                          Initials (1-2 chars)
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={3}
+                          value={customInitials}
+                          onChange={(e) => setCustomInitials(e.target.value.toUpperCase())}
+                          placeholder="e.g. TL"
+                          className="w-full bg-card-bg border border-panel-border rounded-xl px-3 py-2 text-sm font-black tracking-widest text-center text-text-main uppercase focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
+                        />
+                      </div>
+                      <div className="flex-[2]">
+                        <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">
+                          Color Theme
+                        </label>
+                        <select
+                          value={selectedPalette}
+                          onChange={(e) => setSelectedPalette(e.target.value)}
+                          className="w-full bg-card-bg border border-panel-border rounded-xl px-3 py-2 text-xs font-bold text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+                        >
+                          {MONOGRAM_PALETTES.map((pal) => (
+                            <option key={pal.id} value={pal.id}>
+                              {pal.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleApplyMonogram}
+                      className="w-full py-2.5 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-bold shadow-xs hover:opacity-90 transition cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <span>🎨</span> Apply Monogram as Logo
+                    </button>
+                  </div>
+                </div>
+
+                {/* Method 4: Direct Image URL */}
+                <div className="bg-background border border-panel-border rounded-2xl p-5 space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">🔗</span>
+                      <h3 className="font-extrabold text-sm text-text-main">Method 4: Hosted Image URL</h3>
+                    </div>
+                    <p className="text-xs text-text-muted leading-relaxed mb-3">
+                      Already have an image hosted online? Paste the direct URL here:
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <input
+                      type="url"
+                      value={logoUrl.startsWith("data:") ? "" : logoUrl}
+                      onChange={(e) => setLogoUrl(e.target.value.trim())}
+                      placeholder="https://example.com/logo.png"
+                      className="w-full bg-card-bg border border-panel-border rounded-xl px-3 py-2 text-xs font-mono text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    />
+                    {logoUrl.startsWith("data:") && (
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                        ✓ Currently using an uploaded or generated vector/data URI logo.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Multi-Context Preview Showcase */}
+            <div className="bg-card-bg border border-panel-border rounded-3xl p-6 shadow-sm space-y-4">
+              <div>
+                <h3 className="font-extrabold text-sm flex items-center gap-2">
+                  <span>👁️</span> Live Multi-Screen Preview
+                </h3>
+                <p className="text-xs text-text-muted mt-0.5">
+                  See how your logo renders across your desk app, student ID wallet cards, and official receipts.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                {/* 1. Header Bar Preview */}
+                <div className="p-4 rounded-2xl bg-background border border-panel-border space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted block">
+                    1. Navigation Bar
+                  </span>
+                  <div className="p-2.5 rounded-xl border border-panel-border bg-card-bg flex items-center gap-2">
+                    <LibraryLogo
+                      slug={slug}
+                      logoUrl={logoUrl || library.logo_url}
+                      name={name || library.name}
+                      size="sm"
+                    />
+                    <span className="font-extrabold text-xs tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-amber-500 dark:from-rose-500 dark:to-amber-400 line-clamp-1">
+                      {name || library.name}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Student ID Card Preview */}
+                <div className="p-4 rounded-2xl bg-background border border-panel-border space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted block">
+                    2. Student Pass (Virtual Card)
+                  </span>
+                  <div className="p-3 rounded-xl bg-gradient-to-tr from-neutral-900 to-neutral-950 border border-neutral-800 text-white flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <LibraryLogo
+                        slug={slug}
+                        logoUrl={logoUrl || library.logo_url}
+                        name={name || library.name}
+                        size="sm"
+                      />
+                      <div>
+                        <p className="text-[7px] text-rose-500 font-black uppercase tracking-widest leading-none">
+                          {name || library.name}
+                        </p>
+                        <p className="text-[9px] font-extrabold text-neutral-200 mt-0.5">STUDENT PASS</p>
+                      </div>
+                    </div>
+                    <span className="text-[8px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold">
+                      Seat 42
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. Tax Invoice Header Preview */}
+                <div className="p-4 rounded-2xl bg-background border border-panel-border space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted block">
+                    3. Digital Tax Invoice
+                  </span>
+                  <div className="p-3 rounded-xl border border-panel-border bg-card-bg flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-foreground line-clamp-1">
+                        {name || library.name}
+                      </p>
+                      <p className="text-[8px] text-text-muted">{city || "Dehradun"}</p>
+                    </div>
+                    <LibraryLogo
+                      slug={slug}
+                      logoUrl={logoUrl || library.logo_url}
+                      name={name || library.name}
+                      size="sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* TAB 1: Seats & Shift Timings */}
         {activeTab === "seats_shifts" && (
@@ -957,8 +1386,14 @@ export default function LibraryOwnerSettingsPage({
 
             {/* Poster Sheet View */}
             <div className="bg-white text-neutral-900 border-2 border-neutral-300 rounded-3xl p-8 max-w-xl mx-auto text-center shadow-xl print:border-none print:shadow-none print:p-4 print:max-w-none">
-              <div className="w-16 h-16 rounded-2xl bg-neutral-900 text-white text-3xl flex items-center justify-center mx-auto mb-3 shadow-md">
-                📖
+              <div className="flex justify-center mb-3">
+                <LibraryLogo
+                  slug={slug}
+                  logoUrl={logoUrl || library.logo_url}
+                  name={name || library.name}
+                  size="2xl"
+                  className="shadow-md"
+                />
               </div>
 
               <h1 className="text-3xl font-black tracking-tight text-neutral-900">

@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
+import LibraryLogo from "@/lib/LibraryLogo";
 
 interface StudentPassData {
   success: boolean;
@@ -14,6 +15,7 @@ interface StudentPassData {
     city: string;
     phone: string;
     address: string;
+    logo_url?: string | null;
   };
   member: {
     student_id: number;
@@ -237,7 +239,12 @@ function StudentPortalContent({ slug }: { slug: string }) {
             {/* Header: Library Name & Branch */}
             <div className="flex items-center justify-between border-b border-neutral-700/60 pb-3 mb-4">
               <div className="flex items-center gap-2.5">
-                <span className="text-2xl">📖</span>
+                <LibraryLogo
+                  slug={slug}
+                  logoUrl={data.library.logo_url}
+                  name={data.library.name}
+                  size="md"
+                />
                 <div>
                   <h3 className="font-black text-sm tracking-tight text-white">
                     {data.library.name}

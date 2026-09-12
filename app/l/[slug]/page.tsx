@@ -6,6 +6,7 @@ import { Library, LibrarySettings, AdmissionRequest } from "@/lib/types";
 import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS } from "@/lib/tenant";
 import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 import ThemeToggle from "@/lib/ThemeToggle";
+import LibraryLogo from "@/lib/LibraryLogo";
 
 interface MemberData {
   student_id: number;
@@ -303,16 +304,24 @@ export default function TenantDeskPage({
             >
               🔄 Portals
             </Link>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-extrabold tracking-tight">{library.name}</h1>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                  Librarian Desk
-                </span>
+            <div className="flex items-center gap-3">
+              <LibraryLogo
+                slug={slug}
+                logoUrl={library.logo_url}
+                name={library.name}
+                size="md"
+              />
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base font-extrabold tracking-tight">{library.name}</h1>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                    Librarian Desk
+                  </span>
+                </div>
+                <p className="text-[11px] text-text-muted">
+                  📍 {library.city || "Dehradun"} • Capacity: {settings.total_seats || 297} Seats
+                </p>
               </div>
-              <p className="text-[11px] text-text-muted">
-                📍 {library.city || "Dehradun"} • Capacity: {settings.total_seats || 297} Seats
-              </p>
             </div>
           </div>
 

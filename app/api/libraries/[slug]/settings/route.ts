@@ -37,7 +37,9 @@ export async function PUT(
     const {
       name,
       phone,
+      city,
       address,
+      logo_url,
       upi_id,
       upi_name,
       total_seats,
@@ -47,18 +49,28 @@ export async function PUT(
     } = body;
 
     // 1. Update library details if provided
-    if (name || phone !== undefined || address !== undefined || upi_id !== undefined || upi_name !== undefined) {
-      await supabase
+    const libUpdates: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (name !== undefined) libUpdates.name = name;
+    if (phone !== undefined) libUpdates.phone = phone;
+    if (city !== undefined) libUpdates.city = city;
+    if (address !== undefined) libUpdates.address = address;
+    if (logo_url !== undefined) libUpdates.logo_url = logo_url;
+    if (upi_id !== undefined) libUpdates.upi_id = upi_id;
+    if (upi_name !== undefined) libUpdates.upi_name = upi_name;
+
+    let updatedLib = library;
+    if (Object.keys(libUpdates).length > 1) {
+      const { data: refreshedLib } = await supabase
         .from("libraries")
-        .update({
-          name: name || library.name,
-          phone: phone !== undefined ? phone : library.phone,
-          address: address !== undefined ? address : library.address,
-          upi_id: upi_id !== undefined ? upi_id : library.upi_id,
-          upi_name: upi_name !== undefined ? upi_name : library.upi_name,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", library.id);
+        .update(libUpdates)
+        .eq("id", library.id)
+        .select()
+        .single();
+      if (refreshedLib) {
+        updatedLib = refreshedLib as any;
+      }
     }
 
     // 2. Update library_settings if provided
@@ -92,6 +104,7 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
+      library: updatedLib,
       settings: updatedSettings || {
         ...FALLBACK_SETTINGS,
         ...settingsUpdates,

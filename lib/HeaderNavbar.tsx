@@ -5,12 +5,14 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import ThemeToggle from "@/lib/ThemeToggle";
 import { getStoredSession, clearStoredSession } from "@/lib/auth";
+import LibraryLogo from "@/lib/LibraryLogo";
 
 function HeaderNavbarContent() {
   const pathname = usePathname() || "";
   const searchParams = useSearchParams();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [libraryName, setLibraryName] = useState<string>("");
+  const [libraryLogo, setLibraryLogo] = useState<string | null>(null);
 
   // Detect active library tenant from URL query param or stored session
   const slugFromParam = searchParams.get("slug");
@@ -36,10 +38,11 @@ function HeaderNavbarContent() {
     setIsAuthenticated(authed);
   }, [pathname, activeSlug]);
 
-  // Dynamically load active library name if on tenant workspace
+  // Dynamically load active library name and logo if on tenant workspace
   useEffect(() => {
     if (!activeSlug || activeSlug === "target-library") {
       setLibraryName("THE TARGET LIBRARY");
+      setLibraryLogo("/lib-logo.png");
       return;
     }
 
@@ -47,15 +50,18 @@ function HeaderNavbarContent() {
     fetch(`/api/libraries/${encodeURIComponent(activeSlug)}/settings`)
       .then((r) => r.json())
       .then((d) => {
-        if (isMounted && d.library?.name) {
+        if (!isMounted) return;
+        if (d.library?.name) {
           setLibraryName(d.library.name.toUpperCase());
-        } else if (isMounted) {
+        } else {
           setLibraryName(activeSlug.replace(/-/g, " ").toUpperCase());
         }
+        setLibraryLogo(d.library?.logo_url || null);
       })
       .catch(() => {
         if (isMounted) {
           setLibraryName(activeSlug.replace(/-/g, " ").toUpperCase());
+          setLibraryLogo(null);
         }
       });
 
@@ -99,10 +105,12 @@ function HeaderNavbarContent() {
       <div className="max-w-7xl mx-auto px-6 py-3.5 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <Link href={homeHref} className="flex items-center gap-2.5 group">
-            <img
-              src="/lib-logo.png"
-              alt="Library Logo"
-              className="w-6 h-6 rounded-md object-contain group-hover:scale-105 transition-transform duration-200"
+            <LibraryLogo
+              slug={activeSlug}
+              logoUrl={libraryLogo}
+              name={libraryName}
+              size="sm"
+              className="group-hover:scale-105 transition-transform duration-200"
             />
             <span className="font-extrabold text-sm tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-amber-500 dark:from-rose-500 dark:to-amber-400">
               {libraryName || "THE TARGET LIBRARY"}

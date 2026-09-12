@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { Library, LibrarySettings, ShiftConfig } from "@/lib/types";
 import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS } from "@/lib/tenant";
+import LibraryLogo from "@/lib/LibraryLogo";
 
 export default function StudentEntranceQRJoinPage({
   params,
@@ -117,8 +118,14 @@ export default function StudentEntranceQRJoinPage({
     <main className="min-h-screen bg-background text-text-main pb-16 pt-4 px-4 max-w-lg mx-auto">
       {/* Top Banner Branding */}
       <div className="text-center mb-6 border-b border-panel-border pb-5">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-2xl mb-2.5 shadow-inner">
-          📖
+        <div className="flex justify-center mb-3">
+          <LibraryLogo
+            slug={slug}
+            logoUrl={library.logo_url}
+            name={library.name}
+            size="xl"
+            className="shadow-sm"
+          />
         </div>
         <h1 className="text-2xl font-black tracking-tight">{library.name}</h1>
         <p className="text-xs text-text-muted mt-0.5">
