@@ -164,6 +164,7 @@ Whether managing a 50-seat quiet study hall or a 300-seat multi-shift reading li
 | `/l/[slug]/join` | Public / Students | Entrance door QR self-admission form with UPI Soundbox UTR submission |
 | `/l/[slug]/student` | Public / Students | Virtual digital membership pass with live validity badge & QR code |
 | `/l/[slug]/settings` | Owner Only | Brand customization, shift configurations, UPI Soundbox, and passwords |
+| `/l/[slug]/print` | Staff / Owner | Printable entrance posters, counter tent cards, Wi-Fi table cards studio |
 | `/members?slug=[slug]` | Staff / Owner | Permanent member search ledger with seat numbers and payment history |
 | `/collections?slug=[slug]` | Staff / Owner | Daily fee collection ledger with cash vs. UPI breakdown and date filtering |
 | `/due-fees?slug=[slug]` | Staff / Owner | Overdue student tracker with 1-click WhatsApp reminder generator |
@@ -198,6 +199,36 @@ Whether managing a 50-seat quiet study hall or a 300-seat multi-shift reading li
   - Seamless persistent fallback (`lib/localExpenses.ts`) ensuring zero runtime errors or setup friction prior to running `supabase/expenses.sql`.
 - **1-Click CA-Ready CSV Export**:
   - RFC-4180 format with UTF-8 BOM encoding for direct opening in Microsoft Excel and Tally accounting.
+
+---
+
+### 🖨️ 12. Printable Entrance Poster & Counter Tent Card Studio (`/l/[slug]/print`)
+> **Professional Physical Presence**: Elevates modern reading rooms with high-contrast, ready-to-print marketing collateral and operational cards directly from the browser.
+
+- **4 Multi-Purpose Production Templates**:
+  1. 🚪 **A4 Entrance Door Self-Admission Poster**:
+     - Large, ultra-crisp 600x600 QR code pointing to `/l/[slug]/join`.
+     - 3-step student onboarding workflow ("Scan QR" → "Pick Shift" → "Pay UPI & Start").
+     - 6 facility highlight badges (Fiber Wi-Fi, Full AC, Power Sockets, RO Water, Ergonomic Chairs, CCTV).
+     - Operating hours, monthly rate callout, helpline phone, and physical address.
+  2. 🪧 **Foldable Reception Counter Tent Card**:
+     - Dual-side layout with central scissor/fold guide line for 3D acrylic stands.
+     - **Front Face**: "Scan to Admit or Renew Fee" with soundbox UPI credentials.
+     - **Reverse Face**: Reading Hall Etiquette & Guidelines (Silence, Mobile on Silent, Footwear, Wi-Fi credentials).
+  3. 📶 **Tabletop Wi-Fi & Hotspot Desk Cards**:
+     - Direct-Connect Wi-Fi QR code (`WIFI:T:WPA;S:...;P:...;;`) scannable by iOS and Android camera apps for instant 1-tap network joining without typing passwords.
+     - Flexible layout options: **1 Large Stand** or **4-in-1 Sheet** with dashed scissor guidelines for cutting out desk carrel stickers.
+  4. 📜 **Reading Hall Quiet Study Rules Poster (A4 Portrait)**:
+     - Formal code of conduct poster for study hall notice boards (Absolute Silence, Device Muting, Footwear Discipline, Shift Punctuality, Cleanliness).
+- **5 Designer Color Themes**:
+  - 🔴 **Crimson Red**: Classic Target Library branding.
+  - 🔵 **Royal Sapphire**: Academic deep navy and indigo.
+  - 🟢 **Emerald Focus**: Calming sage and forest green.
+  - 🟡 **Warm Gold**: Executive study lounge aesthetic.
+  - 🖨️ **Monochrome Ink-Saver**: Pure 100% black-and-white geometric layout optimized for budget laser printers with zero color toner consumption.
+- **Pixel-Perfect Print Engine (`@media print`)**:
+  - Automatically isolates printable canvas, hides browser UI, sets A4 dimensions, and locks `-webkit-print-color-adjust: exact`.
+  - Responsive 1:1 preview zoom controls and local storage persistence for customized headlines, Wi-Fi keys, and contacts.
 
 ---
 

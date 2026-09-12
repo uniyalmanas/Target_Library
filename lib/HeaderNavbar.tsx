@@ -164,6 +164,7 @@ function HeaderNavbarContent() {
   const isCollectionsActive = pathname.startsWith("/collections");
   const isDueFeesActive = pathname.startsWith("/due-fees");
   const isExpensesActive = pathname.startsWith("/expenses");
+  const isPrintActive = pathname.startsWith(`/l/${activeSlug}/print`);
   const isDashboardActive = pathname.startsWith("/dashboard");
   const isSettingsActive = pathname.startsWith(`/l/${activeSlug}/settings`);
   const isNewReceiptActive = pathname.startsWith("/new-receipt");
@@ -300,6 +301,18 @@ function HeaderNavbarContent() {
                   title="Open Student Entrance QR Code in new tab"
                 >
                   <span>📱</span> Door QR
+                </Link>
+
+                <Link
+                  href={`/l/${activeSlug}/print`}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+                    isPrintActive
+                      ? "bg-rose-500/20 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
+                      : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
+                  }`}
+                  title="Printable Entrance Door Posters, Wi-Fi Stands, and Counter Tent Cards"
+                >
+                  <span>🖨️</span> Posters
                 </Link>
 
                 <Link

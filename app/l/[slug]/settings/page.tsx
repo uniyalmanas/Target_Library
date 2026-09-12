@@ -1950,20 +1950,33 @@ export default function LibraryOwnerSettingsPage({
         {/* TAB 4: Front Door Entrance QR Poster (Printable A4 Sheet) */}
         {activeTab === "poster" && (
           <div className="space-y-5">
-            <div className="flex items-center justify-between bg-card-bg border border-panel-border rounded-2xl p-4 shadow-sm print:hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card-bg border border-panel-border rounded-2xl p-4 shadow-sm print:hidden">
               <div>
-                <h3 className="font-extrabold text-sm text-text-main">🖨️ Printable Entrance Door Poster</h3>
+                <h3 className="font-extrabold text-sm text-text-main flex items-center gap-2">
+                  <span>🖨️</span> Printable Entrance Door Poster & Studio
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                    Studio Available
+                  </span>
+                </h3>
                 <p className="text-xs text-text-muted mt-0.5">
-                  Print this A4 sheet and paste it on your front glass door so students can scan and self-admit.
+                  Print this A4 sheet for your front glass door, or launch the multi-template studio for tent cards &amp; Wi-Fi stands.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition active:scale-95 cursor-pointer flex items-center gap-1.5"
-              >
-                <span>🖨️</span> Print A4 Poster
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/l/${slug}/print`}
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-black text-xs shadow-sm transition active:scale-95 flex items-center gap-1.5"
+                >
+                  <span>✨</span> Open Full Print Studio ↗
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3.5 py-2 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-text-main font-bold text-xs shadow-sm transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>🖨️</span> Print Quick A4
+                </button>
+              </div>
             </div>
 
             {/* Poster Sheet View */}
