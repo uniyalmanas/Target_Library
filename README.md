@@ -169,7 +169,7 @@ Whether managing a 50-seat quiet study hall or a 300-seat multi-shift reading li
 | `/members?slug=[slug]` | Staff / Owner | Permanent member search ledger with seat numbers and payment history |
 | `/collections?slug=[slug]` | Staff / Owner | Daily fee collection ledger with cash vs. UPI breakdown and date filtering |
 | `/due-fees?slug=[slug]` | Staff / Owner | Overdue student tracker with 1-click WhatsApp reminder generator |
-| `/expenses?slug=[slug]` | Staff / Owner | Daily operational expense ledger, real net profit, cost breakdown, and presets |
+| `/expenses?slug=[slug]` | Owner Only | Daily operational expense ledger, real net profit, cost breakdown, and presets |
 | `/receipts/[id]` | Public | Printable tax invoice receipt and digital pass verification |
 | `/superadmin` | Founder / Superadmin | SaaS founder control panel with verified MRR, library directory, and billing actions |
 

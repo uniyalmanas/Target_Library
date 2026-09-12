@@ -281,20 +281,21 @@ function HeaderNavbarContent() {
               <span>🔵</span> Due Fees
             </Link>
 
-            <Link
-              href={`/expenses?slug=${encodeURIComponent(activeSlug)}`}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
-                isExpensesActive
-                  ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
-                  : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
-              }`}
-            >
-              <span>📉</span> Expenses
-            </Link>
-
             {/* Owner-Only Privileged Links */}
             {isOwner && (
               <>
+                <Link
+                  href={`/expenses?slug=${encodeURIComponent(activeSlug)}`}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+                    isExpensesActive
+                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
+                      : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
+                  }`}
+                  title="Daily Operational Expenses & Real Net In-Hand Profit Ledger"
+                >
+                  <span>📉</span> Expenses
+                </Link>
+
                 <Link
                   href={`/l/${activeSlug}/join`}
                   target="_blank"
