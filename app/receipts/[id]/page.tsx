@@ -6,13 +6,22 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import EditReceiptModal from "@/lib/EditReceiptModal";
 import LibraryLogo from "@/lib/LibraryLogo";
+import { generateUpiIntentUrl, generateUpiQrCodeUrl } from "@/lib/upi";
 
 function ReceiptDetails() {
   const params = useParams();
   const id = params.id as string;
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
-  const [library, setLibrary] = useState<{ name: string; city: string; slug: string; logo_url?: string | null } | null>(null);
+  const [library, setLibrary] = useState<{
+    name: string;
+    city: string;
+    slug: string;
+    logo_url?: string | null;
+    upi_id?: string | null;
+    upi_name?: string | null;
+  } | null>(null);
+  const [showUpiQr, setShowUpiQr] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -67,7 +76,7 @@ function ReceiptDetails() {
         if (receipt?.library_id) {
           const { data: libData } = await supabase
             .from("libraries")
-            .select("name, city, slug, logo_url")
+            .select("name, city, slug, logo_url, upi_id, upi_name")
             .eq("id", receipt.library_id)
             .maybeSingle();
           if (libData) {
@@ -123,6 +132,32 @@ function ReceiptDetails() {
     ? `https://wa.me/${phone.replace(/\D/g, "").length === 10 ? "91" + phone.replace(/\D/g, "") : phone.replace(/\D/g, "")}?text=${encodeURIComponent(`${libName}\nReceipt No: ${data.receipt_no}\nName: ${data.members?.name}\nSeat No: ${data.seats?.seat_number}\nType: ${shiftLabel}\nAmount Paid: Rs ${data.amount_paid}\nValid till: ${data.end_date}\nDigital Pass & Invoice: ${shareUrl}`)}`
     : null;
 
+  const today = new Date().toISOString().split("T")[0];
+  const isOverdue = data.end_date ? data.end_date < today : false;
+  const daysOverdue = isOverdue
+    ? Math.max(1, Math.ceil((new Date(`${today}T00:00:00`).getTime() - new Date(`${data.end_date}T00:00:00`).getTime()) / (1000 * 60 * 60 * 24)))
+    : 0;
+
+  const upiId = library?.upi_id || "targetlibrary@upi";
+  const upiName = library?.upi_name || libName;
+  const upiIntentUrl = generateUpiIntentUrl({
+    upiId,
+    payeeName: upiName,
+    amount: data.amount_paid || 900,
+    note: `Renewal Seat #${data.seats?.seat_number || data.seat_id} - ${libName}`,
+    transactionRef: `RNW_${data.receipt_no}`,
+  });
+  const upiQrCodeUrl = generateUpiQrCodeUrl(
+    {
+      upiId,
+      payeeName: upiName,
+      amount: data.amount_paid || 900,
+      note: `Renewal Seat #${data.seats?.seat_number || data.seat_id} - ${libName}`,
+      transactionRef: `RNW_${data.receipt_no}`,
+    },
+    220
+  );
+
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       {/* Action Header */}
@@ -156,6 +191,56 @@ function ReceiptDetails() {
           </button>
         </div>
       </div>
+
+      {/* Overdue Renewal Alert Banner with Dynamic UPI Intent */}
+      {isOverdue && (
+        <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 no-print animate-in fade-in">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-600 dark:text-rose-400">
+              <span>⚠️</span> Subscription Overdue ({daysOverdue} day{daysOverdue === 1 ? "" : "s"})
+            </div>
+            <h3 className="text-sm font-bold text-foreground">
+              Seat #{data.seats?.seat_number} expired on {data.end_date}
+            </h3>
+            <p className="text-xs text-text-muted">
+              Pay renewal fee of <span className="font-extrabold text-foreground">₹{data.amount_paid}</span> via UPI to keep your seat reserved at {libName}.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <a
+              href={upiIntentUrl}
+              className="flex-1 sm:flex-none text-center px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-md shadow-blue-600/20 transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span>⚡</span> 1-Click Pay (₹{data.amount_paid})
+            </a>
+            <button
+              onClick={() => setShowUpiQr((prev) => !prev)}
+              className="px-3.5 py-2.5 rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-main font-bold text-xs shadow-sm transition cursor-pointer"
+              title="Show / Hide UPI QR"
+            >
+              📷 QR
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic UPI QR Display Modal/Drawer */}
+      {isOverdue && showUpiQr && (
+        <div className="bg-panel-bg border border-panel-border rounded-2xl p-5 text-center max-w-sm mx-auto space-y-3 no-print animate-in zoom-in-95">
+          <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+            Scan with PhonePe / GPay / Paytm
+          </h4>
+          <div className="p-3 bg-white rounded-xl inline-block border border-neutral-200 shadow-inner">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={upiQrCodeUrl} alt="UPI QR" width={180} height={180} className="mx-auto rounded" />
+            <p className="text-xs font-mono font-bold text-neutral-800 mt-1">Pre-filled: ₹{data.amount_paid}</p>
+            <p className="text-[10px] font-mono text-neutral-500">{upiId}</p>
+          </div>
+          <p className="text-[11px] text-text-muted">
+            Instant renewal for Seat #{data.seats?.seat_number} &middot; {upiName}
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-start">
         {/* Left Side: Membership Pass */}
