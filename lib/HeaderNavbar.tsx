@@ -7,12 +7,14 @@ import ThemeToggle from "@/lib/ThemeToggle";
 import { getStoredSession } from "@/lib/auth";
 import LibraryLogo from "@/lib/LibraryLogo";
 
-import { isDemoSlug } from "./tenant";
+import { isDemoSlug, getLibraryAccessStatus } from "./tenant";
 
 interface LibraryHeaderInfo {
   name: string;
   logoUrl: string | null;
   totalSeats: number;
+  isTrial?: boolean;
+  trialDaysLeft?: number;
 }
 
 // In-memory cache across tab switches within the session
@@ -105,10 +107,13 @@ function HeaderNavbarContent() {
       const res = await fetch(`/api/libraries/${encodeURIComponent(slug)}/settings`);
       if (res.ok) {
         const data = await res.json();
+        const access = getLibraryAccessStatus(data.library);
         const info: LibraryHeaderInfo = {
           name: data.library?.name || slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
           logoUrl: data.library?.logo_url || null,
           totalSeats: data.settings?.total_seats || 297,
+          isTrial: access.isTrial && !access.isBlocked && !isDemoSlug(slug),
+          trialDaysLeft: access.trialDaysRemaining,
         };
         headerCache[slug] = info;
         setLibInfo(info);
@@ -185,6 +190,10 @@ function HeaderNavbarContent() {
               {isDemoSlug(activeSlug) ? (
                 <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 whitespace-nowrap flex items-center gap-1">
                   <span>✨</span> Demo Lounge
+                </span>
+              ) : libInfo.isTrial ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 whitespace-nowrap flex items-center gap-1">
+                  <span>⏳</span> 7-Day Trial ({libInfo.trialDaysLeft}d)
                 </span>
               ) : (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 whitespace-nowrap">

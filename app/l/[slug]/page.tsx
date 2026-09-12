@@ -3,10 +3,11 @@
 import { useEffect, useState, use, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Library, LibrarySettings, AdmissionRequest } from "@/lib/types";
-import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, DEMO_LIBRARY, DEMO_SETTINGS, isDemoSlug, DEFAULT_LIBRARY_SLUG } from "@/lib/tenant";
+import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, DEMO_LIBRARY, DEMO_SETTINGS, isDemoSlug, DEFAULT_LIBRARY_SLUG, getLibraryAccessStatus } from "@/lib/tenant";
 import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 import ThemeToggle from "@/lib/ThemeToggle";
 import LibraryLogo from "@/lib/LibraryLogo";
+import TenantAccessBarrier from "@/lib/TenantAccessBarrier";
 import { getStoredSession } from "@/lib/auth";
 
 interface MemberData {
@@ -116,21 +117,30 @@ export default function TenantDeskPage({
   }, [slug]);
 
   // Load Library & Settings
-  useEffect(() => {
-    async function loadInfo() {
-      try {
-        const res = await fetch(`/api/libraries/${slug}/settings`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.library) setLibrary(data.library);
-          if (data.settings) setSettings(data.settings);
-        }
-      } catch (e) {
-        console.error("Error loading tenant info:", e);
+  const loadInfo = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/libraries/${slug}/settings`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.library) setLibrary(data.library);
+        if (data.settings) setSettings(data.settings);
       }
+    } catch (e) {
+      console.error("Error loading tenant info:", e);
     }
-    loadInfo();
   }, [slug]);
+
+  useEffect(() => {
+    loadInfo();
+  }, [loadInfo]);
+
+  // Master override for testing/troubleshooting
+  const [hasAdminOverride, setHasAdminOverride] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setHasAdminOverride(sessionStorage.getItem("target_lib_admin_override") === "true");
+    }
+  }, []);
 
   // Load Seats
   const fetchSeats = () => {
@@ -462,6 +472,22 @@ export default function TenantDeskPage({
   // Free seats list for assigning
   const freeSeats = seats.filter((s) => !s.occupied);
 
+  // Compute live subscription and trial access status
+  const access = getLibraryAccessStatus(library);
+
+  // If trial expired or past due, strictly lock UI behind paywall while preserving 100% of data
+  if (access.isBlocked && !hasAdminOverride) {
+    return (
+      <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
+        <TenantAccessBarrier
+          library={library}
+          access={access}
+          onRefresh={loadInfo}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
       <div className={`flex-1 w-full mx-auto px-3 sm:px-6 py-4 space-y-4 transition-all duration-300 ${isWideLayout ? "max-w-[98vw]" : "max-w-[1680px]"}`}>
@@ -490,6 +516,40 @@ export default function TenantDeskPage({
             >
               Launch Your Own Library (7-Day Trial) 🚀
             </Link>
+          </div>
+        )}
+
+        {/* Testing Phase: 7-Day Free Trial Notice Banner */}
+        {access.isTrial && !access.isBlocked && !isDemoSlug(slug) && (
+          <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/15 to-amber-500/10 border border-amber-500/30 rounded-3xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl p-2 rounded-2xl bg-amber-500/15 border border-amber-500/25 shrink-0">
+                ⏳
+              </span>
+              <div>
+                <div className="font-extrabold text-sm text-text-main flex items-center gap-2">
+                  <span>Testing Phase: 7-Day Free Trial</span>
+                  <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/25 text-amber-700 dark:text-amber-300">
+                    {access.trialDaysRemaining} Day{access.trialDaysRemaining === 1 ? "" : "s"} Remaining
+                  </span>
+                </div>
+                <p className="text-text-muted mt-0.5 leading-relaxed">
+                  You are evaluating LibraryOS. All your seats, shifts, student admissions, and fee receipts are safely preserved in the cloud database.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+              <a
+                href={`https://wa.me/918535035757?text=${encodeURIComponent(
+                  `Hi LibraryOS Admin, I am testing ${library.name} (/l/${library.slug}) on the 7-day trial and want to activate the ₹${library.monthly_fee || 600}/mo subscription.`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition active:scale-95 text-center cursor-pointer"
+              >
+                Activate ₹{library.monthly_fee || 600}/mo Plan 🚀
+              </a>
+            </div>
           </div>
         )}
 

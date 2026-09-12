@@ -3,8 +3,9 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { Library, LibrarySettings, ShiftConfig } from "@/lib/types";
-import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, DEMO_LIBRARY, DEMO_SETTINGS, isDemoSlug, getEffectiveLogo } from "@/lib/tenant";
+import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, DEMO_LIBRARY, DEMO_SETTINGS, isDemoSlug, getEffectiveLogo, getLibraryAccessStatus } from "@/lib/tenant";
 import LibraryLogo from "@/lib/LibraryLogo";
+import TenantAccessBarrier from "@/lib/TenantAccessBarrier";
 import { getStoredSession, setStoredSession } from "@/lib/auth";
 
 export const PRESET_EMBLEMS = [
@@ -471,6 +472,21 @@ export default function LibraryOwnerSettingsPage({
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="w-8 h-8 border-3 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
+    );
+  }
+
+  // Access check: if subscription or trial expired, block settings access
+  const access = getLibraryAccessStatus(library);
+  const hasOverride = typeof window !== "undefined" && sessionStorage.getItem("target_lib_admin_override") === "true";
+
+  if (access.isBlocked && !hasOverride) {
+    return (
+      <main className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <TenantAccessBarrier
+          library={library}
+          access={access}
+        />
+      </main>
     );
   }
 

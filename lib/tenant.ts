@@ -223,3 +223,154 @@ export async function getLibrarySettings(libraryId: string = DEFAULT_LIBRARY_ID)
     return FALLBACK_SETTINGS;
   }
 }
+
+export interface LibraryAccessInfo {
+  isBlocked: boolean;
+  status: "active" | "trial" | "trial_expired" | "past_due" | "suspended";
+  isTrial: boolean;
+  trialDaysRemaining: number;
+  subscriptionDaysRemaining: number | null;
+  message: string;
+}
+
+/**
+ * Calculates access status for a library instance:
+ * - Target Library: Lifetime fixed active client (never blocked)
+ * - Demo Lounge: Always active sandbox (never blocked)
+ * - 7-Day Trial: Free access for 7 days. If unpaid after 7 days, access is BLOCKED (data preserved).
+ * - Active Paid: Access valid until subscription_ends_at. If unpaid, access is BLOCKED.
+ * - Suspended/Blocked: Access is BLOCKED.
+ */
+export function getLibraryAccessStatus(library?: Library | null): LibraryAccessInfo {
+  if (!library) {
+    return {
+      isBlocked: false,
+      status: "active",
+      isTrial: false,
+      trialDaysRemaining: 0,
+      subscriptionDaysRemaining: null,
+      message: "Active",
+    };
+  }
+
+  // Demo Lounge is always accessible in sandbox mode
+  if (isDemoSlug(library.slug)) {
+    return {
+      isBlocked: false,
+      status: "active",
+      isTrial: false,
+      trialDaysRemaining: 0,
+      subscriptionDaysRemaining: null,
+      message: "Demo Sandbox Active",
+    };
+  }
+
+  // Target Library has lifetime fixed active access
+  if (library.is_lifetime_fixed || library.slug === DEFAULT_LIBRARY_SLUG) {
+    return {
+      isBlocked: false,
+      status: "active",
+      isTrial: false,
+      trialDaysRemaining: 0,
+      subscriptionDaysRemaining: null,
+      message: "Lifetime Founding Client Active",
+    };
+  }
+
+  const now = Date.now();
+
+  // Explicit suspension / manual block
+  if (library.subscription_status === "suspended") {
+    return {
+      isBlocked: true,
+      status: "suspended",
+      isTrial: false,
+      trialDaysRemaining: 0,
+      subscriptionDaysRemaining: 0,
+      message: "Library access has been suspended by administration.",
+    };
+  }
+
+  // Check 7-day trial
+  if (
+    library.subscription_status === "trial" ||
+    (!library.subscription_ends_at && library.trial_ends_at)
+  ) {
+    const trialEnd = library.trial_ends_at
+      ? new Date(library.trial_ends_at).getTime()
+      : now + 7 * 24 * 60 * 60 * 1000;
+    const diffMs = trialEnd - now;
+    const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMs <= 0) {
+      // 7-day trial ended and fee not paid -> ACCESS IS BLOCKED (data preserved)
+      return {
+        isBlocked: true,
+        status: "trial_expired",
+        isTrial: true,
+        trialDaysRemaining: 0,
+        subscriptionDaysRemaining: 0,
+        message: "Your 7-day free trial has ended. Please complete subscription payment to unlock access.",
+      };
+    }
+
+    // Trial is currently active
+    return {
+      isBlocked: false,
+      status: "trial",
+      isTrial: true,
+      trialDaysRemaining: daysLeft,
+      subscriptionDaysRemaining: null,
+      message: `7-Day Free Trial: ${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining.`,
+    };
+  }
+
+  // Paid active subscription
+  if (library.subscription_status === "active") {
+    if (library.subscription_ends_at) {
+      const subEnd = new Date(library.subscription_ends_at).getTime();
+      const diffMs = subEnd - now;
+      const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffMs <= 0) {
+        // Subscription past due -> ACCESS IS BLOCKED (data preserved)
+        return {
+          isBlocked: true,
+          status: "past_due",
+          isTrial: false,
+          trialDaysRemaining: 0,
+          subscriptionDaysRemaining: 0,
+          message: "Your monthly subscription has expired. Please renew to continue access.",
+        };
+      }
+
+      return {
+        isBlocked: false,
+        status: "active",
+        isTrial: false,
+        trialDaysRemaining: 0,
+        subscriptionDaysRemaining: daysLeft,
+        message: `Active subscription: renews in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`,
+      };
+    }
+
+    return {
+      isBlocked: false,
+      status: "active",
+      isTrial: false,
+      trialDaysRemaining: 0,
+      subscriptionDaysRemaining: null,
+      message: "Active subscription.",
+    };
+  }
+
+  // Fallback
+  return {
+    isBlocked: true,
+    status: "past_due",
+    isTrial: false,
+    trialDaysRemaining: 0,
+    subscriptionDaysRemaining: 0,
+    message: "Subscription fee payment required to access this workspace.",
+  };
+}

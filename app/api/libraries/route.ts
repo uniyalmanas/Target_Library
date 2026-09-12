@@ -105,7 +105,9 @@ export async function POST(req: Request) {
         monthly_fee: Number(monthly_fee) || 600,
         upi_id: upi_id || null,
         upi_name: upi_name || name,
-        subscription_status: "active",
+        subscription_status: "trial",
+        trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        subscription_ends_at: null,
       })
       .select()
       .single();
@@ -165,7 +167,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, monthly_fee, subscription_status, subscription_ends_at, is_lifetime_fixed, discount_code } = body;
+    const { id, monthly_fee, subscription_status, subscription_ends_at, trial_ends_at, is_lifetime_fixed, discount_code } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Library ID is required" }, { status: 400 });
@@ -175,6 +177,7 @@ export async function PUT(req: Request) {
     if (monthly_fee !== undefined) updates.monthly_fee = Number(monthly_fee);
     if (subscription_status !== undefined) updates.subscription_status = subscription_status;
     if (subscription_ends_at !== undefined) updates.subscription_ends_at = subscription_ends_at;
+    if (trial_ends_at !== undefined) updates.trial_ends_at = trial_ends_at;
     if (is_lifetime_fixed !== undefined) updates.is_lifetime_fixed = is_lifetime_fixed;
     if (discount_code !== undefined) updates.discount_code = discount_code;
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug, getLibrarySettings, FALLBACK_SETTINGS } from "@/lib/tenant";
+import { getLibraryBySlug, getLibrarySettings, FALLBACK_SETTINGS, getLibraryAccessStatus } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +12,12 @@ export async function GET(
     const { slug } = await params;
     const library = await getLibraryBySlug(slug);
     const settings = await getLibrarySettings(library.id);
+    const access = getLibraryAccessStatus(library);
 
     return NextResponse.json({
       library,
       settings,
+      access,
     });
   } catch (err: unknown) {
     return NextResponse.json(

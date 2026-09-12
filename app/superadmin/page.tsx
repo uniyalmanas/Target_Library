@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Library } from "@/lib/types";
+import { getLibraryAccessStatus } from "@/lib/tenant";
 
 export default function SuperAdminPage() {
   const [libraries, setLibraries] = useState<Library[]>([]);
@@ -48,13 +49,43 @@ export default function SuperAdminPage() {
     fetchLibraries();
   }, []);
 
-  // Stats Calculations
+  // Stats Calculations: Only count verified paid active subscriptions toward MRR
+  // Free 7-day trials (like testing-library-1) have NOT paid fees and do not inflate MRR!
   const stats = useMemo(() => {
     const total = libraries.length;
-    const active = libraries.filter((l) => l.subscription_status === "active").length;
-    const mrr = libraries.reduce((sum, l) => sum + (l.monthly_fee || 0), 0);
+
+    const paidActiveLibs = libraries.filter((l) => {
+      if (l.is_lifetime_fixed) return true;
+      if (l.subscription_status === "active") {
+        if (!l.subscription_ends_at) return true;
+        return new Date(l.subscription_ends_at).getTime() > Date.now();
+      }
+      return false;
+    });
+
+    const mrr = paidActiveLibs.reduce((sum, l) => sum + (l.monthly_fee || 0), 0);
+    const activePaidCount = paidActiveLibs.length;
+
+    const trialLibs = libraries.filter((l) => {
+      const access = getLibraryAccessStatus(l);
+      return access.status === "trial" && !access.isBlocked;
+    });
+
+    const blockedLibs = libraries.filter((l) => {
+      const access = getLibraryAccessStatus(l);
+      return access.isBlocked;
+    });
+
     const foundingVips = libraries.filter((l) => l.is_lifetime_fixed).length;
-    return { total, active, mrr, foundingVips };
+
+    return {
+      total,
+      activePaidCount,
+      trialCount: trialLibs.length,
+      blockedCount: blockedLibs.length,
+      mrr,
+      foundingVips,
+    };
   }, [libraries]);
 
   // Handle Slug Auto-generation
@@ -141,12 +172,65 @@ export default function SuperAdminPage() {
           id: lib.id,
           subscription_status: "active",
           subscription_ends_at: newExpiry.toISOString(),
+          trial_ends_at: null,
         }),
       });
       if (!res.ok) throw new Error("Failed to extend subscription");
       fetchLibraries();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Error extending subscription");
+    }
+  };
+
+  // Extend or Reset Free Trial
+  const handleExtendTrial = async (lib: Library, days: number = 7) => {
+    const confirmExtend = window.confirm(
+      `Extend free trial for ${lib.name} by ${days} days? Access will remain open and fee unpaid.`
+    );
+    if (!confirmExtend) return;
+
+    try {
+      const newTrialEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+      const res = await fetch("/api/libraries", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: lib.id,
+          subscription_status: "trial",
+          trial_ends_at: newTrialEnd,
+          subscription_ends_at: null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to extend trial");
+      fetchLibraries();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error extending trial");
+    }
+  };
+
+  // Simulate Trial Expiry (To test locked paywall barrier while preserving data)
+  const handleExpireTrial = async (lib: Library) => {
+    const confirmExpire = window.confirm(
+      `Simulate trial expiry for ${lib.name}? This will instantly lock the workspace behind the renewal barrier (All data is 100% preserved).`
+    );
+    if (!confirmExpire) return;
+
+    try {
+      const pastTime = new Date(Date.now() - 60 * 1000).toISOString();
+      const res = await fetch("/api/libraries", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: lib.id,
+          subscription_status: "trial",
+          trial_ends_at: pastTime,
+          subscription_ends_at: null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to expire trial");
+      fetchLibraries();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error expiring trial");
     }
   };
 
@@ -197,41 +281,46 @@ export default function SuperAdminPage() {
             Total Subscribed Libraries
           </div>
           <div className="text-3xl font-black mt-1 text-text-main">{stats.total}</div>
-          <div className="text-[11px] text-text-muted mt-1">{stats.active} currently active</div>
+          <div className="text-[11px] text-text-muted mt-1">
+            {stats.activePaidCount} paying • {stats.trialCount} on trial
+          </div>
         </div>
 
         <div className="bg-card-bg border border-emerald-500/20 bg-emerald-500/5 rounded-2xl p-4 shadow-sm">
           <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center justify-between">
-            <span>Monthly Recurring Revenue</span>
+            <span>Verified Paid MRR</span>
             <span>💰</span>
           </div>
           <div className="text-3xl font-black mt-1 text-emerald-600 dark:text-emerald-400">
             ₹{stats.mrr.toLocaleString("en-IN")}/mo
           </div>
           <div className="text-[11px] text-emerald-600/70 dark:text-emerald-400/70 mt-1">
-            Annual: ₹{(stats.mrr * 12).toLocaleString("en-IN")}/yr
+            Annual: ₹{(stats.mrr * 12).toLocaleString("en-IN")}/yr (Trials ₹0)
           </div>
         </div>
 
-        <div className="bg-card-bg border border-panel-border rounded-2xl p-4 shadow-sm">
-          <div className="text-xs font-medium text-text-muted uppercase tracking-wider">
-            Active Hubs
+        <div className="bg-card-bg border border-amber-500/20 bg-amber-500/5 rounded-2xl p-4 shadow-sm">
+          <div className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center justify-between">
+            <span>Testing / 7-Day Trials</span>
+            <span>🧪</span>
           </div>
-          <div className="text-3xl font-black mt-1 text-sky-600 dark:text-sky-400">
-            Dehradun
+          <div className="text-3xl font-black mt-1 text-amber-600 dark:text-amber-400">
+            {stats.trialCount}
           </div>
-          <div className="text-[11px] text-text-muted mt-1">First Target City</div>
+          <div className="text-[11px] text-amber-600/70 dark:text-amber-400/70 mt-1">
+            Unpaid testing phase
+          </div>
         </div>
 
         <div className="bg-card-bg border border-panel-border rounded-2xl p-4 shadow-sm">
           <div className="text-xs font-medium text-text-muted uppercase tracking-wider flex items-center justify-between">
-            <span>Founding VIP Clients</span>
-            <span>⭐</span>
+            <span>Blocked / Expired</span>
+            <span>🔒</span>
           </div>
-          <div className="text-3xl font-black mt-1 text-amber-600 dark:text-amber-400">
-            {stats.foundingVips}
+          <div className="text-3xl font-black mt-1 text-rose-600 dark:text-rose-400">
+            {stats.blockedCount}
           </div>
-          <div className="text-[11px] text-text-muted mt-1">Target Library (₹400/mo)</div>
+          <div className="text-[11px] text-text-muted mt-1">Data safely preserved</div>
         </div>
       </div>
 
@@ -265,82 +354,158 @@ export default function SuperAdminPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-panel-border">
-                {libraries.map((lib) => (
-                  <tr key={lib.id} className="hover:bg-neutral-500/5 transition-colors">
-                    {/* Name */}
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-text-main text-sm flex items-center gap-2">
-                        {lib.name}
-                        {lib.is_lifetime_fixed && (
-                          <span className="text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded font-bold">
-                            ⭐ Founding VIP
+                {libraries.map((lib) => {
+                  const access = getLibraryAccessStatus(lib);
+
+                  return (
+                    <tr key={lib.id} className="hover:bg-neutral-500/5 transition-colors">
+                      {/* Name */}
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-text-main text-sm flex items-center gap-2">
+                          {lib.name}
+                          {lib.is_lifetime_fixed && (
+                            <span className="text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded font-bold">
+                              ⭐ Founding VIP
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-text-muted mt-0.5">
+                          📞 {lib.phone || "No phone"} • UPI: {lib.upi_id || "None"}
+                        </div>
+                      </td>
+
+                      {/* Slug */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <code className="bg-neutral-500/10 px-2 py-1 rounded text-[11px] font-mono font-semibold text-rose-600 dark:text-rose-400">
+                          /l/{lib.slug}
+                        </code>
+                      </td>
+
+                      {/* City */}
+                      <td className="py-3.5 px-4 whitespace-nowrap font-medium text-text-main">
+                        📍 {lib.city || "Dehradun"}
+                      </td>
+
+                      {/* Monthly Rate */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {access.status === "trial" ? (
+                          <div>
+                            <span className="font-extrabold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md text-xs inline-block">
+                              ₹0 (Free Trial)
+                            </span>
+                            <div className="text-[10px] text-text-muted mt-0.5">
+                              ₹{lib.monthly_fee}/mo due {lib.trial_ends_at ? new Date(lib.trial_ends_at).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) : "7 days"}
+                            </div>
+                          </div>
+                        ) : access.isBlocked ? (
+                          <div>
+                            <span className="font-extrabold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-md text-xs inline-block">
+                              Unpaid (Locked)
+                            </span>
+                            <div className="text-[10px] text-text-muted mt-0.5">
+                              Rate: ₹{lib.monthly_fee}/mo
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="font-black text-sm text-emerald-600 dark:text-emerald-400">
+                              ₹{lib.monthly_fee}/mo
+                            </span>
+                            <div className="text-[10px] text-emerald-600/80">
+                              {lib.is_lifetime_fixed ? "⭐ Founding VIP" : "Verified Paid"}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {lib.is_lifetime_fixed ? (
+                          <span className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                            <span>⭐</span> LIFETIME VIP
+                          </span>
+                        ) : access.status === "trial" ? (
+                          <span className="inline-flex items-center gap-1.5 bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                            🟡 7-DAY TRIAL ({access.trialDaysRemaining}d left)
+                          </span>
+                        ) : access.status === "trial_expired" ? (
+                          <span className="inline-flex items-center gap-1 bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                            🔴 TRIAL EXPIRED (LOCKED)
+                          </span>
+                        ) : access.status === "past_due" ? (
+                          <span className="inline-flex items-center gap-1 bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                            🔴 PAST DUE (LOCKED)
+                          </span>
+                        ) : access.status === "suspended" ? (
+                          <span className="inline-flex items-center gap-1 bg-neutral-500/15 text-neutral-600 dark:text-neutral-400 border border-neutral-500/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-neutral-500"></span>
+                            SUSPENDED
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            🟢 ACTIVE
                           </span>
                         )}
-                      </div>
-                      <div className="text-[11px] text-text-muted mt-0.5">
-                        📞 {lib.phone || "No phone"} • UPI: {lib.upi_id || "None"}
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Slug */}
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      <code className="bg-neutral-500/10 px-2 py-1 rounded text-[11px] font-mono font-semibold text-rose-600 dark:text-rose-400">
-                        /l/{lib.slug}
-                      </code>
-                    </td>
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 whitespace-nowrap text-center">
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          <button
+                            onClick={() => handleExtendMonth(lib)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold transition cursor-pointer"
+                            title="Record monthly ₹ payment and extend 30 days"
+                          >
+                            💵 Paid +30d
+                          </button>
 
-                    {/* City */}
-                    <td className="py-3.5 px-4 whitespace-nowrap font-medium text-text-main">
-                      📍 {lib.city || "Dehradun"}
-                    </td>
+                          <button
+                            onClick={() => handleExtendTrial(lib, 7)}
+                            className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-[11px] font-bold transition cursor-pointer"
+                            title="Extend or reset free trial by 7 days"
+                          >
+                            ⏳ +7d Trial
+                          </button>
 
-                    {/* Monthly Rate */}
-                    <td className="py-3.5 px-4 whitespace-nowrap font-black text-sm text-emerald-600 dark:text-emerald-400">
-                      ₹{lib.monthly_fee}/mo
-                    </td>
+                          {!lib.is_lifetime_fixed && (
+                            <button
+                              onClick={() => handleExpireTrial(lib)}
+                              className="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[11px] font-bold transition cursor-pointer"
+                              title="Simulate trial expiration to test locked paywall (data preserved)"
+                            >
+                              🔒 Expire Now
+                            </button>
+                          )}
 
-                    {/* Status */}
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold px-2 py-0.5 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        {lib.subscription_status.toUpperCase()}
-                      </span>
-                    </td>
+                          <button
+                            onClick={() => {
+                              setEditingLibrary(lib);
+                              setNewFee(lib.monthly_fee);
+                              setIsLifetimeFixed(lib.is_lifetime_fixed);
+                            }}
+                            className="px-2 py-1 rounded-lg bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-[11px] font-bold transition cursor-pointer text-text-muted hover:text-text-main"
+                            title="Change fee or lock discount"
+                          >
+                            ✏️ Rate
+                          </button>
 
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 whitespace-nowrap text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => handleExtendMonth(lib)}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold transition cursor-pointer"
-                          title="Record monthly ₹ payment and extend 30 days"
-                        >
-                          💵 Paid +30d
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setEditingLibrary(lib);
-                            setNewFee(lib.monthly_fee);
-                            setIsLifetimeFixed(lib.is_lifetime_fixed);
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-[11px] font-semibold transition cursor-pointer"
-                          title="Change fee or lock discount"
-                        >
-                          ✏️ Rate
-                        </button>
-
-                        <Link
-                          href={`/dashboard`}
-                          className="px-2.5 py-1 rounded-lg bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-[11px] font-semibold transition"
-                          title="Visit Library App"
-                        >
-                          🔗 Open App
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <Link
+                            href={lib.slug === "target-library" ? "/dashboard" : `/l/${lib.slug}`}
+                            target="_blank"
+                            className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold transition"
+                            title="Visit Library App"
+                          >
+                            🔗 Open App
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
