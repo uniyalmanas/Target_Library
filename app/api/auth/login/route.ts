@@ -21,19 +21,27 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. SuperAdmin (Founder) authentication
-    if (role === "superadmin") {
-      const founderPass = process.env.NEXT_PUBLIC_FOUNDER_PASSWORD || process.env.NEXT_PUBLIC_OWNER_PASSWORD || "Founder2026";
-      const validAdmin = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "Target2026";
+    // 1. SuperAdmin (Founder) Master Passcode Detection
+    const founderPass = process.env.NEXT_PUBLIC_FOUNDER_PASSWORD || "Founder2026";
+    const validAdmin = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "Target2026";
+    const isFounderMasterPass =
+      password === founderPass ||
+      password === validAdmin ||
+      password === "Founder2026" ||
+      password === "TargetOwner2026" ||
+      password === "Target2026";
 
-      if (password === founderPass || password === validAdmin || password === "Founder2026" || password === "TargetOwner2026") {
+    // SuperAdmin portal login
+    if (role === "superadmin") {
+      if (isFounderMasterPass) {
         return NextResponse.json({
           success: true,
           user: {
             role: "superadmin",
             username: "founder",
             fullName: "SaaS Platform Founder",
-            slug: "target-library",
+            slug: slug || "target-library",
+            isMaster: true,
           },
         });
       }
@@ -44,7 +52,31 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Library Tenant authentication (owner or staff)
+    // 2. Master Founder Bypass: Founder can enter ANY library with zero friction
+    if (isFounderMasterPass) {
+      let resolvedLibName = slug;
+      let resolvedLibId = "";
+      try {
+        const lib = await getLibraryBySlug(slug);
+        resolvedLibName = lib.name;
+        resolvedLibId = lib.id;
+      } catch {
+        // fallback
+      }
+      return NextResponse.json({
+        success: true,
+        user: {
+          role: role === "staff" ? "staff" : "owner",
+          username: "superadmin_master",
+          fullName: `SuperAdmin (${resolvedLibName})`,
+          libraryId: resolvedLibId,
+          slug: slug,
+          isMaster: true,
+        },
+      });
+    }
+
+    // 3. Regular Library Tenant authentication (owner or staff)
     let library;
     if (slug === DEFAULT_LIBRARY_SLUG) {
       library = FALLBACK_TARGET_LIBRARY;

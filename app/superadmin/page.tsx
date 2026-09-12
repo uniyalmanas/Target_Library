@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Library } from "@/lib/types";
 import { getLibraryAccessStatus } from "@/lib/tenant";
 import { downloadCsv } from "@/lib/exportCsv";
-import { getStoredSession, setStoredSession } from "@/lib/auth";
+import { getStoredSession, setStoredSession, clearStoredSession, isSuperAdminAuthenticated, setSuperAdminMasterSession, impersonateTenantOwner } from "@/lib/auth";
 
 export default function SuperAdminPage() {
   const [libraries, setLibraries] = useState<Library[]>([]);
@@ -45,6 +45,14 @@ export default function SuperAdminPage() {
   const [newFee, setNewFee] = useState<number>(600);
   const [isLifetimeFixed, setIsLifetimeFixed] = useState<boolean>(false);
 
+  // Password Management & Ghost Mode Modal State
+  const [passwordModalLib, setPasswordModalLib] = useState<Library | null>(null);
+  const [newOwnerPassword, setNewOwnerPassword] = useState("");
+  const [newStaffPassword, setNewStaffPassword] = useState("");
+  const [updatingOwnerPass, setUpdatingOwnerPass] = useState(false);
+  const [updatingStaffPass, setUpdatingStaffPass] = useState(false);
+  const [passwordActionFeedback, setPasswordActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
   const fetchLibraries = async () => {
     setLoading(true);
     setError(null);
@@ -62,9 +70,8 @@ export default function SuperAdminPage() {
 
   // Verify Founder Passcode Session
   useEffect(() => {
-    const session = getStoredSession();
-    const storedAuth = typeof window !== "undefined" ? sessionStorage.getItem("libraryos_superadmin_auth") : null;
-    if (storedAuth === "true" || session?.role === "superadmin") {
+    if (isSuperAdminAuthenticated()) {
+      setSuperAdminMasterSession(true);
       setIsSuperAdminAuth(true);
       fetchLibraries();
     } else {
@@ -93,11 +100,12 @@ export default function SuperAdminPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        sessionStorage.setItem("libraryos_superadmin_auth", "true");
+        setSuperAdminMasterSession(true);
         setStoredSession({
           role: "superadmin",
           username: "founder",
-          fullName: "SaaS Founder",
+          fullName: "SaaS Platform Founder",
+          isMaster: true,
         });
         setIsSuperAdminAuth(true);
         fetchLibraries();
@@ -112,9 +120,68 @@ export default function SuperAdminPage() {
   };
 
   const handleLock = () => {
-    sessionStorage.removeItem("libraryos_superadmin_auth");
+    setSuperAdminMasterSession(false);
+    clearStoredSession();
     setIsSuperAdminAuth(false);
     setPasscodeInput("");
+  };
+
+  const handleMasterLogin = (lib: Library, targetPath: string = "") => {
+    impersonateTenantOwner(lib.slug, lib.name, lib.id);
+    const dest = targetPath ? `/l/${lib.slug}/${targetPath}` : `/l/${lib.slug}`;
+    window.open(dest, "_blank");
+  };
+
+  const handleOpenPasswordModal = (lib: Library) => {
+    setPasswordModalLib(lib);
+    setNewOwnerPassword("");
+    setNewStaffPassword("");
+    setPasswordActionFeedback(null);
+  };
+
+  const handleUpdatePassword = async (role: "owner" | "staff") => {
+    if (!passwordModalLib) return;
+    const pwd = role === "owner" ? newOwnerPassword : newStaffPassword;
+    if (!pwd.trim()) {
+      setPasswordActionFeedback({
+        type: "error",
+        message: `Please enter a new ${role} password.`,
+      });
+      return;
+    }
+
+    if (role === "owner") setUpdatingOwnerPass(true);
+    else setUpdatingStaffPass(true);
+    setPasswordActionFeedback(null);
+
+    try {
+      const res = await fetch(`/api/libraries/${passwordModalLib.slug}/staff-password`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target_role: role,
+          new_password: pwd.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update password");
+
+      setPasswordActionFeedback({
+        type: "success",
+        message: `Successfully reset ${role === "owner" ? "Owner" : "Staff"} password for ${passwordModalLib.name}!`,
+      });
+      if (role === "owner") setNewOwnerPassword("");
+      else setNewStaffPassword("");
+    } catch (err: unknown) {
+      setPasswordActionFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Failed to update password",
+      });
+    } finally {
+      if (role === "owner") setUpdatingOwnerPass(false);
+      else setUpdatingStaffPass(false);
+    }
   };
 
   const handleCopy = (text: string, label: string) => {
@@ -852,11 +919,30 @@ export default function SuperAdminPage() {
                               ✏️ Rate
                             </button>
 
+                            {/* 👑 Master Login (Ghost Mode) Button */}
+                            <button
+                              onClick={() => handleMasterLogin(lib)}
+                              className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white text-[11px] font-black shadow-2xs transition cursor-pointer flex items-center gap-1 active:scale-95"
+                              title="1-Click Master Login as Owner into this library workspace (zero password prompt)"
+                            >
+                              <span>👑</span> Master
+                            </button>
+
+                            {/* 🔑 Reset Passwords Modal Button */}
+                            <button
+                              onClick={() => handleOpenPasswordModal(lib)}
+                              className="px-2 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                              title="View & Reset Owner or Staff Passwords without knowing previous passwords"
+                            >
+                              <span>🔑</span> Passwords
+                            </button>
+
                             <Link
                               href={`/l/${lib.slug}`}
                               target="_blank"
+                              onClick={() => impersonateTenantOwner(lib.slug, lib.name, lib.id)}
                               className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold transition flex items-center gap-1"
-                              title="Open Desk Workspace"
+                              title="Open Desk Workspace (Owner Authorized)"
                             >
                               <span>🪑</span> Desk
                             </Link>
@@ -864,8 +950,9 @@ export default function SuperAdminPage() {
                             <Link
                               href={`/l/${lib.slug}/settings`}
                               target="_blank"
+                              onClick={() => impersonateTenantOwner(lib.slug, lib.name, lib.id)}
                               className="px-2 py-1 rounded-lg bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-[11px] font-bold transition text-text-muted hover:text-text-main"
-                              title="Open Owner Settings"
+                              title="Open Owner Settings (Owner Authorized)"
                             >
                               ⚙️
                             </Link>
@@ -1106,6 +1193,154 @@ export default function SuperAdminPage() {
                   className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold transition"
                 >
                   Save Rate
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manage & Reset Tenant Passwords Modal */}
+      {passwordModalLib && (
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 md:p-6 z-50 overflow-y-auto animate-in fade-in"
+          onClick={() => setPasswordModalLib(null)}
+        >
+          <div
+            className="my-auto bg-card-bg border border-panel-border rounded-3xl max-w-lg w-full shadow-2xl animate-in fade-in zoom-in duration-150 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-panel-border p-4 sm:p-5 bg-card-bg">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xl">
+                  🔑
+                </div>
+                <div>
+                  <h3 className="font-black text-base sm:text-lg text-text-main">
+                    Password & Master Access
+                  </h3>
+                  <p className="text-xs text-text-muted">
+                    {passwordModalLib.name} • /l/{passwordModalLib.slug}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPasswordModalLib(null)}
+                className="w-8 h-8 rounded-full bg-neutral-500/10 hover:bg-neutral-500/20 text-text-muted hover:text-text-main flex items-center justify-center text-sm font-bold cursor-pointer transition shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 space-y-5 text-xs">
+              {/* Ghost Mode Instant Entry Banner */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-transparent border border-amber-500/30 flex items-center justify-between gap-3">
+                <div>
+                  <div className="font-extrabold text-sm text-text-main flex items-center gap-1.5">
+                    <span>👑</span> Instant Ghost Mode Login
+                  </div>
+                  <p className="text-[11px] text-text-muted mt-0.5 leading-relaxed">
+                    Enter this library workspace immediately as Owner with all permissions unlocked. Zero password prompts.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleMasterLogin(passwordModalLib)}
+                  className="px-3 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-black text-xs shadow-md transition active:scale-95 whitespace-nowrap cursor-pointer"
+                >
+                  Enter Now 🚀
+                </button>
+              </div>
+
+              {/* Feedback toast inside modal */}
+              {passwordActionFeedback && (
+                <div
+                  className={`p-3 rounded-xl border text-xs font-bold flex items-center gap-2 ${
+                    passwordActionFeedback.type === "success"
+                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                      : "bg-rose-500/15 border-rose-500/30 text-rose-700 dark:text-rose-300"
+                  }`}
+                >
+                  <span>{passwordActionFeedback.type === "success" ? "✅" : "⚠️"}</span>
+                  <span>{passwordActionFeedback.message}</span>
+                </div>
+              )}
+
+              {/* Section 1: Reset Owner Password */}
+              <div className="p-4 rounded-2xl bg-neutral-500/5 border border-panel-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="font-extrabold text-xs text-text-main flex items-center gap-1.5">
+                    <span>👑</span> Reset Owner Password
+                  </div>
+                  <span className="text-[10px] text-text-muted font-mono">Role: owner</span>
+                </div>
+                <p className="text-[11px] text-text-muted">
+                  Overwrite the owner passcode for this library. No old password required.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter new owner password..."
+                    value={newOwnerPassword}
+                    onChange={(e) => setNewOwnerPassword(e.target.value)}
+                    className="flex-1 bg-background border border-panel-border rounded-xl px-3 py-2 text-xs text-text-main font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={updatingOwnerPass || !newOwnerPassword.trim()}
+                    onClick={() => handleUpdatePassword("owner")}
+                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition cursor-pointer disabled:opacity-50"
+                  >
+                    {updatingOwnerPass ? "Saving..." : "Update"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Section 2: Reset Staff Password */}
+              <div className="p-4 rounded-2xl bg-neutral-500/5 border border-panel-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="font-extrabold text-xs text-text-main flex items-center gap-1.5">
+                    <span>💻</span> Reset Front Desk Staff Password
+                  </div>
+                  <span className="text-[10px] text-text-muted font-mono">Role: staff</span>
+                </div>
+                <p className="text-[11px] text-text-muted">
+                  Overwrite the staff password used by front-desk operators.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter new staff password..."
+                    value={newStaffPassword}
+                    onChange={(e) => setNewStaffPassword(e.target.value)}
+                    className="flex-1 bg-background border border-panel-border rounded-xl px-3 py-2 text-xs text-text-main font-mono focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={updatingStaffPass || !newStaffPassword.trim()}
+                    onClick={() => handleUpdatePassword("staff")}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition cursor-pointer disabled:opacity-50"
+                  >
+                    {updatingStaffPass ? "Saving..." : "Update"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Master Founder Key Note */}
+              <div className="text-[11px] text-text-muted bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl flex items-start gap-2">
+                <span className="text-base">💡</span>
+                <div>
+                  <strong>Master SuperAdmin Override:</strong> You never need any library's password. You can always sign into any library using your founder master passcode (<code className="font-mono font-bold text-amber-600 dark:text-amber-400">Founder2026</code>) or click <strong>Enter Now</strong> above.
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-panel-border flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setPasswordModalLib(null)}
+                  className="px-4 py-2 rounded-xl border border-panel-border font-semibold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                >
+                  Close
                 </button>
               </div>
             </div>

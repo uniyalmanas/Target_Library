@@ -8,7 +8,7 @@ import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 import ThemeToggle from "@/lib/ThemeToggle";
 import LibraryLogo from "@/lib/LibraryLogo";
 import TenantAccessBarrier from "@/lib/TenantAccessBarrier";
-import { getStoredSession } from "@/lib/auth";
+import { getStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
 import DynamicUpiModal from "@/lib/DynamicUpiModal";
 import { generateDueFeeWhatsAppMessage } from "@/lib/upi";
 
@@ -118,13 +118,16 @@ export default function TenantDeskPage({
   const [isOwner, setIsOwner] = useState<boolean>(false);
 
   useEffect(() => {
+    const isSuper = isSuperAdminAuthenticated();
+    const isOwnerAuth = isOwnerAuthorizedForSlug(slug);
     const session = getStoredSession();
-    const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
-    const isStaff = session?.role === "staff";
+    const ownerAuth = sessionStorage.getItem("target_lib_owner_auth") || localStorage.getItem("target_lib_owner_auth");
+    const isStaff = session?.role === "staff" && !isSuper && !session?.isMaster;
     const isDemo = isDemoSlug(slug);
-    const hasOwner = isDemo || (!isStaff && (
+    const hasOwner = isSuper || isOwnerAuth || isDemo || (!isStaff && (
       session?.role === "owner" ||
       session?.role === "superadmin" ||
+      session?.isMaster ||
       ownerAuth === "true"
     ));
     setIsOwner(hasOwner);
@@ -148,11 +151,15 @@ export default function TenantDeskPage({
     loadInfo();
   }, [loadInfo]);
 
-  // Master override for testing/troubleshooting
+  // Master override for testing/troubleshooting and superadmin
   const [hasAdminOverride, setHasAdminOverride] = useState(false);
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setHasAdminOverride(sessionStorage.getItem("target_lib_admin_override") === "true");
+      setHasAdminOverride(
+        isSuperAdminAuthenticated() ||
+        sessionStorage.getItem("target_lib_admin_override") === "true" ||
+        localStorage.getItem("target_lib_admin_override") === "true"
+      );
     }
   }, []);
 
@@ -526,8 +533,8 @@ export default function TenantDeskPage({
   // Compute live subscription and trial access status
   const access = getLibraryAccessStatus(library);
 
-  // If trial expired or past due, strictly lock UI behind paywall while preserving 100% of data
-  if (access.isBlocked && !hasAdminOverride) {
+  // If trial expired or past due, strictly lock UI behind paywall while preserving 100% of data (never block superadmin)
+  if (access.isBlocked && !hasAdminOverride && !isSuperAdminAuthenticated()) {
     return (
       <div className="flex flex-col min-h-screen bg-background text-foreground pb-20">
         <TenantAccessBarrier

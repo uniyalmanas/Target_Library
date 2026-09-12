@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { downloadCsv } from "@/lib/exportCsv";
-import { getStoredSession } from "@/lib/auth";
+import { getStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
 import { isDemoSlug } from "@/lib/tenant";
 
 interface ExpenseItem {
@@ -96,14 +96,19 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
   }, [isModalOpen]);
 
   useEffect(() => {
-    const session = getStoredSession();
-    const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
-    const isStaff = session?.role === "staff";
-    const isOwnerRole = (session?.role === "owner" || session?.role === "superadmin") && !isStaff;
-    const isMatchingSlug = session?.librarySlug === slug || session?.role === "superadmin";
+    if (isSuperAdminAuthenticated() || isOwnerAuthorizedForSlug(slug) || isDemoSlug(slug)) {
+      setIsOwnerAuthenticated(true);
+      setCheckingOwnerAuth(false);
+      return;
+    }
 
-    const isDemo = isDemoSlug(slug);
-    if (isDemo || (!isStaff && ((isOwnerRole && isMatchingSlug) || ownerAuth === "true"))) {
+    const session = getStoredSession();
+    const ownerAuth = sessionStorage.getItem("target_lib_owner_auth") || localStorage.getItem("target_lib_owner_auth");
+    const isStaff = session?.role === "staff" && !session?.isMaster;
+    const isOwnerRole = (session?.role === "owner" || session?.role === "superadmin" || session?.isMaster) && !isStaff;
+    const isMatchingSlug = session?.librarySlug === slug || session?.role === "superadmin" || session?.isMaster;
+
+    if (!isStaff && ((isOwnerRole && isMatchingSlug) || ownerAuth === "true")) {
       setIsOwnerAuthenticated(true);
     } else {
       setIsOwnerAuthenticated(false);
@@ -135,6 +140,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
       const data = await res.json();
       if (res.ok) {
         sessionStorage.setItem("target_lib_owner_auth", "true");
+        localStorage.setItem("target_lib_owner_auth", "true");
         setIsOwnerAuthenticated(true);
       } else {
         setOwnerPassError(data.error || "Incorrect owner passcode. Access denied.");

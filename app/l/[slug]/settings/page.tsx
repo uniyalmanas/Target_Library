@@ -6,7 +6,7 @@ import { Library, LibrarySettings, ShiftConfig } from "@/lib/types";
 import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, DEMO_LIBRARY, DEMO_SETTINGS, isDemoSlug, getEffectiveLogo, getLibraryAccessStatus } from "@/lib/tenant";
 import LibraryLogo from "@/lib/LibraryLogo";
 import TenantAccessBarrier from "@/lib/TenantAccessBarrier";
-import { getStoredSession, setStoredSession } from "@/lib/auth";
+import { getStoredSession, setStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
 
 export const PRESET_EMBLEMS = [
   { id: "academy", label: "Academy Crest", icon: "🏛️", gradient: ["#8B5CF6", "#6D28D9"] },
@@ -213,14 +213,19 @@ export default function LibraryOwnerSettingsPage({
 
   // Verify Owner Credentials & Role
   useEffect(() => {
-    const session = getStoredSession();
-    const ownerAuth = sessionStorage.getItem("target_lib_owner_auth");
-    const isStaff = session.role === "staff";
-    const isOwnerRole = (session.role === "owner" || session.role === "superadmin") && !isStaff;
-    const isMatchingSlug = session.librarySlug === slug || session.role === "superadmin";
+    if (isSuperAdminAuthenticated() || isOwnerAuthorizedForSlug(slug) || isDemoSlug(slug)) {
+      setIsOwnerAuthenticated(true);
+      setCheckingOwnerAuth(false);
+      return;
+    }
 
-    const isDemo = isDemoSlug(slug);
-    if (isDemo || (!isStaff && ((isOwnerRole && isMatchingSlug) || ownerAuth === "true"))) {
+    const session = getStoredSession();
+    const ownerAuth = sessionStorage.getItem("target_lib_owner_auth") || localStorage.getItem("target_lib_owner_auth");
+    const isStaff = session.role === "staff" && !session.isMaster;
+    const isOwnerRole = (session.role === "owner" || session.role === "superadmin" || session.isMaster) && !isStaff;
+    const isMatchingSlug = session.librarySlug === slug || session.role === "superadmin" || session.isMaster;
+
+    if (!isStaff && ((isOwnerRole && isMatchingSlug) || ownerAuth === "true")) {
       setIsOwnerAuthenticated(true);
     } else {
       setIsOwnerAuthenticated(false);
@@ -252,12 +257,17 @@ export default function LibraryOwnerSettingsPage({
       const data = await res.json();
       if (res.ok) {
         sessionStorage.setItem("target_lib_owner_auth", "true");
+        localStorage.setItem("target_lib_owner_auth", "true");
+        if (data.user?.isMaster) {
+          localStorage.setItem("libraryos_superadmin_master", "true");
+        }
         setStoredSession({
           role: "owner",
           libraryId: library?.id || "",
           librarySlug: slug,
           username: data.user?.username || "owner",
           fullName: data.user?.fullName || "Library Owner",
+          isMaster: data.user?.isMaster,
         });
         setIsOwnerAuthenticated(true);
       } else {
@@ -574,7 +584,12 @@ export default function LibraryOwnerSettingsPage({
 
   // Access check: if subscription or trial expired, block settings access
   const access = getLibraryAccessStatus(library);
-  const hasOverride = typeof window !== "undefined" && sessionStorage.getItem("target_lib_admin_override") === "true";
+  const isSuper = isSuperAdminAuthenticated();
+  const hasOverride =
+    isSuper ||
+    (typeof window !== "undefined" &&
+      (sessionStorage.getItem("target_lib_admin_override") === "true" ||
+        localStorage.getItem("target_lib_admin_override") === "true"));
 
   if (access.isBlocked && !hasOverride) {
     return (

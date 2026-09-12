@@ -45,11 +45,21 @@ export default function TenantAccessBarrier({
 
   const handleEmergencyOverride = async (e: React.FormEvent) => {
     e.preventDefault();
-    setOverrideError(null);
-    if (overridePass === "Target2026" || overridePass === "AdminTarget2026") {
-      // Temporarily store session bypass
+    const pass = overridePass.trim();
+    if (
+      pass === "Target2026" ||
+      pass === "AdminTarget2026" ||
+      pass === "Founder2026" ||
+      pass === "TargetOwner2026"
+    ) {
+      // Store session and global master override
       sessionStorage.setItem("target_lib_admin_override", "true");
-      alert("Founder master key verified. Temporary access granted.");
+      localStorage.setItem("target_lib_admin_override", "true");
+      sessionStorage.setItem("libraryos_superadmin_auth", "true");
+      localStorage.setItem("libraryos_superadmin_master", "true");
+      sessionStorage.setItem("target_lib_owner_auth", "true");
+      localStorage.setItem("target_lib_owner_auth", "true");
+      alert("Founder master key verified. Unrestricted master access granted.");
       window.location.reload();
     } else {
       setOverrideError("Invalid founder authorization key.");

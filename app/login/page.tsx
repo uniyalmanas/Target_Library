@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { setStoredSession, getStoredSession, clearStoredSession } from "@/lib/auth";
+import { setStoredSession, getStoredSession, clearStoredSession, setSuperAdminMasterSession } from "@/lib/auth";
 import { Library } from "@/lib/types";
 import LibraryLogo from "@/lib/LibraryLogo";
 
@@ -157,19 +157,27 @@ function LoginContent() {
         throw new Error(data.error || "Authentication failed");
       }
 
+      const isSuper = data.user.role === "superadmin" || Boolean(data.user.isMaster);
+      if (isSuper) {
+        setSuperAdminMasterSession(true);
+      }
+
       setStoredSession({
         role: data.user.role,
         libraryId: data.user.libraryId || library?.id || "",
         librarySlug: data.user.slug || cleanSlug,
         username: data.user.username,
         fullName: data.user.fullName,
+        isMaster: data.user.isMaster,
       });
 
       sessionStorage.setItem("target_lib_auth", "true");
-      if (data.user.role === "owner" || data.user.role === "superadmin") {
+      if (data.user.role === "owner" || data.user.role === "superadmin" || isSuper) {
         sessionStorage.setItem("target_lib_owner_auth", "true");
+        localStorage.setItem("target_lib_owner_auth", "true");
       } else {
         sessionStorage.removeItem("target_lib_owner_auth");
+        localStorage.removeItem("target_lib_owner_auth");
       }
 
       router.push(`/l/${cleanSlug}`);
