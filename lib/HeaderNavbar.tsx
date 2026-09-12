@@ -160,14 +160,14 @@ function HeaderNavbarContent() {
 
   // Determine active route highlighting
   const isDeskActive = pathname === `/l/${activeSlug}` || (pathname === "/" && activeSlug === "target-library");
-  const isMembersActive = pathname.startsWith("/members");
-  const isCollectionsActive = pathname.startsWith("/collections");
-  const isDueFeesActive = pathname.startsWith("/due-fees");
-  const isExpensesActive = pathname.startsWith("/expenses");
+  const isMembersActive = pathname.startsWith(`/l/${activeSlug}/members`) || pathname.startsWith("/members");
+  const isCollectionsActive = pathname.startsWith(`/l/${activeSlug}/collections`) || pathname.startsWith("/collections");
+  const isDueFeesActive = pathname.startsWith(`/l/${activeSlug}/due-fees`) || pathname.startsWith("/due-fees");
+  const isExpensesActive = pathname.startsWith(`/l/${activeSlug}/expenses`) || pathname.startsWith("/expenses");
   const isPrintActive = pathname.startsWith(`/l/${activeSlug}/print`);
-  const isDashboardActive = pathname.startsWith("/dashboard");
+  const isDashboardActive = pathname.startsWith(`/l/${activeSlug}/dashboard`) || pathname.startsWith("/dashboard");
   const isSettingsActive = pathname.startsWith(`/l/${activeSlug}/settings`);
-  const isNewReceiptActive = pathname.startsWith("/new-receipt");
+  const isNewReceiptActive = pathname.startsWith(`/l/${activeSlug}/new-receipt`) || pathname.startsWith("/new-receipt");
 
   return (
     <header className="sticky top-0 z-40 bg-background/90 backdrop-blur-md border-b border-panel-border px-3 sm:px-6 py-2 md:py-2.5 transition-colors print:hidden">
@@ -211,7 +211,7 @@ function HeaderNavbarContent() {
           {/* Mobile-Only Action Utilities */}
           <div className="flex md:hidden items-center gap-1.5 shrink-0">
             <Link
-              href={`/new-receipt?slug=${encodeURIComponent(activeSlug)}`}
+              href={`/l/${activeSlug}/new-receipt`}
               className={`px-2.5 py-1.5 rounded-xl text-xs font-extrabold shadow-sm transition active:scale-95 whitespace-nowrap ${
                 isNewReceiptActive
                   ? "bg-rose-700 text-white"
@@ -248,7 +248,7 @@ function HeaderNavbarContent() {
             </Link>
 
             <Link
-              href={`/members?slug=${encodeURIComponent(activeSlug)}`}
+              href={`/l/${activeSlug}/members`}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                 isMembersActive
                   ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
@@ -259,7 +259,7 @@ function HeaderNavbarContent() {
             </Link>
 
             <Link
-              href={`/collections?slug=${encodeURIComponent(activeSlug)}`}
+              href={`/l/${activeSlug}/collections`}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                 isCollectionsActive
                   ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
@@ -270,7 +270,7 @@ function HeaderNavbarContent() {
             </Link>
 
             <Link
-              href={`/due-fees?slug=${encodeURIComponent(activeSlug)}`}
+              href={`/l/${activeSlug}/due-fees`}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                 isDueFeesActive
                   ? "bg-blue-500/20 text-blue-600 dark:text-blue-400 font-extrabold shadow-2xs"
@@ -284,7 +284,7 @@ function HeaderNavbarContent() {
             {isOwner && (
               <>
                 <Link
-                  href={`/expenses?slug=${encodeURIComponent(activeSlug)}`}
+                  href={`/l/${activeSlug}/expenses`}
                   className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                     isExpensesActive
                       ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
@@ -317,7 +317,7 @@ function HeaderNavbarContent() {
                 </Link>
 
                 <Link
-                  href={`/dashboard?slug=${encodeURIComponent(activeSlug)}`}
+                  href={`/l/${activeSlug}/dashboard`}
                   className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                     isDashboardActive
                       ? "bg-purple-500/20 text-purple-600 dark:text-purple-400 font-extrabold shadow-2xs"
@@ -353,7 +353,7 @@ function HeaderNavbarContent() {
             )}
 
             <Link
-              href={`/new-receipt?slug=${encodeURIComponent(activeSlug)}`}
+              href={`/l/${activeSlug}/new-receipt`}
               className={`px-3.5 py-2 rounded-xl text-xs font-extrabold shadow-sm transition active:scale-95 whitespace-nowrap ${
                 isNewReceiptActive
                   ? "bg-rose-700 text-white ring-2 ring-rose-500 ring-offset-2 ring-offset-background"

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase";
 import { FALLBACK_TARGET_LIBRARY, DEFAULT_LIBRARY_SLUG, DEFAULT_SHIFTS } from "@/lib/tenant";
 
@@ -125,19 +126,26 @@ export async function POST(req: Request) {
       sheet_price_monthly: 300,
     });
 
-    // 3. Create default Owner and Staff accounts
+    // 3. Create default Owner and Staff accounts with bcrypt hash
+    const rawOwnerPass = (typeof owner_password === "string" && owner_password.trim()) || "OwnerPass2026";
+    const rawStaffPass = (typeof staff_password === "string" && staff_password.trim()) || "StaffPass2026";
+    const [hashedOwner, hashedStaff] = await Promise.all([
+      bcrypt.hash(rawOwnerPass, 10),
+      bcrypt.hash(rawStaffPass, 10),
+    ]);
+
     await supabase.from("library_users").insert([
       {
         library_id: newLib.id,
         username: "owner",
-        password_hash: (typeof owner_password === "string" && owner_password.trim()) || "OwnerPass2026",
+        password_hash: hashedOwner,
         role: "owner",
         full_name: `${name} Owner`,
       },
       {
         library_id: newLib.id,
         username: "staff",
-        password_hash: (typeof staff_password === "string" && staff_password.trim()) || "StaffPass2026",
+        password_hash: hashedStaff,
         role: "staff",
         full_name: `${name} Desk Staff`,
       },

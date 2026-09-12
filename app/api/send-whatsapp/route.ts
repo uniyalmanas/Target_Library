@@ -149,9 +149,12 @@ Thank you for choosing ${libraryName}!`;
     const cleanPhone = member.phone.replace(/\D/g, "");
     const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
 
+    const encodedText = encodeURIComponent(messageText);
+    const waUrl = `https://wa.me/${formattedPhone}?text=${encodedText}`;
+
     if (instanceId && token) {
       console.log(`Sending live background WhatsApp message to ${formattedPhone} via UltraMsg...`);
-      
+
       const res = await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -165,26 +168,40 @@ Thank you for choosing ${libraryName}!`;
       const resText = await res.text();
       if (!res.ok) {
         console.error("UltraMsg API error response:", resText);
-        throw new Error(`UltraMsg sending failed: ${resText}`);
+        // Graceful fallback to wa.me if provider errors
+        return NextResponse.json({
+          success: true,
+          live: false,
+          wa_url: waUrl,
+          message: "Third-party gateway busy. Use free direct WhatsApp link.",
+          payload: { to: formattedPhone, text: messageText },
+        });
       }
 
       console.log("UltraMsg message dispatched successfully.");
-      return NextResponse.json({ success: true, message: "Live message sent successfully." });
+      return NextResponse.json({
+        success: true,
+        live: true,
+        wa_url: waUrl,
+        message: "Live message sent successfully.",
+      });
     } else {
-      // Simulation Mode
-      console.log(`--- WHATSAPP SIMULATION MODE (No credentials configured) ---`);
+      // 100% Free wa.me direct fallback mode
+      console.log(`--- WHATSAPP DIRECT MODE (Zero cost wa.me link ready) ---`);
       console.log(`To: +${formattedPhone}`);
-      console.log(`Message:\n${messageText}`);
-      console.log(`-----------------------------------------------------------`);
+      console.log(`Link: ${waUrl}`);
+      console.log(`--------------------------------------------------------`);
 
       return NextResponse.json({
         success: true,
+        live: false,
         simulated: true,
-        message: "No live WhatsApp API key configured. Message was logged in terminal simulation mode.",
+        wa_url: waUrl,
+        message: "Direct WhatsApp link ready (₹0 free dispatch).",
         payload: {
           to: formattedPhone,
           text: messageText,
-        }
+        },
       });
     }
   } catch (error: any) {

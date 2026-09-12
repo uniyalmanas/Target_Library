@@ -490,7 +490,7 @@ export default function TenantDeskPage({
       start_date: today,
       slug: slug,
     });
-    return `/new-receipt?${params.toString()}`;
+    return `/l/${slug}/new-receipt?${params.toString()}`;
   };
 
   const handleVacateSeat = async (receiptNo: number, isOverdue?: boolean) => {
@@ -1003,7 +1003,7 @@ export default function TenantDeskPage({
                               <span className="font-bold text-text-main text-xs flex items-center gap-1.5">
                                 {r.member?.name || "Student"}
                                 <Link
-                                  href={`/members/${r.student_id}?slug=${slug}`}
+                                  href={`/l/${slug}/members/${r.student_id}`}
                                   className="font-mono text-blue-600 dark:text-blue-400 font-bold hover:underline text-[11px]"
                                   title="View member profile"
                                 >
@@ -1181,7 +1181,7 @@ export default function TenantDeskPage({
 
                             {/* History */}
                             <Link
-                              href={`/members/${r.student_id}?slug=${slug}`}
+                              href={`/l/${slug}/members/${r.student_id}`}
                               className="text-text-muted hover:text-rose-500 dark:hover:text-rose-400 text-[11px] font-bold underline flex items-center ml-auto transition-colors"
                             >
                               History &rarr;
@@ -1204,13 +1204,13 @@ export default function TenantDeskPage({
                           selected.receipts[0].shift_type === "morning" ? (
                             <>
                               <Link
-                                href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_2&slug=${slug}`}
+                                href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_2`}
                                 className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] px-3.5 py-1.5 rounded-xl font-bold transition shadow-sm cursor-pointer"
                               >
                                 + Shift 2 (2pm-12am)
                               </Link>
                               <Link
-                                href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_3&slug=${slug}`}
+                                href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_3`}
                                 className="bg-blue-600 hover:bg-blue-500 text-white text-[11px] px-3.5 py-1.5 rounded-xl font-bold transition shadow-sm cursor-pointer"
                               >
                                 + Shift 3 (4pm-12am)
@@ -1218,7 +1218,7 @@ export default function TenantDeskPage({
                             </>
                           ) : (
                             <Link
-                              href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_1&slug=${slug}`}
+                              href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_1`}
                               className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] px-3.5 py-1.5 rounded-xl font-bold transition shadow-sm cursor-pointer"
                             >
                               + Shift 1 (6am-2pm)
@@ -1235,26 +1235,26 @@ export default function TenantDeskPage({
                   </p>
                   <div className="flex flex-col gap-2">
                     <Link
-                      href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=full_day&slug=${slug}`}
+                      href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=full_day`}
                       className="block text-center bg-rose-600 hover:bg-rose-500 text-white text-xs py-2 rounded-xl font-bold shadow-md shadow-rose-600/20 transition hover:-translate-y-0.5 cursor-pointer"
                     >
                       Assign Full Day (₹{settings.shifts_config?.find((s) => s.id === "full_day")?.base_price || 900} / ₹{settings.shifts_config?.find((s) => s.id === "full_day")?.sheet_price || 1200})
                     </Link>
                     <div className="grid grid-cols-3 gap-2">
                       <Link
-                        href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_1&slug=${slug}`}
+                        href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_1`}
                         className="block text-center bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] py-1.5 rounded-xl font-bold shadow-sm transition hover:-translate-y-0.5 cursor-pointer"
                       >
                         Shift 1 (₹{settings.shifts_config?.find((s) => s.id === "shift_1")?.base_price || 600})
                       </Link>
                       <Link
-                        href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_2&slug=${slug}`}
+                        href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_2`}
                         className="block text-center bg-amber-500 hover:bg-amber-400 text-neutral-900 text-[11px] py-1.5 rounded-xl font-bold shadow-sm transition hover:-translate-y-0.5 cursor-pointer"
                       >
                         Shift 2 (₹{settings.shifts_config?.find((s) => s.id === "shift_2")?.base_price || 600})
                       </Link>
                       <Link
-                        href={`/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_3&slug=${slug}`}
+                        href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_3`}
                         className="block text-center bg-blue-600 hover:bg-blue-500 text-white text-[11px] py-1.5 rounded-xl font-bold shadow-sm transition hover:-translate-y-0.5 cursor-pointer"
                       >
                         Shift 3 (₹{settings.shifts_config?.find((s) => s.id === "shift_3")?.base_price || 500})

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, DEFAULT_LIBRARY_SLUG, FALLBACK_TARGET_LIBRARY } from "@/lib/tenant";
 
@@ -71,8 +72,22 @@ export async function POST(req: Request) {
       .eq("role", role)
       .maybeSingle();
 
-    if (!userErr && dbUser) {
-      if (dbUser.password_hash === password) {
+    if (!userErr && dbUser && dbUser.password_hash) {
+      let isMatch = false;
+      const storedHash = dbUser.password_hash;
+      if (storedHash.startsWith("$2a$") || storedHash.startsWith("$2b$") || storedHash.startsWith("$2y$")) {
+        isMatch = await bcrypt.compare(password, storedHash);
+      } else {
+        isMatch = storedHash === password;
+        if (isMatch) {
+          // Opportunistically migrate legacy plaintext to secure bcrypt hash
+          bcrypt.hash(password, 10).then((hashed) => {
+            supabase.from("library_users").update({ password_hash: hashed }).eq("id", dbUser.id).then();
+          }).catch(() => {});
+        }
+      }
+
+      if (isMatch) {
         return NextResponse.json({
           success: true,
           user: {

@@ -80,7 +80,7 @@ export default function LibraryOwnerSettingsPage({
   const [newShiftSheetPrice, setNewShiftSheetPrice] = useState<number>(900);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<"branding" | "seats_shifts" | "matrix_layout" | "upi_soundbox" | "passwords" | "general" | "poster" | "domains">("branding");
+  const [activeTab, setActiveTab] = useState<"branding" | "seats_shifts" | "matrix_layout" | "upi_soundbox" | "passwords" | "general" | "poster" | "domains" | "backup">("branding");
 
   // Seat Matrix Display & Layout States
   const [matrixPreset, setMatrixPreset] = useState<"fit" | "compact" | "standard" | "large" | "custom">("fit");
@@ -779,6 +779,16 @@ export default function LibraryOwnerSettingsPage({
             }`}
           >
             <span>🌐</span> Custom Domain &amp; Subdomain
+          </button>
+          <button
+            onClick={() => setActiveTab("backup")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "backup"
+                ? "bg-rose-600 text-white shadow-xs"
+                : "text-text-muted hover:text-text-main hover:bg-neutral-500/5"
+            }`}
+          >
+            <span>📊</span> Data Backup &amp; Excel
           </button>
         </div>
 
@@ -2320,6 +2330,132 @@ export default function LibraryOwnerSettingsPage({
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Backup & Export Tab */}
+        {activeTab === "backup" && (
+          <div className="rounded-2xl border border-panel-border bg-panel-bg shadow-sm overflow-hidden animate-fade-in">
+            <div className="border-b border-panel-border px-6 py-4 flex items-center justify-between bg-neutral-500/5">
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+                  <span>📊</span> Complete Data Backup & Export
+                </h2>
+                <p className="text-xs text-text-muted mt-0.5">
+                  Export all your members, payment receipts, and expenses into Microsoft Excel (.xlsx) and CSV formats.
+                </p>
+              </div>
+              <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                100% Data Ownership
+              </span>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Main Excel Backup Card */}
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/30 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+                <div className="space-y-1.5 max-w-xl">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">📗</span>
+                    <h3 className="text-sm font-extrabold text-foreground">
+                      Complete Multi-Sheet Excel Workbook (.xlsx)
+                    </h3>
+                  </div>
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    Downloads an all-in-one spreadsheet containing 3 dedicated sheets: 
+                    <strong className="text-foreground"> Members Register</strong>, 
+                    <strong className="text-foreground"> Receipts & Billing</strong>, and 
+                    <strong className="text-foreground"> Daily Expenses</strong> with formatted columns, totals, and timestamps.
+                  </p>
+                </div>
+                <a
+                  href={`/api/libraries/${slug}/export?format=xlsx`}
+                  download
+                  className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-lg shadow-emerald-600/20 transition active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer text-center"
+                >
+                  <span>📥</span> Download Full Excel Backup (.xlsx)
+                </a>
+              </div>
+
+              {/* Individual CSV Exports */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-text-muted">
+                  Individual Module Exports (CSV Format)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Members CSV */}
+                  <div className="p-4 rounded-xl border border-panel-border bg-background flex flex-col justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">👥</span>
+                        <h5 className="text-xs font-bold text-foreground">Members Register</h5>
+                      </div>
+                      <p className="text-[11px] text-text-muted mt-1">
+                        All student profiles, contact info, seats, time slots, and admission status.
+                      </p>
+                    </div>
+                    <a
+                      href={`/api/libraries/${slug}/export?format=csv&sheet=members`}
+                      download
+                      className="px-3 py-2 rounded-lg border border-panel-border hover:border-emerald-500/50 hover:bg-emerald-500/5 text-foreground text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer text-center"
+                    >
+                      <span>📄</span> Export Members (.csv)
+                    </a>
+                  </div>
+
+                  {/* Receipts CSV */}
+                  <div className="p-4 rounded-xl border border-panel-border bg-background flex flex-col justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🧾</span>
+                        <h5 className="text-xs font-bold text-foreground">Receipts & Fees</h5>
+                      </div>
+                      <p className="text-[11px] text-text-muted mt-1">
+                        All fee collection transactions, payment modes (Cash/UPI), dues, and dates.
+                      </p>
+                    </div>
+                    <a
+                      href={`/api/libraries/${slug}/export?format=csv&sheet=receipts`}
+                      download
+                      className="px-3 py-2 rounded-lg border border-panel-border hover:border-emerald-500/50 hover:bg-emerald-500/5 text-foreground text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer text-center"
+                    >
+                      <span>📄</span> Export Receipts (.csv)
+                    </a>
+                  </div>
+
+                  {/* Expenses CSV */}
+                  <div className="p-4 rounded-xl border border-panel-border bg-background flex flex-col justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">💸</span>
+                        <h5 className="text-xs font-bold text-foreground">Daily Expenses</h5>
+                      </div>
+                      <p className="text-[11px] text-text-muted mt-1">
+                        Electricity, rent, Wi-Fi, maintenance, tea, and miscellaneous operational costs.
+                      </p>
+                    </div>
+                    <a
+                      href={`/api/libraries/${slug}/export?format=csv&sheet=expenses`}
+                      download
+                      className="px-3 py-2 rounded-lg border border-panel-border hover:border-emerald-500/50 hover:bg-emerald-500/5 text-foreground text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer text-center"
+                    >
+                      <span>📄</span> Export Expenses (.csv)
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* Data Safety & Accounting Compatibility */}
+              <div className="p-4 rounded-xl bg-neutral-500/5 border border-panel-border space-y-2 text-xs">
+                <h4 className="font-extrabold text-foreground flex items-center gap-2">
+                  <span>🔒</span> Data Portability & Accounting Compatibility
+                </h4>
+                <p className="text-text-muted leading-relaxed">
+                  Your data belongs solely to you. You can export these files anytime to create offline archives, 
+                  perform tax audits, or directly import data into accounting software like 
+                  <span className="font-semibold text-foreground"> TallyPrime, Zoho Books, or Marg ERP</span>.
+                </p>
+              </div>
             </div>
           </div>
         )}

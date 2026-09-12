@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug } from "@/lib/tenant";
 
@@ -27,6 +28,7 @@ export async function PUT(
     }
 
     const cleanPassword = new_password.trim();
+    const hashedPassword = await bcrypt.hash(cleanPassword, 10);
 
     // 1. Check if user row exists
     const { data: existingUser } = await supabase
@@ -41,7 +43,7 @@ export async function PUT(
       const { error: updateErr } = await supabase
         .from("library_users")
         .update({
-          password_hash: cleanPassword,
+          password_hash: hashedPassword,
           created_at: new Date().toISOString(),
         })
         .eq("id", existingUser.id);
@@ -54,7 +56,7 @@ export async function PUT(
         .insert({
           library_id: library.id,
           username: target_role,
-          password_hash: cleanPassword,
+          password_hash: hashedPassword,
           role: target_role,
           full_name: `${library.name} ${target_role === "owner" ? "Owner" : "Desk Staff"}`,
           is_active: true,
