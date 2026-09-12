@@ -151,7 +151,7 @@ export default function SuperAdminPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background text-text-main pb-24 pt-8 px-4 md:px-8 max-w-7xl mx-auto">
+    <main className="min-h-screen bg-background text-text-main pb-24 pt-8 px-4 md:px-8 w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-panel-border pb-6">
         <div>
@@ -169,6 +169,12 @@ export default function SuperAdminPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer text-text-muted hover:text-text-main"
+          >
+            ← SaaS Home
+          </Link>
           <button
             onClick={fetchLibraries}
             className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
