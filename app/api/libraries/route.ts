@@ -130,14 +130,14 @@ export async function POST(req: Request) {
       {
         library_id: newLib.id,
         username: "owner",
-        password_hash: owner_password,
+        password_hash: (typeof owner_password === "string" && owner_password.trim()) || "OwnerPass2026",
         role: "owner",
         full_name: `${name} Owner`,
       },
       {
         library_id: newLib.id,
         username: "staff",
-        password_hash: staff_password || "StaffPass2026",
+        password_hash: (typeof staff_password === "string" && staff_password.trim()) || "StaffPass2026",
         role: "staff",
         full_name: `${name} Desk Staff`,
       },

@@ -5,11 +5,24 @@ import Link from "next/link";
 import { Library } from "@/lib/types";
 import { getLibraryAccessStatus } from "@/lib/tenant";
 import { downloadCsv } from "@/lib/exportCsv";
+import { getStoredSession, setStoredSession } from "@/lib/auth";
 
 export default function SuperAdminPage() {
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // SuperAdmin Auth Gate State
+  const [isSuperAdminAuth, setIsSuperAdminAuth] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [passcodeInput, setPasscodeInput] = useState("");
+  const [passcodeError, setPasscodeError] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
+
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "trial" | "locked" | "vip">("all");
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
   // New Library Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -23,7 +36,8 @@ export default function SuperAdminPage() {
     total_seats: 50,
     monthly_fee: 600,
     upi_id: "",
-    owner_password: "",
+    owner_password: "OwnerPass2026",
+    staff_password: "StaffPass2026",
   });
 
   // Edit Pricing Modal State
@@ -46,9 +60,70 @@ export default function SuperAdminPage() {
     }
   };
 
+  // Verify Founder Passcode Session
   useEffect(() => {
-    fetchLibraries();
+    const session = getStoredSession();
+    const storedAuth = typeof window !== "undefined" ? sessionStorage.getItem("libraryos_superadmin_auth") : null;
+    if (storedAuth === "true" || session?.role === "superadmin") {
+      setIsSuperAdminAuth(true);
+      fetchLibraries();
+    } else {
+      setIsSuperAdminAuth(false);
+      setLoading(false);
+    }
+    setCheckingAuth(false);
   }, []);
+
+  const handleUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passcodeInput.trim()) {
+      setPasscodeError("Please enter founder master passcode.");
+      return;
+    }
+    setUnlocking(true);
+    setPasscodeError("");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: "superadmin",
+          password: passcodeInput.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        sessionStorage.setItem("libraryos_superadmin_auth", "true");
+        setStoredSession({
+          role: "superadmin",
+          username: "founder",
+          fullName: "SaaS Founder",
+        });
+        setIsSuperAdminAuth(true);
+        fetchLibraries();
+      } else {
+        setPasscodeError(data.error || "Incorrect founder passcode. Access denied.");
+      }
+    } catch {
+      setPasscodeError("Authentication service error. Please try again.");
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
+  const handleLock = () => {
+    sessionStorage.removeItem("libraryos_superadmin_auth");
+    setIsSuperAdminAuth(false);
+    setPasscodeInput("");
+  };
+
+  const handleCopy = (text: string, label: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopyFeedback(`Copied ${label}!`);
+      setTimeout(() => setCopyFeedback(null), 2500);
+    }
+  };
 
   // Stats Calculations: Only count verified paid active subscriptions toward MRR
   // Free 7-day trials (like testing-library-1) have NOT paid fees and do not inflate MRR!
@@ -79,6 +154,10 @@ export default function SuperAdminPage() {
 
     const foundingVips = libraries.filter((l) => l.is_lifetime_fixed).length;
 
+    const totalSeats = libraries.reduce((sum, l) => {
+      return sum + ((l as any).library_settings?.total_seats || 50);
+    }, 0);
+
     return {
       total,
       activePaidCount,
@@ -86,8 +165,34 @@ export default function SuperAdminPage() {
       blockedCount: blockedLibs.length,
       mrr,
       foundingVips,
+      totalSeats,
     };
   }, [libraries]);
+
+  // Filtered & Searched Libraries
+  const filteredLibraries = useMemo(() => {
+    return libraries.filter((lib) => {
+      const access = getLibraryAccessStatus(lib);
+
+      // Status Filter
+      if (statusFilter === "active" && access.status !== "active" && !lib.is_lifetime_fixed) return false;
+      if (statusFilter === "trial" && access.status !== "trial") return false;
+      if (statusFilter === "locked" && !access.isBlocked) return false;
+      if (statusFilter === "vip" && !lib.is_lifetime_fixed) return false;
+
+      // Text Search
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const nameMatch = lib.name.toLowerCase().includes(q);
+        const slugMatch = lib.slug.toLowerCase().includes(q);
+        const cityMatch = (lib.city || "").toLowerCase().includes(q);
+        const phoneMatch = (lib.phone || "").toLowerCase().includes(q);
+        const upiMatch = (lib.upi_id || "").toLowerCase().includes(q);
+        if (!nameMatch && !slugMatch && !cityMatch && !phoneMatch && !upiMatch) return false;
+      }
+      return true;
+    });
+  }, [libraries, statusFilter, searchQuery]);
 
   // Close modals on Escape key
   useEffect(() => {
@@ -135,7 +240,8 @@ export default function SuperAdminPage() {
         total_seats: 50,
         monthly_fee: 600,
         upi_id: "",
-        owner_password: "",
+        owner_password: "OwnerPass2026",
+        staff_password: "StaffPass2026",
       });
       fetchLibraries();
     } catch (err: unknown) {
@@ -301,6 +407,79 @@ export default function SuperAdminPage() {
     });
   };
 
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!isSuperAdminAuth) {
+    return (
+      <main className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="bg-card-bg border border-panel-border rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-5 text-center animate-in zoom-in-95">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-3xl mx-auto shadow-inner">
+            🛡️
+          </div>
+
+          <div>
+            <h1 className="text-xl font-black text-text-main tracking-tight">
+              Founder Master Key Required
+            </h1>
+            <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
+              The SuperAdmin panel controls global SaaS tenant provisioning, subscription locks, MRR telemetry, and confidential library contact ledgers.
+            </p>
+          </div>
+
+          {passcodeError && (
+            <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
+              <span>⚠️</span> {passcodeError}
+            </div>
+          )}
+
+          <form onSubmit={handleUnlock} className="space-y-4 text-left pt-1">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted block">
+                Enter Founder Master Passcode
+              </label>
+              <input
+                type="password"
+                required
+                autoFocus
+                placeholder="Enter passcode (default: Founder2026)"
+                value={passcodeInput}
+                onChange={(e) => setPasscodeInput(e.target.value)}
+                className="w-full bg-background border border-panel-border rounded-xl px-3.5 py-2.5 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={unlocking || !passcodeInput.trim()}
+              className="w-full py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {unlocking ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  Verifying Founder Key...
+                </>
+              ) : (
+                <>Unlock Founder Panel &rarr;</>
+              )}
+            </button>
+          </form>
+
+          <div className="pt-3 border-t border-panel-border text-center">
+            <Link href="/" className="text-xs font-bold text-text-muted hover:text-text-main transition">
+              &larr; Return to SaaS Homepage
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-background text-text-main pb-24 pt-8 px-4 md:px-8 w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto">
       {/* Top Header */}
@@ -345,6 +524,13 @@ export default function SuperAdminPage() {
             className="px-4 py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow-sm transition flex items-center gap-1.5 cursor-pointer"
           >
             <span>+</span> Onboard New Library
+          </button>
+          <button
+            onClick={handleLock}
+            className="px-3 py-2 text-xs font-semibold rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer text-rose-600 dark:text-rose-400 flex items-center gap-1"
+            title="Lock Founder Session"
+          >
+            <span>🔒</span> Lock Panel
           </button>
         </div>
       </div>
@@ -399,6 +585,86 @@ export default function SuperAdminPage() {
         </div>
       </div>
 
+      {/* Search & Status Filter Toolbar */}
+      <div className="bg-card-bg border border-panel-border rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 my-6">
+        {/* Search Bar */}
+        <div className="relative flex-1 max-w-md">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted text-xs select-none">
+            🔍
+          </span>
+          <input
+            type="text"
+            placeholder="Search by name, slug, phone, city, or UPI..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-background border border-panel-border rounded-xl pl-9 pr-8 py-2 text-xs text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted hover:text-text-main cursor-pointer"
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* Status Filter Buttons */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            onClick={() => setStatusFilter("all")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              statusFilter === "all"
+                ? "bg-rose-600 text-white shadow-2xs"
+                : "bg-background border border-panel-border text-text-muted hover:text-text-main"
+            }`}
+          >
+            All ({stats.total})
+          </button>
+          <button
+            onClick={() => setStatusFilter("active")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              statusFilter === "active"
+                ? "bg-emerald-600 text-white shadow-2xs"
+                : "bg-background border border-panel-border text-text-muted hover:text-text-main"
+            }`}
+          >
+            🟢 Active ({stats.activePaidCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter("trial")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              statusFilter === "trial"
+                ? "bg-amber-600 text-white shadow-2xs"
+                : "bg-background border border-panel-border text-text-muted hover:text-text-main"
+            }`}
+          >
+            🟡 Trials ({stats.trialCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter("locked")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              statusFilter === "locked"
+                ? "bg-rose-600 text-white shadow-2xs"
+                : "bg-background border border-panel-border text-text-muted hover:text-text-main"
+            }`}
+          >
+            🔴 Locked ({stats.blockedCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter("vip")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              statusFilter === "vip"
+                ? "bg-amber-600 text-white shadow-2xs"
+                : "bg-background border border-panel-border text-text-muted hover:text-text-main"
+            }`}
+          >
+            ⭐ VIP ({stats.foundingVips})
+          </button>
+        </div>
+      </div>
+
       {/* Libraries Table */}
       {loading ? (
         <div className="bg-card-bg border border-panel-border rounded-2xl p-16 text-center shadow-sm">
@@ -413,7 +679,9 @@ export default function SuperAdminPage() {
         <div className="bg-card-bg border border-panel-border rounded-2xl overflow-hidden shadow-sm">
           <div className="p-4 border-b border-panel-border flex items-center justify-between">
             <h2 className="font-bold text-sm text-text-main">Tenant Libraries Directory</h2>
-            <span className="text-xs text-text-muted">{libraries.length} registered</span>
+            <span className="text-xs text-text-muted">
+              Showing {filteredLibraries.length} of {libraries.length} registered
+            </span>
           </div>
 
           <div className="overflow-x-auto">
@@ -429,161 +697,194 @@ export default function SuperAdminPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-panel-border">
-                {libraries.map((lib) => {
-                  const access = getLibraryAccessStatus(lib);
+                {filteredLibraries.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-text-muted">
+                      No libraries matching &quot;{searchQuery}&quot;
+                    </td>
+                  </tr>
+                ) : (
+                  filteredLibraries.map((lib) => {
+                    const access = getLibraryAccessStatus(lib);
 
-                  return (
-                    <tr key={lib.id} className="hover:bg-neutral-500/5 transition-colors">
-                      {/* Name */}
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-text-main text-sm flex items-center gap-2">
-                          {lib.name}
-                          {lib.is_lifetime_fixed && (
-                            <span className="text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded font-bold">
-                              ⭐ Founding VIP
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-text-muted mt-0.5">
-                          📞 {lib.phone || "No phone"} • UPI: {lib.upi_id || "None"}
-                        </div>
-                      </td>
-
-                      {/* Slug */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <code className="bg-neutral-500/10 px-2 py-1 rounded text-[11px] font-mono font-semibold text-rose-600 dark:text-rose-400">
-                          /l/{lib.slug}
-                        </code>
-                      </td>
-
-                      {/* City */}
-                      <td className="py-3.5 px-4 whitespace-nowrap font-medium text-text-main">
-                        📍 {lib.city || "Dehradun"}
-                      </td>
-
-                      {/* Monthly Rate */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        {access.status === "trial" ? (
-                          <div>
-                            <span className="font-extrabold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md text-xs inline-block">
-                              ₹0 (Free Trial)
-                            </span>
-                            <div className="text-[10px] text-text-muted mt-0.5">
-                              ₹{lib.monthly_fee}/mo due {lib.trial_ends_at ? new Date(lib.trial_ends_at).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) : "7 days"}
-                            </div>
+                    return (
+                      <tr key={lib.id} className="hover:bg-neutral-500/5 transition-colors">
+                        {/* Name */}
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-text-main text-sm flex items-center gap-2">
+                            {lib.name}
+                            {lib.is_lifetime_fixed && (
+                              <span className="text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded font-bold">
+                                ⭐ Founding VIP
+                              </span>
+                            )}
                           </div>
-                        ) : access.isBlocked ? (
-                          <div>
-                            <span className="font-extrabold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-md text-xs inline-block">
-                              Unpaid (Locked)
-                            </span>
-                            <div className="text-[10px] text-text-muted mt-0.5">
-                              Rate: ₹{lib.monthly_fee}/mo
-                            </div>
+                          <div className="text-[11px] text-text-muted mt-0.5">
+                            📞 {lib.phone || "No phone"} • UPI: {lib.upi_id || "None"}
                           </div>
-                        ) : (
-                          <div>
-                            <span className="font-black text-sm text-emerald-600 dark:text-emerald-400">
-                              ₹{lib.monthly_fee}/mo
-                            </span>
-                            <div className="text-[10px] text-emerald-600/80">
-                              {lib.is_lifetime_fixed ? "⭐ Founding VIP" : "Verified Paid"}
-                            </div>
-                          </div>
-                        )}
-                      </td>
+                        </td>
 
-                      {/* Status */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        {lib.is_lifetime_fixed ? (
-                          <span className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                            <span>⭐</span> LIFETIME VIP
-                          </span>
-                        ) : access.status === "trial" ? (
-                          <span className="inline-flex items-center gap-1.5 bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                            🟡 7-DAY TRIAL ({access.trialDaysRemaining}d left)
-                          </span>
-                        ) : access.status === "trial_expired" ? (
-                          <span className="inline-flex items-center gap-1 bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                            🔴 TRIAL EXPIRED (LOCKED)
-                          </span>
-                        ) : access.status === "past_due" ? (
-                          <span className="inline-flex items-center gap-1 bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                            🔴 PAST DUE (LOCKED)
-                          </span>
-                        ) : access.status === "suspended" ? (
-                          <span className="inline-flex items-center gap-1 bg-neutral-500/15 text-neutral-600 dark:text-neutral-400 border border-neutral-500/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-neutral-500"></span>
-                            SUSPENDED
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            🟢 ACTIVE
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-center">
-                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                          <button
-                            onClick={() => handleExtendMonth(lib)}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold transition cursor-pointer"
-                            title="Record monthly ₹ payment and extend 30 days"
-                          >
-                            💵 Paid +30d
-                          </button>
-
-                          <button
-                            onClick={() => handleExtendTrial(lib, 7)}
-                            className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-[11px] font-bold transition cursor-pointer"
-                            title="Extend or reset free trial by 7 days"
-                          >
-                            ⏳ +7d Trial
-                          </button>
-
-                          {!lib.is_lifetime_fixed && (
+                        {/* Slug */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <code className="bg-neutral-500/10 px-2 py-1 rounded text-[11px] font-mono font-semibold text-rose-600 dark:text-rose-400">
+                              /l/{lib.slug}
+                            </code>
                             <button
-                              onClick={() => handleExpireTrial(lib)}
-                              className="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[11px] font-bold transition cursor-pointer"
-                              title="Simulate trial expiration to test locked paywall (data preserved)"
+                              onClick={() => handleCopy(`/l/${lib.slug}`, `${lib.name} slug`)}
+                              className="p-1 rounded hover:bg-neutral-500/10 text-text-muted hover:text-text-main transition text-xs cursor-pointer"
+                              title="Copy URL slug"
                             >
-                              🔒 Expire Now
+                              📋
                             </button>
+                          </div>
+                        </td>
+
+                        {/* City */}
+                        <td className="py-3.5 px-4 whitespace-nowrap font-medium text-text-main">
+                          📍 {lib.city || "Dehradun"}
+                        </td>
+
+                        {/* Monthly Rate */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          {access.status === "trial" ? (
+                            <div>
+                              <span className="font-extrabold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md text-xs inline-block">
+                                ₹0 (Free Trial)
+                              </span>
+                              <div className="text-[10px] text-text-muted mt-0.5">
+                                ₹{lib.monthly_fee}/mo due {lib.trial_ends_at ? new Date(lib.trial_ends_at).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) : "7 days"}
+                              </div>
+                            </div>
+                          ) : access.isBlocked ? (
+                            <div>
+                              <span className="font-extrabold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-md text-xs inline-block">
+                                Unpaid (Locked)
+                              </span>
+                              <div className="text-[10px] text-text-muted mt-0.5">
+                                Rate: ₹{lib.monthly_fee}/mo
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="font-black text-sm text-emerald-600 dark:text-emerald-400">
+                                ₹{lib.monthly_fee}/mo
+                              </span>
+                              <div className="text-[10px] text-emerald-600/80">
+                                {lib.is_lifetime_fixed ? "⭐ Founding VIP" : "Verified Paid"}
+                              </div>
+                            </div>
                           )}
+                        </td>
 
-                          <button
-                            onClick={() => {
-                              setEditingLibrary(lib);
-                              setNewFee(lib.monthly_fee);
-                              setIsLifetimeFixed(lib.is_lifetime_fixed);
-                            }}
-                            className="px-2 py-1 rounded-lg bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-[11px] font-bold transition cursor-pointer text-text-muted hover:text-text-main"
-                            title="Change fee or lock discount"
-                          >
-                            ✏️ Rate
-                          </button>
+                        {/* Status */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          {lib.is_lifetime_fixed ? (
+                            <span className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                              <span>⭐</span> LIFETIME VIP
+                            </span>
+                          ) : access.status === "trial" ? (
+                            <span className="inline-flex items-center gap-1.5 bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                              🟡 7-DAY TRIAL ({access.trialDaysRemaining}d left)
+                            </span>
+                          ) : access.status === "trial_expired" ? (
+                            <span className="inline-flex items-center gap-1 bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                              🔴 TRIAL EXPIRED (LOCKED)
+                            </span>
+                          ) : access.status === "past_due" ? (
+                            <span className="inline-flex items-center gap-1 bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                              🔴 PAST DUE (LOCKED)
+                            </span>
+                          ) : access.status === "suspended" ? (
+                            <span className="inline-flex items-center gap-1 bg-neutral-500/15 text-neutral-600 dark:text-neutral-400 border border-neutral-500/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                              <span className="w-1.5 h-1.5 rounded-full bg-neutral-500"></span>
+                              SUSPENDED
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              🟢 ACTIVE
+                            </span>
+                          )}
+                        </td>
 
-                          <Link
-                            href={lib.slug === "target-library" ? "/dashboard" : `/l/${lib.slug}`}
-                            target="_blank"
-                            className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold transition"
-                            title="Visit Library App"
-                          >
-                            🔗 Open App
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 whitespace-nowrap text-center">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            <button
+                              onClick={() => handleExtendMonth(lib)}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold transition cursor-pointer"
+                              title="Record monthly ₹ payment and extend 30 days"
+                            >
+                              💵 Paid +30d
+                            </button>
+
+                            <button
+                              onClick={() => handleExtendTrial(lib, 7)}
+                              className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-[11px] font-bold transition cursor-pointer"
+                              title="Extend or reset free trial by 7 days"
+                            >
+                              ⏳ +7d Trial
+                            </button>
+
+                            {!lib.is_lifetime_fixed && (
+                              <button
+                                onClick={() => handleExpireTrial(lib)}
+                                className="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[11px] font-bold transition cursor-pointer"
+                                title="Simulate trial expiration to test locked paywall (data preserved)"
+                              >
+                                🔒 Expire Now
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => {
+                                setEditingLibrary(lib);
+                                setNewFee(lib.monthly_fee);
+                                setIsLifetimeFixed(lib.is_lifetime_fixed);
+                              }}
+                              className="px-2 py-1 rounded-lg bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-[11px] font-bold transition cursor-pointer text-text-muted hover:text-text-main"
+                              title="Change fee or lock discount"
+                            >
+                              ✏️ Rate
+                            </button>
+
+                            <Link
+                              href={`/l/${lib.slug}`}
+                              target="_blank"
+                              className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold transition flex items-center gap-1"
+                              title="Open Desk Workspace"
+                            >
+                              <span>🪑</span> Desk
+                            </Link>
+
+                            <Link
+                              href={`/l/${lib.slug}/settings`}
+                              target="_blank"
+                              className="px-2 py-1 rounded-lg bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-[11px] font-bold transition text-text-muted hover:text-text-main"
+                              title="Open Owner Settings"
+                            >
+                              ⚙️
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Copy Toast Notification */}
+      {copyFeedback && (
+        <div className="fixed bottom-6 right-6 z-50 bg-neutral-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl border border-neutral-700 animate-in fade-in slide-in-from-bottom-2 flex items-center gap-2">
+          <span>📋</span> {copyFeedback}
         </div>
       )}
 
@@ -704,6 +1005,29 @@ export default function SuperAdminPage() {
                   onChange={(e) => setFormData((p) => ({ ...p, upi_id: e.target.value }))}
                   className="w-full bg-background border border-panel-border rounded-xl px-3 py-2 text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold block mb-1">Owner Passcode</label>
+                  <input
+                    type="text"
+                    placeholder="OwnerPass2026"
+                    value={formData.owner_password}
+                    onChange={(e) => setFormData((p) => ({ ...p, owner_password: e.target.value }))}
+                    className="w-full bg-background border border-panel-border rounded-xl px-3 py-2 text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1">Staff Passcode</label>
+                  <input
+                    type="text"
+                    placeholder="StaffPass2026"
+                    value={formData.staff_password}
+                    onChange={(e) => setFormData((p) => ({ ...p, staff_password: e.target.value }))}
+                    className="w-full bg-background border border-panel-border rounded-xl px-3 py-2 text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
+                  />
+                </div>
               </div>
 
               <div className="pt-3 border-t border-panel-border flex items-center justify-end gap-2">
