@@ -106,6 +106,26 @@ Whether managing a 50-seat quiet study hall or a 300-seat multi-shift reading li
 
 ---
 
+### ⚡ 10. Dynamic UPI Intent & Automated WhatsApp Overdue Recovery
+- **Solves the #1 Headache of Library Owners**: Eliminates awkward face-to-face friction and hours wasted chasing students for overdue fees.
+- **NPCI-Compliant Dynamic UPI Deep Links**: Generates standard `upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...` deep links:
+  - Tapping this link on any mobile phone (Android / iOS) **directly launches PhonePe, Google Pay, Paytm, or BHIM**.
+  - The library's UPI ID, payee name, and the **exact overdue fee amount** are pre-filled — students only enter their UPI PIN to complete payment.
+- **Interactive Reception UPI Modal (`DynamicUpiModal`)**:
+  - Front-desk staff can click `⚡ UPI QR` on any overdue student to pop an on-screen dynamic QR code for instant counter scanning.
+  - One-click WhatsApp button with pre-formatted overdue notices and 1-click UPI links.
+  - "Open UPI App" and "Copy UPI Link" actions.
+- **`⚡ Remind Queue` Batch Launcher**:
+  - One-click trigger in `/due-fees` that opens the reminder flow for the most urgent student in the current view with a registered phone number.
+- **Multi-Tenant White-Label UPI Routing**:
+  - Automatically loads each library's custom UPI ID and Payee Name from the database (e.g. `uniyalmanas@okicici` for testing tenants, `targetlibrary@upi` for Target Library).
+- **Self-Service Digital Pass Renewal (`/receipts/[id]`)**:
+  - Expired passes display an emergency renewal banner with a 1-click UPI payment button and expandable QR code for self-service renewal.
+- **Automated Server Dispatch API (`POST /api/send-whatsapp`)**:
+  - Server-side route supporting `type: "due_reminder"` with dynamic UPI link formatting, UltraMsg background dispatch, and simulated logging mode.
+
+---
+
 ## 🗺️ Key Routes Directory
 
 | Route | Access Level | Description |
