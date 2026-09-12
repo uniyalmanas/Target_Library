@@ -245,18 +245,18 @@ function HeaderNavbarContent() {
               <span>🔵</span> Due Fees
             </Link>
 
-            <Link
-              href={`/l/${activeSlug}/join`}
-              target="_blank"
-              className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-1 whitespace-nowrap shrink-0"
-              title="Open Student Entrance QR Code in new tab"
-            >
-              <span>📱</span> Door QR
-            </Link>
-
             {/* Owner-Only Privileged Links */}
             {isOwner && (
               <>
+                <Link
+                  href={`/l/${activeSlug}/join`}
+                  target="_blank"
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-1 whitespace-nowrap shrink-0"
+                  title="Open Student Entrance QR Code in new tab"
+                >
+                  <span>📱</span> Door QR
+                </Link>
+
                 <Link
                   href={`/dashboard?slug=${encodeURIComponent(activeSlug)}`}
                   className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
