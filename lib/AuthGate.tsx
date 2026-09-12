@@ -13,7 +13,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true);
 
   const isPublicPath =
+    pathname === "/" ||
     pathname === "/login" ||
+    pathname === "/signup" ||
     pathname.startsWith("/receipts/") ||
     pathname.startsWith("/l/") ||
     pathname.startsWith("/superadmin");

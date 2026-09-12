@@ -80,6 +80,7 @@ export async function POST(req: Request) {
       upi_id,
       upi_name,
       owner_password = "OwnerPass2026",
+      staff_password = "StaffPass2026",
     } = body;
 
     if (!name || !slug) {
@@ -134,7 +135,7 @@ export async function POST(req: Request) {
       {
         library_id: newLib.id,
         username: "staff",
-        password_hash: "staff2026",
+        password_hash: staff_password || "StaffPass2026",
         role: "staff",
         full_name: `${name} Desk Staff`,
       },
