@@ -18,12 +18,31 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     pathname === "/login" ||
     pathname === "/signup" ||
     pathname.startsWith("/receipts/") ||
-    pathname.startsWith("/l/") ||
+    pathname === "/l/demo-library" ||
+    pathname.startsWith("/l/demo-library/") ||
+    pathname.endsWith("/student") ||
+    pathname.endsWith("/join") ||
+    pathname.endsWith("/terms") ||
     pathname.startsWith("/superadmin");
 
   useEffect(() => {
     const authStatus = sessionStorage.getItem("target_lib_auth");
-    if (authStatus === "true" || authStatus === ADMIN_PASSWORD) {
+    const stored = getStoredSession();
+
+    let pathSlug: string | null = null;
+    if (pathname.startsWith("/l/")) {
+      const parts = pathname.split("/");
+      if (parts[2]) pathSlug = decodeURIComponent(parts[2]);
+    }
+    const currentSearch = typeof window !== "undefined" ? window.location.search : "";
+    const querySlug = new URLSearchParams(currentSearch).get("slug");
+    const requiredSlug = pathSlug || querySlug;
+
+    const hasValidAuth = authStatus === "true" || authStatus === ADMIN_PASSWORD;
+    const isSuperAdmin = stored?.role === "superadmin";
+    const isMatchingTenant = !requiredSlug || isSuperAdmin || stored?.librarySlug === requiredSlug;
+
+    if (hasValidAuth && isMatchingTenant && (isSuperAdmin || stored?.librarySlug)) {
       setIsAuthenticated(true);
     } else {
       setIsAuthenticated(false);
@@ -34,10 +53,15 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!checking) {
       if (!isAuthenticated && !isPublicPath) {
+        let pathSlug: string | null = null;
+        if (pathname.startsWith("/l/")) {
+          const parts = pathname.split("/");
+          if (parts[2]) pathSlug = decodeURIComponent(parts[2]);
+        }
         const currentSearch = typeof window !== "undefined" ? window.location.search : "";
         const slugFromUrl = new URLSearchParams(currentSearch).get("slug");
         const stored = typeof window !== "undefined" ? getStoredSession() : null;
-        const effectiveSlug = slugFromUrl || stored?.librarySlug;
+        const effectiveSlug = pathSlug || slugFromUrl || stored?.librarySlug;
         const target = effectiveSlug ? `/login?slug=${encodeURIComponent(effectiveSlug)}` : "/login";
         router.replace(target);
       }

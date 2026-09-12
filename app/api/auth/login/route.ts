@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug, DEFAULT_LIBRARY_SLUG } from "@/lib/tenant";
+import { getLibraryBySlug, DEFAULT_LIBRARY_SLUG, FALLBACK_TARGET_LIBRARY } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +44,24 @@ export async function POST(req: Request) {
     }
 
     // 2. Library Tenant authentication (owner or staff)
-    const library = await getLibraryBySlug(slug);
+    let library;
+    if (slug === DEFAULT_LIBRARY_SLUG) {
+      library = FALLBACK_TARGET_LIBRARY;
+    } else {
+      const { data: libData, error: libErr } = await supabase
+        .from("libraries")
+        .select("*")
+        .eq("slug", slug)
+        .maybeSingle();
+
+      if (libErr || !libData) {
+        return NextResponse.json(
+          { error: `Library "${slug}" is not registered on LibraryOS. Only registered libraries can sign in.` },
+          { status: 404 }
+        );
+      }
+      library = libData;
+    }
 
     // Query library_users table in database
     const { data: dbUser, error: userErr } = await supabase

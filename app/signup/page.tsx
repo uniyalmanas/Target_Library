@@ -1,16 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function LibrarySignupPage() {
+function SignupContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const paramName = searchParams.get("name")?.trim() || "";
+  const paramSlug = searchParams.get("slug")?.trim() || "";
 
   // Form States
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [isSlugEdited, setIsSlugEdited] = useState(false);
+  const [name, setName] = useState(paramName);
+  const [slug, setSlug] = useState(
+    paramSlug ||
+      paramName
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+  );
+  const [isSlugEdited, setIsSlugEdited] = useState(Boolean(paramSlug));
   const [city, setCity] = useState("Dehradun");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -19,6 +30,26 @@ export default function LibrarySignupPage() {
   const [upiName, setUpiName] = useState("");
   const [ownerPassword, setOwnerPassword] = useState("");
   const [staffPassword, setStaffPassword] = useState("");
+
+  useEffect(() => {
+    if (paramName && !name) {
+      setName(paramName);
+      if (!isSlugEdited) {
+        setSlug(
+          paramName
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9\s-]/g, "")
+            .replace(/\s+/g, "-")
+            .replace(/-+/g, "-")
+        );
+      }
+    }
+    if (paramSlug && !slug) {
+      setSlug(paramSlug);
+      setIsSlugEdited(true);
+    }
+  }, [paramName, paramSlug]);
 
   const [submitting, setSubmitting] = useState(false);
   const [createdLibrary, setCreatedLibrary] = useState<{ slug: string; name: string } | null>(null);
@@ -387,5 +418,19 @@ export default function LibrarySignupPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function LibrarySignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="w-8 h-8 border-3 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+        </main>
+      }
+    >
+      <SignupContent />
+    </Suspense>
   );
 }

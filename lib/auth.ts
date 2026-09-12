@@ -19,10 +19,10 @@ const STORAGE_KEY = "library_ms_auth_session";
 
 export const DEFAULT_SESSION: AuthSession = {
   role: "staff",
-  libraryId: "00000000-0000-0000-0000-000000000001",
-  librarySlug: "target-library",
-  username: "staff",
-  fullName: "Front Desk Staff",
+  libraryId: "",
+  librarySlug: "",
+  username: "",
+  fullName: "",
 };
 
 export function getStoredSession(): AuthSession {
