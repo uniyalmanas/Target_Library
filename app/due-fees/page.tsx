@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
+import { downloadCsv } from "@/lib/exportCsv";
 
 interface DueCandidate {
   receipt_no: number;
@@ -182,36 +183,71 @@ function DueFeesContent() {
 
   const exportCSV = () => {
     if (filteredCandidates.length === 0) {
-      alert("No records to export.");
+      alert("No overdue student records to export.");
       return;
     }
 
-    const headers = ["Receipt #", "Seat #", "Student ID", "Name", "Phone", "Aadhaar", "Plan", "Shift", "With Sheet", "Amount Paid", "End Date", "Days Overdue"];
-    const rows = filteredCandidates.map((c) => [
-      c.receipt_no,
-      c.seat_number,
-      c.student_id,
-      `"${c.student_name.replace(/"/g, '""')}"`,
-      c.student_phone || "",
-      c.aadhar_no || "",
-      c.subscription_type,
-      c.shift_type || "",
-      c.has_sheet ? "Yes" : "No",
-      c.amount_paid,
-      c.end_date,
-      c.days_overdue,
+    const headers = [
+      "Receipt #",
+      "Seat #",
+      "Student ID",
+      "Student Name",
+      "Phone Number",
+      "Aadhaar Number",
+      "Subscription Plan",
+      "Shift",
+      "Desk Sheet Addon",
+      "Last Amount Paid (₹)",
+      "Validity Expiry Date",
+      "Days Overdue",
+      "Overdue Severity",
+    ];
+
+    const rows: (string | number | boolean | null | undefined)[][] = filteredCandidates.map((c) => {
+      const severity = c.days_overdue > 7 ? "Critical (7+ Days)" : c.days_overdue >= 4 ? "Urgent (4-7 Days)" : "Recent (1-3 Days)";
+      return [
+        c.receipt_no,
+        c.seat_number,
+        c.student_id,
+        c.student_name,
+        c.student_phone ? `="${c.student_phone}"` : "",
+        c.aadhar_no ? `="${c.aadhar_no}"` : "",
+        c.subscription_type === "full_day" ? "Full Day" : "Half Day",
+        shiftLabel(c.shift_type, c.subscription_type),
+        c.has_sheet ? "Yes" : "No",
+        c.amount_paid,
+        c.end_date,
+        c.days_overdue,
+        severity,
+      ];
+    });
+
+    // Add totals summary at bottom
+    const totalEstPending = filteredCandidates.reduce((sum, c) => sum + c.amount_paid, 0);
+    rows.push([]);
+    rows.push([
+      "TOTAL OVERDUE SUMMARY",
+      "",
+      "",
+      `Total Overdue Students: ${filteredCandidates.length}`,
+      "",
+      "",
+      "",
+      "",
+      "Total Estimated Dues:",
+      totalEstPending,
+      `Exported: ${new Date().toISOString().split("T")[0]}`,
+      libraryName || slug,
+      "",
     ]);
 
-    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
     const today = new Date().toISOString().split("T")[0];
-    link.setAttribute("download", `Target_Library_Due_Fees_${today}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const cleanSlug = slug || "library";
+    downloadCsv({
+      filename: `${cleanSlug}_Due_Fees_${today}.csv`,
+      headers,
+      rows,
+    });
   };
 
   return (

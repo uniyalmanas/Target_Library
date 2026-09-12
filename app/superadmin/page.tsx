@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Library } from "@/lib/types";
 import { getLibraryAccessStatus } from "@/lib/tenant";
+import { downloadCsv } from "@/lib/exportCsv";
 
 export default function SuperAdminPage() {
   const [libraries, setLibraries] = useState<Library[]>([]);
@@ -234,6 +235,60 @@ export default function SuperAdminPage() {
     }
   };
 
+  // Export Tenants Directory to CSV
+  const handleExportLibrariesCSV = () => {
+    if (!libraries.length) {
+      alert("No tenant libraries to export.");
+      return;
+    }
+
+    const headers = [
+      "Library ID",
+      "Library Name",
+      "Workspace Slug",
+      "Workspace URL",
+      "City",
+      "Phone Number",
+      "Soundbox UPI ID",
+      "Monthly Fee (₹)",
+      "Subscription Status",
+      "Access Phase",
+      "Trial End Date",
+      "Subscription End Date",
+      "Lifetime VIP",
+      "Total Seats",
+      "Onboarded Date",
+    ];
+
+    const rows = libraries.map((lib) => {
+      const access = getLibraryAccessStatus(lib);
+      return [
+        lib.id,
+        lib.name,
+        lib.slug,
+        `/l/${lib.slug}`,
+        lib.city || "Dehradun",
+        lib.phone ? `="${lib.phone}"` : "",
+        lib.upi_id || "",
+        lib.monthly_fee,
+        lib.subscription_status,
+        access.status,
+        lib.trial_ends_at || "N/A",
+        lib.subscription_ends_at || "N/A",
+        lib.is_lifetime_fixed ? "Yes (VIP)" : "No",
+        (lib as any).library_settings?.total_seats || 50,
+        lib.created_at ? lib.created_at.split("T")[0] : "",
+      ];
+    });
+
+    const today = new Date().toISOString().split("T")[0];
+    downloadCsv({
+      filename: `LibraryOS_Tenants_Directory_${today}.csv`,
+      headers,
+      rows,
+    });
+  };
+
   return (
     <main className="min-h-screen bg-background text-text-main pb-24 pt-8 px-4 md:px-8 w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto">
       {/* Top Header */}
@@ -252,18 +307,26 @@ export default function SuperAdminPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <Link
             href="/"
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer text-text-muted hover:text-text-main"
+            className="px-3 py-2 text-xs font-semibold rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer text-text-muted hover:text-text-main"
           >
             ← SaaS Home
           </Link>
           <button
             onClick={fetchLibraries}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+            className="px-3 py-2 text-xs font-semibold rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
           >
             🔄 Refresh
+          </button>
+          <button
+            onClick={handleExportLibrariesCSV}
+            disabled={!libraries.length}
+            className="px-3 py-2 text-xs font-semibold rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer flex items-center gap-1 text-text-main"
+            title="Download full client directory as CSV"
+          >
+            <span>📥</span> Export Tenants CSV
           </button>
           <button
             onClick={() => setShowAddModal(true)}

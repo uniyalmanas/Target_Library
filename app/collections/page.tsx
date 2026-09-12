@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
+import { downloadCsv } from "@/lib/exportCsv";
 
 interface DailyPayment {
   receipt_no: number;
@@ -178,52 +179,73 @@ function DailyCollectionsContent() {
 
   // Export CSV
   const handleExportCSV = () => {
-    if (!payments.length) return;
+    if (!payments.length) {
+      alert("No payment records to export for this date.");
+      return;
+    }
     const headers = [
-      "Receipt No",
+      "Receipt #",
       "Payment Time",
       "Student ID",
       "Student Name",
       "Phone",
-      "Seat No",
-      "Subscription",
+      "Seat #",
+      "Subscription Plan",
       "Shift",
-      "Desk Sheet",
+      "Desk Sheet Addon",
       "Admission Type",
       "Payment Mode",
-      "Amount (INR)",
-      "Start Date",
-      "End Date",
+      "Amount Paid (₹)",
+      "Validity Start",
+      "Validity End",
     ];
 
-    const rows = payments.map((p) => [
+    const rows: (string | number | boolean | null | undefined)[][] = payments.map((p) => [
       p.receipt_no,
       p.payment_time,
       p.student_id,
-      `"${p.student_name.replace(/"/g, '""')}"`,
-      p.student_phone || "",
+      p.student_name,
+      p.student_phone ? `="${p.student_phone}"` : "",
       p.seat_number,
-      p.subscription_type,
-      p.shift_type || "N/A",
+      p.subscription_type === "full_day" ? "Full Day" : "Half Day",
+      p.shift_type || "Standard",
       p.has_sheet ? "Yes" : "No",
       p.is_new_admission ? "New Admission" : "Renewal",
-      p.payment_mode === "online" ? "Online (UPI)" : "Cash",
+      p.payment_mode === "online" ? "Online (UPI Soundbox)" : "Cash",
       p.amount_paid,
       p.start_date,
       p.end_date,
     ]);
 
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    // Add totals summary at bottom
+    const totalAmount = payments.reduce((sum, p) => sum + p.amount_paid, 0);
+    const cashAmount = payments.filter((p) => p.payment_mode !== "online").reduce((sum, p) => sum + p.amount_paid, 0);
+    const upiAmount = payments.filter((p) => p.payment_mode === "online").reduce((sum, p) => sum + p.amount_paid, 0);
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `daily_collections_${selectedDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    rows.push([]);
+    rows.push([
+      "TOTAL SUMMARY",
+      "",
+      "",
+      `Total Students: ${payments.length}`,
+      "",
+      "",
+      "",
+      "",
+      "",
+      `Cash: ₹${cashAmount}`,
+      `UPI: ₹${upiAmount}`,
+      totalAmount,
+      `Date: ${selectedDate}`,
+      libraryName || slug,
+    ]);
+
+    const cleanSlug = slug || "library";
+    downloadCsv({
+      filename: `${cleanSlug}_Collections_${selectedDate}.csv`,
+      headers,
+      rows,
+    });
   };
 
   const handlePrint = () => {

@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { getStoredSession } from "@/lib/auth";
+import { downloadCsv } from "@/lib/exportCsv";
 
 function MembersContent() {
   const searchParams = useSearchParams();
@@ -46,16 +47,97 @@ function MembersContent() {
     }
   }
 
+  const handleExportMembersCSV = () => {
+    if (!results.length) {
+      alert("No members to export.");
+      return;
+    }
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    const headers = [
+      "Member ID",
+      "Student Name",
+      "Phone Number",
+      "Aadhaar Number",
+      "Current Status",
+      "Active Seat #",
+      "Subscription Plan",
+      "Shift",
+      "Validity Start",
+      "Validity End",
+      "Date of Joining",
+    ];
+
+    const rows = results.map((m) => {
+      const activeReceipt = m.receipts?.find(
+        (r: any) => r.start_date <= todayStr && r.end_date >= todayStr && !r.is_vacated
+      );
+      const isOverdue = m.receipts?.some(
+        (r: any) => r.end_date < todayStr && !r.is_vacated
+      );
+      const status = activeReceipt
+        ? "Active"
+        : isOverdue
+        ? "Overdue"
+        : "Inactive / Vacated";
+
+      const seatNum = activeReceipt?.seats?.seat_number || "None";
+      const plan = activeReceipt
+        ? activeReceipt.subscription_type === "full_day"
+          ? "Full Day"
+          : "Half Day"
+        : "N/A";
+      const shift = activeReceipt?.shift_type || "N/A";
+      const start = activeReceipt?.start_date || "N/A";
+      const end = activeReceipt?.end_date || "N/A";
+
+      return [
+        m.student_id,
+        m.name,
+        m.phone ? `="${m.phone}"` : "",
+        m.aadhar_no ? `="${m.aadhar_no}"` : "",
+        status,
+        seatNum,
+        plan,
+        shift,
+        start,
+        end,
+        m.date_of_joining ? m.date_of_joining.split("T")[0] : "",
+      ];
+    });
+
+    const today = new Date().toISOString().split("T")[0];
+    const cleanSlug = slug || "library";
+    downloadCsv({
+      filename: `${cleanSlug}_Members_Directory_${today}.csv`,
+      headers,
+      rows,
+    });
+  };
+
   return (
     <div className="w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto px-4 sm:px-6 py-6 space-y-6">
-      <div className="bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
-          Member Directory
-        </h1>
-        <p className="text-xs text-text-muted mt-1">
-          Search permanent member profiles, active seats, and full payment receipts for this library.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-panel-bg border border-panel-border rounded-2xl p-6 backdrop-blur-md">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
+            Member Directory
+          </h1>
+          <p className="text-xs text-text-muted mt-1">
+            Search permanent member profiles, active seats, and full payment receipts for this library.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            onClick={handleExportMembersCSV}
+            disabled={!results.length}
+            className="flex items-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all cursor-pointer disabled:opacity-40 shadow-xs"
+            title="Download member directory as Excel/CSV"
+          >
+            <span>📥</span> Export Members CSV ({results.length})
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSearch} className="flex gap-3 max-w-lg bg-panel-bg border border-panel-border p-3 rounded-xl backdrop-blur-xs">
