@@ -167,8 +167,37 @@ Whether managing a 50-seat quiet study hall or a 300-seat multi-shift reading li
 | `/members?slug=[slug]` | Staff / Owner | Permanent member search ledger with seat numbers and payment history |
 | `/collections?slug=[slug]` | Staff / Owner | Daily fee collection ledger with cash vs. UPI breakdown and date filtering |
 | `/due-fees?slug=[slug]` | Staff / Owner | Overdue student tracker with 1-click WhatsApp reminder generator |
+| `/expenses?slug=[slug]` | Staff / Owner | Daily operational expense ledger, real net profit, cost breakdown, and presets |
 | `/receipts/[id]` | Public | Printable tax invoice receipt and digital pass verification |
 | `/superadmin` | Founder / Superadmin | SaaS founder control panel with verified MRR, library directory, and billing actions |
+
+---
+
+### 📉 11. Daily Operational Expenses & Real Net In-Hand Profit Ledger (`/expenses`)
+> **True Business Health at a Glance**: Revenue alone is vanity; real net in-hand profit is sanity. LibraryOS tracks every rupee going out alongside every rupee coming in.
+
+- **Real Net In-Hand Profit Calculation**:
+  $$\text{Real Net In-Hand Profit} = \text{Gross Collections (Cash + UPI)} - \text{Total Operating Expenses}$$
+- **7 Core Operational Cost Categories**:
+  - ⚡ **Electricity & AC Power**: Commercial power meter bills, generator fuel, stabilizer servicing.
+  - 🏢 **Hall & Premises Rent**: Monthly lease / landlord NEFT transfers.
+  - 🌐 **Commercial Wi-Fi Broadband**: High-speed fiber lines (Airtel/Jio Commercial).
+  - 💧 **Drinking Water & Tea/Coffee**: 20L chilled RO water cans, tea pantry provisions.
+  - 👥 **Staff Salary & Caretakers**: Desk supervisors, sweepers, night caretakers.
+  - 🛠️ **Maintenance & Repairs**: AC gas refill, ergonomic chair repairs, lighting fixtures.
+  - 📦 **Miscellaneous**: Cleaning supplies, register stationery, first aid supplies.
+- **⚡ 1-Click Fast Presets**:
+  - One-tap quick presets populate titles, categories, and payment modes for fast routine logging.
+- **Live KPI Summary Metric Cards**:
+  - **Gross Collections**: Monthly gross broken down by Cash vs. Online/Soundbox UPI.
+  - **Operating Expenses**: Total spent across all operational categories.
+  - **Real Net In-Hand Profit**: Net cash pocketed by the library owner after settling all bills.
+  - **Profit Margin %**: Live profit efficiency percentage.
+- **Multi-Tenant Isolation & Local Fallback Engine**:
+  - Full data isolation per library tenant (`library_id` / `slug`).
+  - Seamless persistent fallback (`lib/localExpenses.ts`) ensuring zero runtime errors or setup friction prior to running `supabase/expenses.sql`.
+- **1-Click CA-Ready CSV Export**:
+  - RFC-4180 format with UTF-8 BOM encoding for direct opening in Microsoft Excel and Tally accounting.
 
 ---
 

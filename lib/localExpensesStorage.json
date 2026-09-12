@@ -1,0 +1,57 @@
+[
+  {
+    "id": "exp-init-01",
+    "library_id": "00000000-0000-0000-0000-000000000001",
+    "title": "Commercial AC Power Bill (July/August)",
+    "category": "electricity",
+    "amount": 14200,
+    "payment_mode": "online",
+    "expense_date": "2026-09-05",
+    "notes": "State power corporation online receipt #UP-8291",
+    "created_at": "2026-09-05T17:05:36.798Z"
+  },
+  {
+    "id": "exp-init-02",
+    "library_id": "00000000-0000-0000-0000-000000000001",
+    "title": "Hall Monthly Rent",
+    "category": "rent",
+    "amount": 22000,
+    "payment_mode": "online",
+    "expense_date": "2026-09-02",
+    "notes": "NEFT transfer to landlord",
+    "created_at": "2026-09-02T17:05:36.798Z"
+  },
+  {
+    "id": "exp-init-03",
+    "library_id": "00000000-0000-0000-0000-000000000001",
+    "title": "Airtel Commercial Fiber 300 Mbps",
+    "category": "wifi",
+    "amount": 1999,
+    "payment_mode": "online",
+    "expense_date": "2026-09-08",
+    "notes": "Monthly business broadband connection",
+    "created_at": "2026-09-08T17:05:36.798Z"
+  },
+  {
+    "id": "exp-init-04",
+    "library_id": "00000000-0000-0000-0000-000000000001",
+    "title": "RO Water Dispenser 20L Cans",
+    "category": "water_tea",
+    "amount": 950,
+    "payment_mode": "upi",
+    "expense_date": "2026-09-11",
+    "notes": "Delivered 30 chilled water jars",
+    "created_at": "2026-09-11T17:05:36.798Z"
+  },
+  {
+    "id": "exp-init-05",
+    "library_id": "00000000-0000-0000-0000-000000000001",
+    "title": "Night Supervisor & Caretaker",
+    "category": "staff_salary",
+    "amount": 8000,
+    "payment_mode": "cash",
+    "expense_date": "2026-09-07",
+    "notes": "Desk duty and evening lockup",
+    "created_at": "2026-09-07T17:05:36.798Z"
+  }
+]

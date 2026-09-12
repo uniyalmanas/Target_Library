@@ -612,3 +612,142 @@ export function getDemoAdmissionRequests() {
     },
   ];
 }
+
+export interface DemoExpense {
+  id: string;
+  library_id: string;
+  title: string;
+  category: "electricity" | "rent" | "wifi" | "water_tea" | "staff_salary" | "maintenance" | "misc";
+  amount: number;
+  payment_mode: "cash" | "online" | "upi";
+  expense_date: string;
+  notes?: string;
+  created_at: string;
+}
+
+/**
+ * Generate realistic synthetic operating expenses for Demo Lounge
+ */
+export function getDemoExpenses(): {
+  expenses: DemoExpense[];
+  summary: {
+    gross_collections: number;
+    total_expenses: number;
+    net_profit: number;
+    profit_margin: string;
+    by_category: Record<string, number>;
+  };
+} {
+  const expenses: DemoExpense[] = [
+    {
+      id: "exp-demo-01",
+      library_id: DEMO_LIBRARY_ID,
+      title: "Main Study Hall Commercial Rent (Ground + 1st Floor)",
+      category: "rent",
+      amount: 25000,
+      payment_mode: "online",
+      expense_date: getDemoISTDate(-12),
+      notes: "Paid via NEFT directly to landlord account",
+      created_at: new Date(Date.now() - 12 * 86400000).toISOString(),
+    },
+    {
+      id: "exp-demo-02",
+      library_id: DEMO_LIBRARY_ID,
+      title: "Commercial Electricity & 6x Dual-Inverter AC Power Bill",
+      category: "electricity",
+      amount: 14850,
+      payment_mode: "online",
+      expense_date: getDemoISTDate(-8),
+      notes: "State Electricity Board payment for peak summer AC run",
+      created_at: new Date(Date.now() - 8 * 86400000).toISOString(),
+    },
+    {
+      id: "exp-demo-03",
+      library_id: DEMO_LIBRARY_ID,
+      title: "Caretaker & Night Supervisor Salary",
+      category: "staff_salary",
+      amount: 9000,
+      payment_mode: "cash",
+      expense_date: getDemoISTDate(-11),
+      notes: "Monthly salary for night check-ins and lockup",
+      created_at: new Date(Date.now() - 11 * 86400000).toISOString(),
+    },
+    {
+      id: "exp-demo-04",
+      library_id: DEMO_LIBRARY_ID,
+      title: "Housekeeping & Sanitization Staff",
+      category: "staff_salary",
+      amount: 5500,
+      payment_mode: "cash",
+      expense_date: getDemoISTDate(-11),
+      notes: "Daily floor mopping, desk wiping, and dustbin clearance",
+      created_at: new Date(Date.now() - 11 * 86400000).toISOString(),
+    },
+    {
+      id: "exp-demo-05",
+      library_id: DEMO_LIBRARY_ID,
+      title: "Dual Commercial Fiber Lease 300 Mbps (Airtel + Jio Fallback)",
+      category: "wifi",
+      amount: 2199,
+      payment_mode: "online",
+      expense_date: getDemoISTDate(-6),
+      notes: "High-speed zero-downtime internet for 200 study desks",
+      created_at: new Date(Date.now() - 6 * 86400000).toISOString(),
+    },
+    {
+      id: "exp-demo-06",
+      library_id: DEMO_LIBRARY_ID,
+      title: "RO Chilled & Warm Drinking Water 20L Canisters (45 Jars)",
+      category: "water_tea",
+      amount: 1350,
+      payment_mode: "upi",
+      expense_date: getDemoISTDate(-3),
+      notes: "Bi-weekly supplier delivery at ₹30 per 20L canister",
+      created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+    },
+    {
+      id: "exp-demo-07",
+      library_id: DEMO_LIBRARY_ID,
+      title: "Cushion Chair Hydraulic Struts & LED Study Tube Replacements",
+      category: "maintenance",
+      amount: 1800,
+      payment_mode: "cash",
+      expense_date: getDemoISTDate(-2),
+      notes: "Fixed 3 squeaky study chairs and replaced flickering tubes",
+      created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+    },
+    {
+      id: "exp-demo-08",
+      library_id: DEMO_LIBRARY_ID,
+      title: "Desk Cleaners, Phenyl & Air Freshener Cans",
+      category: "misc",
+      amount: 650,
+      payment_mode: "upi",
+      expense_date: getDemoISTDate(-1),
+      notes: "Counter cleaning supplies",
+      created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+    },
+  ];
+
+  const total_expenses = expenses.reduce((sum, e) => sum + e.amount, 0); // ₹60,349
+  const gross_collections = 112400; // Simulated active demo monthly collections
+  const net_profit = gross_collections - total_expenses; // ₹52,051
+  const profit_margin = ((net_profit / gross_collections) * 100).toFixed(1); // 46.3%
+
+  const by_category: Record<string, number> = {};
+  for (const e of expenses) {
+    by_category[e.category] = (by_category[e.category] || 0) + e.amount;
+  }
+
+  return {
+    expenses,
+    summary: {
+      gross_collections,
+      total_expenses,
+      net_profit,
+      profit_margin,
+      by_category,
+    },
+  };
+}
+
