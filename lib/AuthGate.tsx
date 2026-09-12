@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { getStoredSession } from "@/lib/auth";
 
 // Secure Admin Passcode, defaults to Target2026 if not set in .env.local
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "Target2026";
@@ -33,7 +34,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!checking) {
       if (!isAuthenticated && !isPublicPath) {
-        router.replace("/login");
+        const currentSearch = typeof window !== "undefined" ? window.location.search : "";
+        const slugFromUrl = new URLSearchParams(currentSearch).get("slug");
+        const stored = typeof window !== "undefined" ? getStoredSession() : null;
+        const effectiveSlug = slugFromUrl || stored?.librarySlug;
+        const target = effectiveSlug ? `/login?slug=${encodeURIComponent(effectiveSlug)}` : "/login";
+        router.replace(target);
       }
     }
   }, [checking, isAuthenticated, isPublicPath, pathname, router]);

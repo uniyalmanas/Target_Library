@@ -97,7 +97,7 @@ function HeaderNavbarContent() {
     sessionStorage.removeItem("target_lib_auth");
     sessionStorage.removeItem("target_lib_owner_auth");
     clearStoredSession();
-    window.location.href = "/login";
+    window.location.href = activeSlug ? `/login?slug=${encodeURIComponent(activeSlug)}` : "/login";
   };
 
   return (

@@ -423,11 +423,18 @@ export default function StudentEntranceQRJoinPage({
       )}
 
       {/* Footer */}
-      <div className="text-center mt-6 text-[11px] text-text-muted">
-        Powered by{" "}
-        <Link href="/login" className="font-bold underline hover:text-text-main">
-          LibraryOS
-        </Link>
+      <div className="text-center mt-6 text-[11px] text-text-muted space-y-1">
+        <div>
+          <Link
+            href={`/login?slug=${slug}`}
+            className="hover:text-text-main hover:underline font-semibold"
+          >
+            Staff &amp; Owner Login &rarr;
+          </Link>
+        </div>
+        <div>
+          Powered by <span className="font-bold">LibraryOS</span>
+        </div>
       </div>
     </main>
   );

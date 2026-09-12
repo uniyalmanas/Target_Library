@@ -1,25 +1,33 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { setStoredSession, UserRole } from "@/lib/auth";
+import { setStoredSession, getStoredSession } from "@/lib/auth";
 import { Library } from "@/lib/types";
-import { FALLBACK_TARGET_LIBRARY } from "@/lib/tenant";
+import LibraryLogo from "@/lib/LibraryLogo";
 
 interface AuthModalState {
-  role: "staff" | "owner" | "superadmin";
+  role: "staff" | "owner";
   title: string;
   subtitle: string;
   icon: string;
-  defaultHint: string;
   destination: string;
 }
 
-export default function UniversalLoginPage() {
+function LoginContent() {
   const router = useRouter();
-  const [libraries, setLibraries] = useState<Library[]>([FALLBACK_TARGET_LIBRARY]);
-  const [selectedSlug, setSelectedSlug] = useState<string>("target-library");
+  const searchParams = useSearchParams();
+  const querySlug = searchParams.get("slug")?.trim() || "";
+
+  const [activeSlug, setActiveSlug] = useState<string | null>(null);
+  const [library, setLibrary] = useState<Library | null>(null);
+  const [loadingLib, setLoadingLib] = useState(true);
+
+  // Workspace Lookup Form State (when no slug is active)
+  const [slugInput, setSlugInput] = useState("");
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [searchingSlug, setSearchingSlug] = useState(false);
 
   // Modal Auth State
   const [activeModal, setActiveModal] = useState<AuthModalState | null>(null);
@@ -27,43 +35,78 @@ export default function UniversalLoginPage() {
   const [loggingIn, setLoggingIn] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // Resolve active library slug
   useEffect(() => {
-    async function loadLibraries() {
-      try {
-        const res = await fetch("/api/libraries?all=true");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.libraries && data.libraries.length > 0) {
-            setLibraries(data.libraries);
-            setSelectedSlug(data.libraries[0].slug);
-          }
-        }
-      } catch {
-        // Safe fallback
+    let resolvedSlug = querySlug;
+
+    if (!resolvedSlug && typeof window !== "undefined") {
+      const stored = getStoredSession();
+      if (stored?.librarySlug) {
+        resolvedSlug = stored.librarySlug;
+      } else {
+        const lastVisited = localStorage.getItem("library_last_slug");
+        if (lastVisited) resolvedSlug = lastVisited;
       }
     }
-    loadLibraries();
-  }, []);
 
-  const selectedLib = libraries.find((l) => l.slug === selectedSlug) || libraries[0];
+    if (resolvedSlug) {
+      loadLibrary(resolvedSlug);
+    } else {
+      setLoadingLib(false);
+    }
+  }, [querySlug]);
 
-  const handleQuickLogin = (role: UserRole, destination: string) => {
-    // Save active session for client components
-    setStoredSession({
-      role,
-      libraryId: selectedLib.id,
-      librarySlug: selectedLib.slug,
-      username: role === "superadmin" ? "founder" : role === "owner" ? "owner" : "staff",
-      fullName:
-        role === "superadmin"
-          ? "SaaS Founder"
-          : role === "owner"
-          ? `${selectedLib.name} Owner`
-          : `${selectedLib.name} Desk Staff`,
-    });
+  const loadLibrary = async (slugToLoad: string) => {
+    setLoadingLib(true);
+    setLookupError(null);
+    try {
+      const res = await fetch(`/api/libraries?slug=${encodeURIComponent(slugToLoad)}`);
+      const data = await res.json();
+      if (res.ok && data.library) {
+        setLibrary(data.library);
+        setActiveSlug(slugToLoad);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("library_last_slug", slugToLoad);
+        }
+      } else {
+        setLookupError(data.error || "Library workspace not found.");
+        setLibrary(null);
+        setActiveSlug(null);
+      }
+    } catch {
+      setLookupError("Unable to connect to library service.");
+      setLibrary(null);
+      setActiveSlug(null);
+    } finally {
+      setLoadingLib(false);
+    }
+  };
 
-    sessionStorage.setItem("target_lib_auth", "true");
-    router.push(destination);
+  const handleLookupSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = slugInput
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-");
+
+    if (!clean) {
+      setLookupError("Please enter your library workspace slug.");
+      return;
+    }
+
+    setSearchingSlug(true);
+    loadLibrary(clean).finally(() => setSearchingSlug(false));
+  };
+
+  const handleSwitchWorkspace = () => {
+    setActiveSlug(null);
+    setLibrary(null);
+    setSlugInput("");
+    setLookupError(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("library_last_slug");
+    }
   };
 
   const openAuthModal = (modalInfo: AuthModalState) => {
@@ -74,7 +117,7 @@ export default function UniversalLoginPage() {
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeModal) return;
+    if (!activeModal || !activeSlug) return;
     if (!password.trim()) {
       setAuthError("Please enter your password.");
       return;
@@ -88,7 +131,7 @@ export default function UniversalLoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          slug: activeModal.role === "superadmin" ? "target-library" : selectedSlug,
+          slug: activeSlug,
           role: activeModal.role,
           password: password.trim(),
         }),
@@ -100,16 +143,19 @@ export default function UniversalLoginPage() {
         throw new Error(data.error || "Authentication failed");
       }
 
-      // Save real user session
       setStoredSession({
         role: data.user.role,
-        libraryId: data.user.libraryId || selectedLib.id,
-        librarySlug: data.user.slug || selectedLib.slug,
+        libraryId: data.user.libraryId || library?.id || "",
+        librarySlug: data.user.slug || activeSlug,
         username: data.user.username,
         fullName: data.user.fullName,
       });
 
       sessionStorage.setItem("target_lib_auth", "true");
+      if (data.user.role === "owner") {
+        sessionStorage.setItem("target_lib_owner_auth", "true");
+      }
+
       setActiveModal(null);
       router.push(activeModal.destination);
     } catch (err: unknown) {
@@ -119,258 +165,301 @@ export default function UniversalLoginPage() {
     }
   };
 
-  return (
-    <main className="min-h-screen bg-background text-text-main flex flex-col items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-xl">
-        {/* Header Branding */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-3xl mb-3 shadow-inner">
-            📚
+  if (loadingLib) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xs text-text-muted">Loading library workspace...</p>
+        </div>
+      </main>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // SCENARIO 1: Dedicated Isolated Tenant Login (When Slug is active)
+  // ---------------------------------------------------------------------------
+  if (activeSlug && library) {
+    return (
+      <main className="min-h-screen bg-background text-text-main flex flex-col items-center justify-center p-4 md:p-8">
+        <div className="w-full max-w-lg space-y-6">
+          {/* Header Branding */}
+          <div className="text-center space-y-2">
+            <div className="flex justify-center mb-2">
+              <LibraryLogo
+                slug={activeSlug}
+                logoUrl={library.logo_url}
+                name={library.name}
+                size="xl"
+                className="shadow-md"
+              />
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">
+              {library.name}
+            </h1>
+            <p className="text-xs text-text-muted">
+              📍 {library.city || "Dehradun"} &bull; Official Staff &amp; Management Portal
+            </p>
           </div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight">
-            Library Operating System
-          </h1>
-          <p className="text-xs text-text-muted mt-1 max-w-md mx-auto">
-            Choose your login portal below. Real credential authentication with instant demo bypass is enabled.
-          </p>
-        </div>
 
-        {/* Tenant Selector Bar */}
-        <div className="bg-card-bg border border-panel-border rounded-2xl p-4 mb-6 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-text-muted block">
-                Active Library Workspace
-              </label>
-              <div className="text-xs text-text-muted mt-0.5">
-                Switch between different libraries in Dehradun
-              </div>
-            </div>
-
-            <select
-              value={selectedSlug}
-              onChange={(e) => setSelectedSlug(e.target.value)}
-              className="bg-background border border-panel-border text-sm font-semibold rounded-xl px-3 py-2 text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
-            >
-              {libraries.map((lib) => (
-                <option key={lib.id} value={lib.slug}>
-                  {lib.name} ({lib.city || "Dehradun"})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* 4 Role Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          {/* Card 1: Desk Librarian */}
-          <button
-            onClick={() =>
-              openAuthModal({
-                role: "staff",
-                title: "Front Desk Staff Login",
-                subtitle: `Librarian Desk for ${selectedLib.name}`,
-                icon: "💻",
-                defaultHint: "Target2026",
-                destination: `/l/${selectedSlug}`,
-              })
-            }
-            className="text-left bg-card-bg border border-panel-border hover:border-rose-500/40 rounded-2xl p-4.5 shadow-sm transition-all hover:scale-[1.01] group cursor-pointer"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-2xl p-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
-                💻
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full">
-                Front Desk
-              </span>
-            </div>
-            <h3 className="font-extrabold text-sm text-text-main group-hover:text-rose-600 transition">
-              Librarian Desk Portal
-            </h3>
-            <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
-              Seat matrix, double-shift grid, walk-in receipts, and daily fee register.
-            </p>
-          </button>
-
-          {/* Card 2: Student Entrance QR & Pass Portal */}
-          <button
-            onClick={() => router.push(`/l/${selectedSlug}/student`)}
-            className="text-left bg-card-bg border border-panel-border hover:border-emerald-500/40 rounded-2xl p-4.5 shadow-sm transition-all hover:scale-[1.01] group cursor-pointer"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-2xl p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                📱
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                Student Portal
-              </span>
-            </div>
-            <h3 className="font-extrabold text-sm text-text-main group-hover:text-emerald-600 transition">
-              Digital Pass & Admission
-            </h3>
-            <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
-              View digital ID card, assigned seat, shift timing, and past fee receipts.
-            </p>
-          </button>
-
-          {/* Card 3: Library Owner Settings */}
-          <button
-            onClick={() =>
-              openAuthModal({
-                role: "owner",
-                title: "Library Owner Login",
-                subtitle: `Admin configuration for ${selectedLib.name}`,
-                icon: "👑",
-                defaultHint: "TargetOwner2026",
-                destination: `/l/${selectedSlug}/settings`,
-              })
-            }
-            className="text-left bg-card-bg border border-panel-border hover:border-sky-500/40 rounded-2xl p-4.5 shadow-sm transition-all hover:scale-[1.01] group cursor-pointer"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-2xl p-2 rounded-xl bg-sky-500/10 border border-sky-500/20">
-                👑
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full">
-                Owner Only
-              </span>
-            </div>
-            <h3 className="font-extrabold text-sm text-text-main group-hover:text-sky-600 transition">
-              Library Owner Settings
-            </h3>
-            <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
-              Configure total seats, shift timings, prices, and desk soundbox UPI ID.
-            </p>
-          </button>
-
-          {/* Card 4: SaaS Founder Super-Admin */}
-          <button
-            onClick={() =>
-              openAuthModal({
-                role: "superadmin",
-                title: "SaaS Founder Login",
-                subtitle: "Platform-wide SaaS Super-Admin & MRR metrics",
-                icon: "🛡️",
-                defaultHint: "Founder2026",
-                destination: `/superadmin`,
-              })
-            }
-            className="text-left bg-card-bg border border-amber-500/30 hover:border-amber-500/60 bg-amber-500/5 rounded-2xl p-4.5 shadow-sm transition-all hover:scale-[1.01] group cursor-pointer"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-2xl p-2 rounded-xl bg-amber-500/15 border border-amber-500/30">
-                🛡️
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/15 px-2 py-0.5 rounded-full">
-                Founder Portal
-              </span>
-            </div>
-            <h3 className="font-extrabold text-sm text-text-main group-hover:text-amber-600 transition">
-              SaaS Super-Admin
-            </h3>
-            <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
-              Track MRR revenue, onboard new libraries, and manage monthly ₹ subscriptions.
-            </p>
-          </button>
-        </div>
-
-        {/* Direct Link to Target Library Legacy Root */}
-        <div className="text-center mt-6">
-          <Link
-            href="/dashboard"
-            className="text-xs text-text-muted hover:text-text-main underline decoration-dotted transition"
-          >
-            ← Open Default Target Library Dashboard
-          </Link>
-        </div>
-      </div>
-
-      {/* Password Authentication Modal */}
-      {activeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div
-            className="bg-card-bg border border-panel-border rounded-3xl p-6 w-full max-w-md shadow-2xl relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close Button */}
+          {/* 2 Dedicated Role Cards Only (Zero Leaks) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Card 1: Front Desk Receptionist */}
             <button
-              onClick={() => setActiveModal(null)}
-              className="absolute top-4 right-4 text-text-muted hover:text-text-main p-1.5 rounded-xl hover:bg-neutral-500/10 transition cursor-pointer text-sm font-bold"
+              onClick={() =>
+                openAuthModal({
+                  role: "staff",
+                  title: "Front Desk Staff Login",
+                  subtitle: `Receptionist Desk for ${library.name}`,
+                  icon: "💻",
+                  destination: `/l/${activeSlug}`,
+                })
+              }
+              className="text-left bg-card-bg border border-panel-border hover:border-rose-500/40 rounded-3xl p-5 shadow-sm transition-all hover:scale-[1.01] group cursor-pointer"
             >
-              ✕
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-2xl p-2 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+                  💻
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2.5 py-0.5 rounded-full">
+                  Reception
+                </span>
+              </div>
+              <h3 className="font-extrabold text-sm text-text-main group-hover:text-rose-600 transition">
+                Front Desk Portal
+              </h3>
+              <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
+                Seat grid, member check-ins, admission soundbox approval, and receipts.
+              </p>
             </button>
 
-            {/* Modal Header */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-2xl p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/20">
-                {activeModal.icon}
-              </span>
-              <div>
-                <h2 className="text-base font-extrabold text-text-main">
-                  {activeModal.title}
-                </h2>
-                <p className="text-xs text-text-muted">{activeModal.subtitle}</p>
+            {/* Card 2: Library Owner / Admin */}
+            <button
+              onClick={() =>
+                openAuthModal({
+                  role: "owner",
+                  title: "Library Owner Login",
+                  subtitle: `Master Settings for ${library.name}`,
+                  icon: "👑",
+                  destination: `/l/${activeSlug}/settings`,
+                })
+              }
+              className="text-left bg-card-bg border border-panel-border hover:border-sky-500/40 rounded-3xl p-5 shadow-sm transition-all hover:scale-[1.01] group cursor-pointer"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-2xl p-2 rounded-2xl bg-sky-500/10 border border-sky-500/20">
+                  👑
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-full">
+                  Owner
+                </span>
               </div>
+              <h3 className="font-extrabold text-sm text-text-main group-hover:text-sky-600 transition">
+                Owner Dashboard
+              </h3>
+              <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
+                Total seats capacity, shift pricing, desk UPI Soundbox, and branding.
+              </p>
+            </button>
+          </div>
+
+          {/* Student & Navigation Links */}
+          <div className="p-4 rounded-2xl bg-neutral-500/5 border border-panel-border text-center space-y-2 text-xs">
+            <div>
+              <span className="text-text-muted">Are you a student member? </span>
+              <Link
+                href={`/l/${activeSlug}/student`}
+                className="font-bold text-rose-600 dark:text-rose-400 hover:underline"
+              >
+                Open Student Digital Pass &rarr;
+              </Link>
             </div>
+            <div className="pt-2 border-t border-panel-border/60 flex items-center justify-between text-[11px] text-text-muted flex-wrap gap-2">
+              <Link
+                href={`/l/${activeSlug}/join`}
+                className="hover:text-text-main hover:underline"
+              >
+                Door Admission QR Form
+              </Link>
+              <button
+                onClick={handleSwitchWorkspace}
+                className="hover:text-rose-500 hover:underline cursor-pointer"
+              >
+                &larr; Switch Library Workspace
+              </button>
+            </div>
+          </div>
+        </div>
 
-            {/* Error Message */}
-            {authError && (
-              <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
-                <span>⚠️</span> {authError}
-              </div>
-            )}
+        {/* Modal Auth Dialog */}
+        {activeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div
+              className="bg-card-bg border border-panel-border rounded-3xl p-6 w-full max-w-md shadow-2xl relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setActiveModal(null)}
+                className="absolute top-4 right-4 text-text-muted hover:text-text-main p-1.5 rounded-xl hover:bg-neutral-500/10 transition cursor-pointer text-sm font-bold"
+              >
+                &times;
+              </button>
 
-            {/* Password Form */}
-            <form onSubmit={handlePasswordLogin} className="space-y-4">
-              <div>
-                <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block mb-1">
-                  Enter Password
-                </label>
-                <input
-                  type="password"
-                  autoFocus
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password..."
-                  required
-                  className="w-full bg-background border border-panel-border rounded-xl px-3.5 py-2.5 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
-                />
-                <div className="text-[11px] text-text-muted mt-1.5 flex items-center justify-between">
-                  <span>Default Passcode: <span className="font-mono font-semibold">{activeModal.defaultHint}</span></span>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-2xl p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+                  {activeModal.icon}
+                </span>
+                <div>
+                  <h2 className="text-base font-extrabold text-text-main">
+                    {activeModal.title}
+                  </h2>
+                  <p className="text-xs text-text-muted">{activeModal.subtitle}</p>
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={loggingIn || !password.trim()}
-                className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {loggingIn ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    Verifying...
-                  </>
-                ) : (
-                  <>🔒 Login to Portal</>
-                )}
-              </button>
-            </form>
+              {authError && (
+                <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
+                  <span>&warning;</span> {authError}
+                </div>
+              )}
 
-            {/* Instant Demo Bypass Option */}
-            <div className="mt-5 pt-4 border-t border-panel-border text-center">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin(activeModal.role, activeModal.destination)}
-                className="text-xs text-text-muted hover:text-amber-500 dark:hover:text-amber-400 font-semibold inline-flex items-center gap-1.5 transition cursor-pointer"
-              >
-                <span>⚡</span>
-                <span>Demo Mode: Bypass Password & Enter Directly</span>
-              </button>
+              <form onSubmit={handlePasswordLogin} className="space-y-4">
+                <div>
+                  <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block mb-1">
+                    Enter Passcode
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    autoFocus
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-background border border-panel-border rounded-xl px-3.5 py-2.5 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loggingIn || !password.trim()}
+                  className="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {loggingIn ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      Verifying...
+                    </>
+                  ) : (
+                    <>Sign In &rarr;</>
+                  )}
+                </button>
+              </form>
             </div>
           </div>
+        )}
+      </main>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // SCENARIO 2: Clean Workspace Entry (When user arrives at /login with no slug)
+  // ---------------------------------------------------------------------------
+  return (
+    <main className="min-h-screen bg-background text-text-main flex flex-col items-center justify-center p-4 md:p-8">
+      <div className="w-full max-w-md space-y-6">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-2xl shadow-inner">
+            📚
+          </div>
+          <h1 className="text-2xl font-black tracking-tight text-foreground">
+            Sign in to Your Library
+          </h1>
+          <p className="text-xs text-text-muted">
+            Enter your library&apos;s workspace name to access your private desk portal.
+          </p>
         </div>
-      )}
+
+        {/* Workspace Code Form */}
+        <div className="bg-card-bg border border-panel-border rounded-3xl p-6 shadow-sm space-y-4">
+          {lookupError && (
+            <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
+              <span>&warning;</span> {lookupError}
+            </div>
+          )}
+
+          <form onSubmit={handleLookupSubmit} className="space-y-4">
+            <div>
+              <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block mb-1">
+                Library Workspace Slug
+              </label>
+              <div className="flex items-center rounded-xl bg-background border border-panel-border overflow-hidden focus-within:ring-2 focus-within:ring-rose-500">
+                <span className="px-3 py-2 text-xs font-mono text-text-muted bg-neutral-500/5 border-r border-panel-border select-none">
+                  /l/
+                </span>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="e.g. testing-library-1"
+                  value={slugInput}
+                  onChange={(e) => setSlugInput(e.target.value)}
+                  className="w-full bg-transparent px-3.5 py-2.5 text-xs font-mono text-text-main focus:outline-none"
+                />
+              </div>
+              <p className="text-[10px] text-text-muted mt-1">
+                The unique identifier assigned when your library registered.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={searchingSlug || !slugInput.trim()}
+              className="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {searchingSlug ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  Finding Workspace...
+                </>
+              ) : (
+                <>Access Library Portal &rarr;</>
+              )}
+            </button>
+          </form>
+
+          <div className="pt-3 border-t border-panel-border text-center text-xs text-text-muted">
+            New to LibraryOS?{" "}
+            <Link href="/signup" className="font-bold text-rose-600 dark:text-rose-400 hover:underline">
+              Start 7-Day Free Trial
+            </Link>
+          </div>
+        </div>
+
+        {/* Discreet Footer for SaaS Founder */}
+        <div className="text-center pt-4">
+          <Link
+            href="/superadmin"
+            className="text-[11px] text-text-muted hover:text-text-main transition opacity-60 hover:opacity-100"
+          >
+            SaaS Platform Administration &rarr;
+          </Link>
+        </div>
+      </div>
     </main>
+  );
+}
+
+export default function UniversalLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="w-8 h-8 border-3 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+        </main>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }
