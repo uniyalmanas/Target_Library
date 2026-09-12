@@ -78,7 +78,13 @@ export default function LibraryOwnerSettingsPage({
   const [newShiftSheetPrice, setNewShiftSheetPrice] = useState<number>(900);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<"branding" | "seats_shifts" | "upi_soundbox" | "passwords" | "general" | "poster">("branding");
+  const [activeTab, setActiveTab] = useState<"branding" | "seats_shifts" | "matrix_layout" | "upi_soundbox" | "passwords" | "general" | "poster">("branding");
+
+  // Seat Matrix Display & Layout States
+  const [matrixPreset, setMatrixPreset] = useState<"fit" | "compact" | "standard" | "large" | "custom">("fit");
+  const [matrixTileSize, setMatrixTileSize] = useState<number>(44);
+  const [matrixIsWide, setMatrixIsWide] = useState<boolean>(true);
+  const [matrixSaveSuccess, setMatrixSaveSuccess] = useState(false);
 
   // Password Management State
   const [newStaffPassword, setNewStaffPassword] = useState("");
@@ -126,6 +132,48 @@ export default function LibraryOwnerSettingsPage({
     }
     loadSettings();
   }, [slug]);
+
+  // Restore saved seat matrix display preferences and check ?tab= query parameter
+  useEffect(() => {
+    try {
+      const urlTab = new URLSearchParams(window.location.search).get("tab");
+      if (
+        urlTab === "matrix_layout" ||
+        urlTab === "seats_shifts" ||
+        urlTab === "branding" ||
+        urlTab === "passwords" ||
+        urlTab === "upi_soundbox" ||
+        urlTab === "general" ||
+        urlTab === "poster"
+      ) {
+        setActiveTab(urlTab as any);
+      }
+      const savedPreset = localStorage.getItem("library_seat_matrix_preset");
+      const savedTileSize = localStorage.getItem("library_seat_matrix_tile_size");
+      const savedWide = localStorage.getItem("library_seat_matrix_is_wide");
+      if (savedPreset) setMatrixPreset(savedPreset as any);
+      if (savedTileSize) setMatrixTileSize(Number(savedTileSize));
+      if (savedWide !== null) setMatrixIsWide(savedWide === "true");
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleSaveMatrixDisplay = (
+    preset = matrixPreset,
+    tileSize = matrixTileSize,
+    isWide = matrixIsWide
+  ) => {
+    try {
+      localStorage.setItem("library_seat_matrix_preset", preset);
+      localStorage.setItem("library_seat_matrix_tile_size", tileSize.toString());
+      localStorage.setItem("library_seat_matrix_is_wide", isWide.toString());
+      setMatrixSaveSuccess(true);
+      setTimeout(() => setMatrixSaveSuccess(false), 3500);
+    } catch {
+      // ignore
+    }
+  };
 
   // Handle Shift Update
   const handleShiftChange = (index: number, field: keyof ShiftConfig, value: any) => {
@@ -441,6 +489,16 @@ export default function LibraryOwnerSettingsPage({
             }`}
           >
             🪑 Seats & Shift Timings
+          </button>
+          <button
+            onClick={() => setActiveTab("matrix_layout")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "matrix_layout"
+                ? "bg-rose-600 text-white shadow-xs"
+                : "text-text-muted hover:text-text-main hover:bg-neutral-500/5"
+            }`}
+          >
+            <span>🖥️</span> Seat Matrix Layout
           </button>
           <button
             onClick={() => setActiveTab("upi_soundbox")}
@@ -1061,6 +1119,397 @@ export default function LibraryOwnerSettingsPage({
                 <p className="text-[11px] text-amber-800/70 dark:text-amber-300/70">
                   When enabled, students onboarding at the door QR or front desk can opt into clean desk sheet protection.
                 </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: Seat Matrix Layout & Desktop Fit Settings */}
+        {activeTab === "matrix_layout" && (
+          <div className="space-y-6">
+            {/* Notification Banner */}
+            {matrixSaveSuccess && (
+              <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-between animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <span>✅</span>
+                  <span>Seat matrix display layout preferences saved! Your front desk is updated.</span>
+                </div>
+                <Link
+                  href={`/l/${slug}`}
+                  className="px-3 py-1 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition"
+                >
+                  View Desk →
+                </Link>
+              </div>
+            )}
+
+            {/* Header Hero Card */}
+            <div className="bg-card-bg border border-panel-border rounded-3xl p-6 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-panel-border pb-5">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xl">🖥️</span>
+                    <h2 className="text-lg font-black tracking-tight">
+                      Real-Time Seat Matrix Layout & Screen Fit
+                    </h2>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                      Front Desk Display
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-muted max-w-2xl leading-relaxed">
+                    Configure how the cinema seat matrix renders on desktop screens at the front desk reception.
+                    Choose auto-fit to comfortably display all 200–300 seats on a single screen without vertical scrolling, or fine-tune tile size and monitor width.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveMatrixDisplay()}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>💾</span> Save Layout Preferences
+                  </button>
+                </div>
+              </div>
+
+              {/* Sizing Presets Selection Grid */}
+              <div className="space-y-3 pt-2">
+                <label className="block text-xs font-black text-text-main uppercase tracking-wider">
+                  Select Seat Matrix Sizing Mode
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Preset 1: Fit Screen */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMatrixPreset("fit");
+                      handleSaveMatrixDisplay("fit", matrixTileSize, matrixIsWide);
+                    }}
+                    className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                      matrixPreset === "fit"
+                        ? "bg-rose-500/10 border-rose-500 ring-2 ring-rose-500/20 shadow-sm"
+                        : "bg-background border-panel-border hover:border-neutral-400"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-base font-black flex items-center gap-1.5">
+                        <span>🖥️</span> Fit to Screen
+                      </span>
+                      {matrixPreset === "fit" && (
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 inline-block mb-1.5">
+                      ★ Recommended
+                    </span>
+                    <p className="text-[11px] text-text-muted leading-relaxed">
+                      Auto-calculates columns and height based on your desktop monitor. All 200–300 seats fit vertically with zero page scrolling.
+                    </p>
+                  </button>
+
+                  {/* Preset 2: Compact */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMatrixPreset("compact");
+                      setMatrixTileSize(36);
+                      handleSaveMatrixDisplay("compact", 36, matrixIsWide);
+                    }}
+                    className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                      matrixPreset === "compact"
+                        ? "bg-rose-500/10 border-rose-500 ring-2 ring-rose-500/20 shadow-sm"
+                        : "bg-background border-panel-border hover:border-neutral-400"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-base font-black flex items-center gap-1.5">
+                        <span>📐</span> Compact
+                      </span>
+                      {matrixPreset === "compact" && (
+                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-neutral-500/15 text-text-muted inline-block mb-1.5">
+                      36px Tiles (~20 cols)
+                    </span>
+                    <p className="text-[11px] text-text-muted leading-relaxed">
+                      High-density matrix layout. Ideal for reception desks managing over 250 seats with maximum overview density.
+                    </p>
+                  </button>
+
+                  {/* Preset 3: Standard */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMatrixPreset("standard");
+                      setMatrixTileSize(54);
+                      handleSaveMatrixDisplay("standard", 54, matrixIsWide);
+                    }}
+                    className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                      matrixPreset === "standard"
+                        ? "bg-rose-500/10 border-rose-500 ring-2 ring-rose-500/20 shadow-sm"
+                        : "bg-background border-panel-border hover:border-neutral-400"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-base font-black flex items-center gap-1.5">
+                        <span>📏</span> Standard
+                      </span>
+                      {matrixPreset === "standard" && (
+                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-neutral-500/15 text-text-muted inline-block mb-1.5">
+                      54px Tiles (12 cols)
+                    </span>
+                    <p className="text-[11px] text-text-muted leading-relaxed">
+                      Classic balanced matrix grid. Great for standard desktop monitors or libraries with under 150 seats.
+                    </p>
+                  </button>
+
+                  {/* Preset 4: Large */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMatrixPreset("large");
+                      setMatrixTileSize(72);
+                      handleSaveMatrixDisplay("large", 72, matrixIsWide);
+                    }}
+                    className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                      matrixPreset === "large"
+                        ? "bg-rose-500/10 border-rose-500 ring-2 ring-rose-500/20 shadow-sm"
+                        : "bg-background border-panel-border hover:border-neutral-400"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-base font-black flex items-center gap-1.5">
+                        <span>🔍</span> Large
+                      </span>
+                      {matrixPreset === "large" && (
+                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-neutral-500/15 text-text-muted inline-block mb-1.5">
+                      72px Tiles (8 cols)
+                    </span>
+                    <p className="text-[11px] text-text-muted leading-relaxed">
+                      Spacious, bold touch targets. Ideal for touch screen monitors, iPad kiosks, or wall monitors viewed from a distance.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Fine-Tuning Slider & Steppers */}
+              <div className="pt-4 border-t border-panel-border grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-text-main uppercase tracking-wider">
+                      Fine-Tune Tile Size
+                    </label>
+                    <span className="font-mono font-black text-xs px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400">
+                      {matrixTileSize}px
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 rounded-2xl bg-background border border-panel-border">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.max(26, matrixTileSize - 4);
+                        setMatrixPreset("custom");
+                        setMatrixTileSize(next);
+                        handleSaveMatrixDisplay("custom", next, matrixIsWide);
+                      }}
+                      disabled={matrixTileSize <= 26}
+                      className="w-8 h-8 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 flex items-center justify-center font-black text-base cursor-pointer disabled:opacity-30"
+                      title="Shrink seat tiles"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="range"
+                      min={26}
+                      max={84}
+                      step={2}
+                      value={matrixTileSize}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        setMatrixPreset("custom");
+                        setMatrixTileSize(next);
+                        handleSaveMatrixDisplay("custom", next, matrixIsWide);
+                      }}
+                      className="flex-1 accent-rose-600 cursor-pointer h-2 bg-neutral-200 dark:bg-neutral-700 rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.min(84, matrixTileSize + 4);
+                        setMatrixPreset("custom");
+                        setMatrixTileSize(next);
+                        handleSaveMatrixDisplay("custom", next, matrixIsWide);
+                      }}
+                      disabled={matrixTileSize >= 84}
+                      className="w-8 h-8 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 flex items-center justify-center font-black text-base cursor-pointer disabled:opacity-30"
+                      title="Enlarge seat tiles"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-text-muted">
+                    Adjusting the slider sets custom mode with your exact preferred button width and height.
+                  </p>
+                </div>
+
+                {/* Monitor Width Toggle */}
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-text-main uppercase tracking-wider block">
+                    Desktop Screen Width Mode
+                  </label>
+                  <div className="p-3 rounded-2xl bg-background border border-panel-border flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-extrabold text-xs text-text-main flex items-center gap-1.5">
+                        <span>↔️</span> Expanded Wide Monitor (98vw)
+                      </div>
+                      <p className="text-[11px] text-text-muted mt-0.5">
+                        Spreads seats across the entire 1080p/2K desktop monitor width (24–28 cols).
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={matrixIsWide}
+                      onChange={(e) => {
+                        const next = e.target.checked;
+                        setMatrixIsWide(next);
+                        handleSaveMatrixDisplay(matrixPreset, matrixTileSize, next);
+                      }}
+                      className="w-5 h-5 accent-rose-600 rounded cursor-pointer"
+                    />
+                  </div>
+                  <p className="text-[11px] text-text-muted">
+                    Recommended for wide reception monitors so seats take up minimal vertical rows.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Interactive Simulator Card */}
+            <div className="bg-card-bg border border-panel-border rounded-3xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-panel-border pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🎮</span>
+                  <h3 className="font-black text-sm">Live Real-Time Seat Matrix Preview</h3>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-[11px] font-mono text-text-muted">
+                    Active Mode: <strong className="text-rose-600 dark:text-rose-400 capitalize">{matrixPreset}</strong> ({matrixTileSize}px)
+                  </span>
+                </div>
+              </div>
+
+              {/* Status Color Legend */}
+              <div className="flex items-center gap-2 flex-wrap text-[11px] pb-1">
+                <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/20">
+                  🟢 Free (Available)
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-400 font-bold border border-rose-500/20">
+                  🔴 Full Day
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold border border-amber-500/20">
+                  🟡 Half Day
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-purple-500/15 text-purple-700 dark:text-purple-300 font-bold border border-purple-500/20">
+                  🟣 2x Shift Split
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-blue-500/15 text-blue-700 dark:text-blue-400 font-bold border border-blue-500/20">
+                  🔵 Overdue Fee
+                </span>
+              </div>
+
+              {/* Simulated Seat Grid */}
+              <div className="p-4 rounded-2xl bg-background border border-dashed border-panel-border overflow-hidden">
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      matrixPreset === "fit"
+                        ? `repeat(auto-fill, minmax(38px, 1fr))`
+                        : matrixPreset === "compact"
+                        ? `repeat(auto-fill, minmax(36px, 1fr))`
+                        : matrixPreset === "standard"
+                        ? `repeat(auto-fill, minmax(54px, 1fr))`
+                        : matrixPreset === "large"
+                        ? `repeat(auto-fill, minmax(72px, 1fr))`
+                        : `repeat(auto-fill, minmax(${matrixTileSize}px, 1fr))`,
+                    gap: matrixTileSize < 36 ? "4px" : "6px",
+                  }}
+                  className="w-full transition-all duration-200"
+                >
+                  {Array.from({ length: 36 }).map((_, idx) => {
+                    const seatNum = idx + 1;
+                    const isDue = seatNum === 4 || seatNum === 19;
+                    const isFull = seatNum === 2 || seatNum === 8 || seatNum === 14 || seatNum === 22 || seatNum === 29;
+                    const isHalf = seatNum === 5 || seatNum === 11 || seatNum === 25 || seatNum === 33;
+                    const isDouble = seatNum === 7 || seatNum === 17 || seatNum === 31;
+                    const isFree = !isDue && !isFull && !isHalf && !isDouble;
+
+                    let colorClass = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20";
+                    let badge = "";
+                    if (isDue) {
+                      colorClass = "bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/40";
+                      badge = "Due";
+                    } else if (isDouble) {
+                      colorClass = "bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/40";
+                      badge = "2x";
+                    } else if (isFull) {
+                      colorClass = "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20";
+                    } else if (isHalf) {
+                      colorClass = "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20";
+                    }
+
+                    const isTiny = matrixTileSize < 34;
+                    const isSmall = matrixTileSize >= 34 && matrixTileSize < 46;
+
+                    return (
+                      <div
+                        key={seatNum}
+                        style={{
+                          height: matrixPreset === "fit" ? "38px" : `${matrixTileSize}px`,
+                        }}
+                        className={`rounded-lg flex flex-col items-center justify-center p-0.5 font-bold transition-all shadow-xs ${colorClass}`}
+                      >
+                        <span
+                          className={`font-mono leading-none ${
+                            isTiny
+                              ? "text-[9px] font-extrabold"
+                              : isSmall
+                              ? "text-[11px] font-extrabold"
+                              : "text-xs font-black"
+                          }`}
+                        >
+                          {seatNum}
+                        </span>
+                        {!isTiny && badge && (
+                          <span className="text-[7px] font-black uppercase tracking-tighter leading-none mt-0.5">
+                            {badge}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Action Link to Desk */}
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-xs text-text-muted">
+                  The front desk reception view automatically synchronizes with these saved preferences.
+                </p>
+                <Link
+                  href={`/l/${slug}`}
+                  className="px-4 py-2 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition flex items-center gap-1.5"
+                >
+                  <span>←</span> Return to Front Desk
+                </Link>
               </div>
             </div>
           </div>

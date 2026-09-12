@@ -681,169 +681,24 @@ export default function TenantDeskPage({
             isFullscreen ? "fixed inset-0 z-50 rounded-none overflow-y-auto p-6 bg-background" : ""
           }`}
         >
-          {/* Header with Title and Control Toolbar */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-panel-border pb-3.5">
-            {/* Left: Title & Seat counts */}
-            <div className="flex items-center gap-3 flex-wrap">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-panel-border pb-3.5">
+            <div className="flex items-center gap-3">
               <h2 className="font-black text-sm sm:text-base flex items-center gap-2">
                 <span>🎬</span> Real-Time Seat Matrix Layout
               </h2>
               <span className="text-xs text-text-muted font-medium bg-neutral-500/10 px-2.5 py-0.5 rounded-full">
                 Showing {seats.filter(matchesFilter).length} of {seats.length} seats
               </span>
-              {sizePreset === "fit" && (
-                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                  <span>🖥️</span> Screen-Fit Active ({computedCols} cols)
-                </span>
-              )}
             </div>
 
-            {/* Right: Resizer & Fit Toolbar */}
-            <div className="flex items-center gap-2 flex-wrap text-xs">
-              {/* Presets Segmented Buttons */}
-              <div className="flex items-center bg-background border border-panel-border rounded-xl p-0.5 shadow-xs">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSizePreset("fit");
-                    setTimeout(calculateFit, 50);
-                  }}
-                  className={`px-2.5 py-1 rounded-lg font-bold text-xs transition flex items-center gap-1 cursor-pointer ${
-                    sizePreset === "fit"
-                      ? "bg-rose-600 text-white shadow-xs"
-                      : "text-text-muted hover:text-text-main"
-                  }`}
-                  title="Auto-scale seats to fit desktop screen without vertical scrolling"
-                >
-                  <span>🖥️</span> Fit Screen
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSizePreset("compact");
-                    setTileSize(36);
-                    setComputedCols(20);
-                  }}
-                  className={`px-2.5 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
-                    sizePreset === "compact"
-                      ? "bg-rose-600 text-white shadow-xs"
-                      : "text-text-muted hover:text-text-main"
-                  }`}
-                  title="High-density compact view"
-                >
-                  Compact
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSizePreset("standard");
-                    setTileSize(54);
-                    setComputedCols(12);
-                  }}
-                  className={`px-2.5 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
-                    sizePreset === "standard"
-                      ? "bg-rose-600 text-white shadow-xs"
-                      : "text-text-muted hover:text-text-main"
-                  }`}
-                  title="Standard balanced view"
-                >
-                  Standard
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSizePreset("large");
-                    setTileSize(72);
-                    setComputedCols(8);
-                  }}
-                  className={`px-2.5 py-1 rounded-lg font-bold text-xs transition cursor-pointer ${
-                    sizePreset === "large"
-                      ? "bg-rose-600 text-white shadow-xs"
-                      : "text-text-muted hover:text-text-main"
-                  }`}
-                  title="Large touch/click view"
-                >
-                  Large
-                </button>
-              </div>
-
-              {/* Zoom Controls (Minus / Range / Plus) */}
-              <div className="flex items-center gap-1.5 bg-background border border-panel-border rounded-xl px-2.5 py-1 shadow-xs">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSizePreset("custom");
-                    setTileSize((prev) => Math.max(26, prev - 4));
-                  }}
-                  disabled={tileSize <= 26}
-                  className="w-5 h-5 rounded hover:bg-neutral-500/15 flex items-center justify-center font-bold text-sm text-text-muted hover:text-text-main disabled:opacity-30 cursor-pointer"
-                  title="Zoom out (shrink seats)"
-                >
-                  −
-                </button>
-
-                <input
-                  type="range"
-                  min={26}
-                  max={84}
-                  step={2}
-                  value={tileSize}
-                  onChange={(e) => {
-                    setSizePreset("custom");
-                    setTileSize(Number(e.target.value));
-                  }}
-                  className="w-16 sm:w-20 accent-rose-600 cursor-pointer h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-lg"
-                  title={`Tile size: ${tileSize}px`}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSizePreset("custom");
-                    setTileSize((prev) => Math.min(84, prev + 4));
-                  }}
-                  disabled={tileSize >= 84}
-                  className="w-5 h-5 rounded hover:bg-neutral-500/15 flex items-center justify-center font-bold text-sm text-text-muted hover:text-text-main disabled:opacity-30 cursor-pointer"
-                  title="Zoom in (enlarge seats)"
-                >
-                  +
-                </button>
-
-                <span className="font-mono text-[11px] font-extrabold text-text-muted w-8 text-right">
-                  {tileSize}px
-                </span>
-              </div>
-
-              {/* Wide Monitor Toggle */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsWideLayout((prev) => !prev);
-                  setTimeout(calculateFit, 60);
-                }}
-                className={`px-2.5 py-1 rounded-xl border text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-                  isWideLayout
-                    ? "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                    : "border-panel-border bg-background text-text-muted hover:text-text-main"
-                }`}
-                title={isWideLayout ? "Switch to standard width (1280px)" : "Expand to full desktop monitor width"}
-              >
-                <span>↔</span> {isWideLayout ? "Wide" : "Normal"}
-              </button>
-
-              {/* Fullscreen Kiosk Mode */}
-              <button
-                type="button"
-                onClick={toggleFullscreen}
-                className="px-2.5 py-1 rounded-xl border border-panel-border bg-background hover:bg-neutral-500/10 text-text-muted hover:text-text-main text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                title={isFullscreen ? "Exit Fullscreen (Esc)" : "Fullscreen Monitor Mode (for wall TVs & reception kiosks)"}
-              >
-                <span>{isFullscreen ? "✕" : "⛶"}</span> {isFullscreen ? "Exit" : "Expand"}
-              </button>
-            </div>
+            <Link
+              href={`/l/${slug}/settings?tab=matrix_layout`}
+              className="text-xs text-text-muted hover:text-text-main flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 font-bold transition cursor-pointer"
+              title="Configure Seat Matrix Display in Settings"
+            >
+              <span>⚙️</span> Layout Settings
+            </Link>
           </div>
 
           {loading ? (
