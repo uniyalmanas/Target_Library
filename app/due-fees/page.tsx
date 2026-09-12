@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 import { downloadCsv } from "@/lib/exportCsv";
+import { generateDueFeeWhatsAppMessage } from "@/lib/upi";
+import DynamicUpiModal from "@/lib/DynamicUpiModal";
 
 interface DueCandidate {
   receipt_no: number;
@@ -40,6 +42,18 @@ function DueFeesContent() {
   const [candidates, setCandidates] = useState<DueCandidate[]>([]);
   const [summary, setSummary] = useState<DueSummary | null>(null);
   const [libraryName, setLibraryName] = useState<string>("");
+  const [libraryInfo, setLibraryInfo] = useState<{
+    name: string;
+    slug: string;
+    upi_id: string;
+    upi_name?: string;
+  }>({
+    name: "The Target Library",
+    slug: "target-library",
+    upi_id: "targetlibrary@upi",
+    upi_name: "The Target Library",
+  });
+  const [selectedUpiCandidate, setSelectedUpiCandidate] = useState<DueCandidate | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [vacatingId, setVacatingId] = useState<number | null>(null);
@@ -51,16 +65,22 @@ function DueFeesContent() {
   const [shiftFilter, setShiftFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"overdue_desc" | "overdue_asc" | "seat" | "name">("overdue_desc");
 
-  // Fetch library details for dynamic branding
+  // Fetch library details for dynamic branding and UPI configurations
   useEffect(() => {
-    if (slug && slug !== "target-library") {
-      fetch(`/api/libraries/${encodeURIComponent(slug)}/settings`)
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.library?.name) setLibraryName(d.library.name);
-        })
-        .catch(() => {});
-    }
+    fetch(`/api/libraries/${encodeURIComponent(slug)}/settings`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.library) {
+          setLibraryInfo({
+            name: d.library.name || "Study Library",
+            slug: d.library.slug || slug,
+            upi_id: d.library.upi_id || "targetlibrary@upi",
+            upi_name: d.library.upi_name || d.library.name || "Study Library",
+          });
+          setLibraryName(d.library.name || "");
+        }
+      })
+      .catch(() => {});
   }, [slug]);
 
   const fetchDueFees = async (isRefresh = false) => {
@@ -140,8 +160,22 @@ function DueFeesContent() {
   const getWhatsAppReminderUrl = (c: DueCandidate) => {
     if (!c.student_phone) return "#";
     const phone = c.student_phone.replace(/[^0-9]/g, "").slice(-10);
-    const libDisplayName = libraryName || (slug !== "target-library" ? slug.replace(/-/g, " ").toUpperCase() : "The Target Library");
-    const message = `Hello ${c.student_name}, this is a gentle reminder from ${libDisplayName} regarding Seat ${c.seat_number} (${shiftLabel(c.shift_type, c.subscription_type)}). Your subscription expired on ${c.end_date} (${c.days_overdue} day${c.days_overdue === 1 ? "" : "s"} ago). Please complete your fee payment to retain your seat. Thank you! - ${libDisplayName}`;
+    const passUrl = typeof window !== "undefined"
+      ? `${window.location.origin}/receipts/${c.receipt_no}`
+      : undefined;
+    const message = generateDueFeeWhatsAppMessage({
+      studentName: c.student_name,
+      studentPhone: phone,
+      seatNumber: c.seat_number,
+      shiftName: shiftLabel(c.shift_type, c.subscription_type),
+      daysOverdue: c.days_overdue,
+      expiryDate: c.end_date,
+      amountDue: c.amount_paid,
+      libraryName: libraryInfo.name,
+      upiId: libraryInfo.upi_id,
+      upiName: libraryInfo.upi_name,
+      digitalPassUrl: passUrl,
+    });
     return `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
   };
 
@@ -267,6 +301,20 @@ function DueFeesContent() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              const nextOverdue = filteredCandidates.find((c) => !!c.student_phone) || filteredCandidates[0];
+              if (nextOverdue) {
+                setSelectedUpiCandidate(nextOverdue);
+              } else {
+                alert("No overdue student records in current view.");
+              }
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
+            title="Open dynamic UPI & automated reminder modal for next overdue candidate"
+          >
+            <span>⚡</span> Remind Queue ({filteredCandidates.filter((c) => !!c.student_phone).length})
+          </button>
           <button
             onClick={() => fetchDueFees(true)}
             disabled={refreshing}
@@ -542,13 +590,22 @@ function DueFeesContent() {
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-2">
+                          {/* Dynamic UPI Intent & QR Modal */}
+                          <button
+                            onClick={() => setSelectedUpiCandidate(c)}
+                            className="px-2.5 py-1.5 rounded-lg bg-blue-600/15 hover:bg-blue-600/25 text-blue-700 dark:text-blue-400 border border-blue-500/30 font-semibold transition-all hover:-translate-y-0.5 cursor-pointer flex items-center gap-1 text-xs"
+                            title="Instant Dynamic UPI Intent & QR Code"
+                          >
+                            ⚡ UPI QR
+                          </button>
+
                           {/* WhatsApp Reminder */}
                           {c.student_phone && (
                             <a
                               href={getWhatsAppReminderUrl(c)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="px-2.5 py-1.5 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-semibold transition-all hover:-translate-y-0.5 cursor-pointer flex items-center gap-1"
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-semibold transition-all hover:-translate-y-0.5 cursor-pointer flex items-center gap-1 text-xs"
                               title="Send WhatsApp payment reminder"
                             >
                               💬 WhatsApp
@@ -619,6 +676,17 @@ function DueFeesContent() {
             fetchDueFees(true);
             setEditingReceipt(null);
           }}
+        />
+      )}
+
+      {/* Dynamic UPI & WhatsApp Reminder Modal */}
+      {selectedUpiCandidate && (
+        <DynamicUpiModal
+          isOpen={!!selectedUpiCandidate}
+          onClose={() => setSelectedUpiCandidate(null)}
+          candidate={selectedUpiCandidate}
+          library={libraryInfo}
+          shiftLabel={shiftLabel(selectedUpiCandidate.shift_type, selectedUpiCandidate.subscription_type)}
         />
       )}
     </div>
