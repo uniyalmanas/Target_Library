@@ -253,9 +253,9 @@ function LoginContent() {
                 openAuthModal({
                   role: "owner",
                   title: "Library Owner Login",
-                  subtitle: `Master Settings for ${library.name}`,
+                  subtitle: `Owner Access for ${library.name}`,
                   icon: "👑",
-                  destination: `/l/${activeSlug}/settings`,
+                  destination: `/l/${activeSlug}`,
                 })
               }
               className="text-left bg-card-bg border border-panel-border hover:border-sky-500/40 rounded-3xl p-5 shadow-sm transition-all hover:scale-[1.01] group cursor-pointer"
@@ -269,10 +269,10 @@ function LoginContent() {
                 </span>
               </div>
               <h3 className="font-extrabold text-sm text-text-main group-hover:text-sky-600 transition">
-                Owner Dashboard
+                Owner Portal
               </h3>
               <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
-                Total seats capacity, shift pricing, desk UPI Soundbox, and branding.
+                Full owner privileges: live desk matrix, financial ledger, expenses, and settings.
               </p>
             </button>
           </div>
