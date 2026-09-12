@@ -47,6 +47,7 @@ export default function TenantAccessBarrier({
     e.preventDefault();
     const pass = overridePass.trim();
     if (
+      pass === "Manas@12" ||
       pass === "Target2026" ||
       pass === "AdminTarget2026" ||
       pass === "Founder2026" ||

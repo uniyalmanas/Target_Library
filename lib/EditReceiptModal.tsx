@@ -104,6 +104,7 @@ export default function EditReceiptModal({
     const clean = passcode.trim();
     if (
       clean === OWNER_PASSWORD ||
+      clean === "Manas@12" ||
       clean === "Founder2026" ||
       clean === "Target2026" ||
       clean === "TargetOwner2026"

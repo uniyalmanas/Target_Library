@@ -22,10 +22,11 @@ export async function POST(req: Request) {
     }
 
     // 1. SuperAdmin (Founder) Master Passcode Detection
-    const founderPass = process.env.NEXT_PUBLIC_FOUNDER_PASSWORD || "Founder2026";
+    const founderPass = process.env.NEXT_PUBLIC_FOUNDER_PASSWORD || "Manas@12";
     const validAdmin = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "Target2026";
     const isFounderMasterPass =
       password === founderPass ||
+      password === "Manas@12" ||
       password === validAdmin ||
       password === "Founder2026" ||
       password === "TargetOwner2026" ||

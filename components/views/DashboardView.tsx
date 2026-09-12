@@ -87,6 +87,7 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
             const correctOwnerPassword = process.env.NEXT_PUBLIC_OWNER_PASSWORD || "TargetOwner2026";
             if (
               ownerPassword === correctOwnerPassword ||
+              ownerPassword === "Manas@12" ||
               ownerPassword === "Founder2026" ||
               ownerPassword === "Target2026"
             ) {
