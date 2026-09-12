@@ -1,0 +1,29 @@
+[
+  {
+    "slug": "target-library",
+    "name": "The Target Library",
+    "subdomain": "target",
+    "custom_domain": "thetargetlibrary.in",
+    "custom_domain_verified": true,
+    "cname_target": "cname.vercel-dns.com",
+    "updated_at": "2026-09-12T17:22:12.825Z"
+  },
+  {
+    "slug": "demo-library",
+    "name": "LibraryOS Demo Lounge",
+    "subdomain": "demo",
+    "custom_domain": null,
+    "custom_domain_verified": false,
+    "cname_target": "cname.vercel-dns.com",
+    "updated_at": "2026-09-12T17:22:03.643Z"
+  },
+  {
+    "slug": "testing-library-1",
+    "name": "Testing Library 1",
+    "subdomain": "testing",
+    "custom_domain": null,
+    "custom_domain_verified": false,
+    "cname_target": "cname.vercel-dns.com",
+    "updated_at": "2026-09-12T17:22:03.643Z"
+  }
+]

@@ -84,6 +84,9 @@ export interface Library {
   subscription_status: "trial" | "active" | "past_due" | "suspended";
   trial_ends_at: string | null;
   subscription_ends_at: string | null;
+  subdomain?: string | null;
+  custom_domain?: string | null;
+  custom_domain_verified?: boolean;
   created_at: string;
   updated_at: string;
 }

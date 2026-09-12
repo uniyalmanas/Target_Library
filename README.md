@@ -255,6 +255,28 @@ Whether managing a 50-seat quiet study hall or a 300-seat multi-shift reading li
 
 ---
 
+### 🌐 14. Custom Domain & Dedicated Subdomain Routing Architecture
+> **Enterprise White-Label Independence**: Move beyond `/l/[slug]` path URLs. Every library owner can brand their digital presence with custom subdomains or apex domain names.
+
+- **Instant Dedicated Subdomains (`*.libraryos.in`)**:
+  - Every tenant automatically gets an instant, SSL-secured address (e.g. `target.libraryos.in`, `demo.libraryos.in`).
+  - Zero DNS configuration or external purchase required for library owners.
+- **100% Custom Branded Apex/Sub-Domains**:
+  - Library owners can connect their own purchased domains (e.g. `thetargetlibrary.in` or `study.apexacademy.com`).
+  - Delivers complete white-label isolation where students only see the library's official domain name.
+- **Edge Middleware Rewrite Engine (`middleware.ts`)**:
+  - High-performance Next.js Edge Middleware inspects incoming `Host` headers.
+  - Transparently rewrites subdomains and custom domains to internal tenant workspace routes (`/l/[slug]`) without URL redirects.
+  - Automatically isolates and protects static assets (`/_next`, `/images`, `.svg`, `.png`) and platform API routes (`/api/*`).
+- **Real-Time DNS Verification Assistant (`/api/domains/verify`)**:
+  - Checks global CNAME and A record resolution directly against `cname.vercel-dns.com`.
+  - In-app DNS setup guidance table with 1-click copy for CNAME Host, Target, and TTL values.
+- **In-App Domain Control Studio (`/l/[slug]/settings`)**:
+  - Dedicated "🌐 Custom Domain & Subdomain" tab in Owner Settings.
+  - Live status indicators (🟢 `Custom Domain Verified & SSL Active`, 🟡 `Pending DNS Propagation`, ⚡ `Instant Subdomain Active`).
+
+---
+
 ## 🛠️ Technology Stack
 
 - **Framework**: [Next.js](https://nextjs.org/) (App Router, React Server & Client Components)

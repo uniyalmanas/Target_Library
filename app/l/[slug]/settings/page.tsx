@@ -80,7 +80,7 @@ export default function LibraryOwnerSettingsPage({
   const [newShiftSheetPrice, setNewShiftSheetPrice] = useState<number>(900);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<"branding" | "seats_shifts" | "matrix_layout" | "upi_soundbox" | "passwords" | "general" | "poster">("branding");
+  const [activeTab, setActiveTab] = useState<"branding" | "seats_shifts" | "matrix_layout" | "upi_soundbox" | "passwords" | "general" | "poster" | "domains">("branding");
 
   // Seat Matrix Display & Layout States
   const [matrixPreset, setMatrixPreset] = useState<"fit" | "compact" | "standard" | "large" | "custom">("fit");
@@ -105,6 +105,16 @@ export default function LibraryOwnerSettingsPage({
   const [savingOwnerPass, setSavingOwnerPass] = useState(false);
   const [ownerPassSuccess, setOwnerPassSuccess] = useState(false);
   const [passwordErrorMessage, setPasswordErrorMessage] = useState<string | null>(null);
+
+  // Custom Domain & Subdomain Management States
+  const [subdomainInput, setSubdomainInput] = useState<string>("");
+  const [customDomainInput, setCustomDomainInput] = useState<string>("");
+  const [isDomainVerified, setIsDomainVerified] = useState<boolean>(false);
+  const [verifyingDomain, setVerifyingDomain] = useState<boolean>(false);
+  const [domainVerifyResult, setDomainVerifyResult] = useState<{ verified: boolean; details: string } | null>(null);
+  const [savingDomain, setSavingDomain] = useState<boolean>(false);
+  const [domainSaveSuccess, setDomainSaveSuccess] = useState<boolean>(false);
+  const [domainErrorMessage, setDomainErrorMessage] = useState<string | null>(null);
 
   // Fetch initial settings
   useEffect(() => {
@@ -134,6 +144,21 @@ export default function LibraryOwnerSettingsPage({
           setHasSheetEnabled(sett.has_sheet_enabled ?? true);
           setSheetPriceMonthly(sett.sheet_price_monthly ?? 300);
         }
+
+        // Fetch domain and subdomain configuration
+        try {
+          const dRes = await fetch(`/api/domains/manage?slug=${slug}`);
+          if (dRes.ok) {
+            const dData = await dRes.json();
+            if (dData.config) {
+              setSubdomainInput(dData.config.subdomain || "");
+              setCustomDomainInput(dData.config.custom_domain || "");
+              setIsDomainVerified(dData.config.custom_domain_verified || false);
+            }
+          }
+        } catch {
+          // ignore
+        }
       } catch (err) {
         console.error("Failed to load settings:", err);
       } finally {
@@ -154,7 +179,8 @@ export default function LibraryOwnerSettingsPage({
         urlTab === "passwords" ||
         urlTab === "upi_soundbox" ||
         urlTab === "general" ||
-        urlTab === "poster"
+        urlTab === "poster" ||
+        urlTab === "domains"
       ) {
         setActiveTab(urlTab as any);
       }
@@ -460,6 +486,77 @@ export default function LibraryOwnerSettingsPage({
     }
   };
 
+  // Save Subdomain and Custom Domain Config
+  const handleSaveDomain = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingDomain(true);
+    setDomainSaveSuccess(false);
+    setDomainErrorMessage(null);
+
+    try {
+      const res = await fetch("/api/domains/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          subdomain: subdomainInput.trim() || null,
+          custom_domain: customDomainInput.trim() || null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save domain configuration");
+
+      setDomainSaveSuccess(true);
+      if (data.config) {
+        setSubdomainInput(data.config.subdomain || "");
+        setCustomDomainInput(data.config.custom_domain || "");
+        setIsDomainVerified(data.config.custom_domain_verified || false);
+      }
+      setTimeout(() => setDomainSaveSuccess(false), 4000);
+    } catch (err: any) {
+      setDomainErrorMessage(err.message || "Error saving domain configuration");
+    } finally {
+      setSavingDomain(false);
+    }
+  };
+
+  // Verify Custom Domain DNS
+  const handleVerifyDomain = async () => {
+    if (!customDomainInput.trim()) {
+      setDomainErrorMessage("Please enter a custom domain name first.");
+      return;
+    }
+
+    setVerifyingDomain(true);
+    setDomainVerifyResult(null);
+    setDomainErrorMessage(null);
+
+    try {
+      const res = await fetch("/api/domains/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          domain: customDomainInput.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to verify domain DNS");
+
+      setDomainVerifyResult({
+        verified: data.verified,
+        details: data.details,
+      });
+      setIsDomainVerified(data.verified);
+    } catch (err: any) {
+      setDomainErrorMessage(err.message || "DNS verification check failed");
+    } finally {
+      setVerifyingDomain(false);
+    }
+  };
+
   // Door QR URL
   const origin = typeof window !== "undefined" ? window.location.origin : "https://library-ms-three.vercel.app";
   const entranceJoinUrl = `${origin}/l/${slug}/join`;
@@ -672,6 +769,16 @@ export default function LibraryOwnerSettingsPage({
             }`}
           >
             🖨️ Entrance QR Door Poster
+          </button>
+          <button
+            onClick={() => setActiveTab("domains")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "domains"
+                ? "bg-rose-600 text-white shadow-xs"
+                : "text-text-muted hover:text-text-main hover:bg-neutral-500/5"
+            }`}
+          >
+            <span>🌐</span> Custom Domain &amp; Subdomain
           </button>
         </div>
 
@@ -2035,6 +2142,184 @@ export default function LibraryOwnerSettingsPage({
               <div className="text-[10px] text-neutral-400 mt-6 font-mono">
                 Direct URL: {entranceJoinUrl}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: Custom Domain & Subdomain Management */}
+        {activeTab === "domains" && (
+          <div className="space-y-6">
+            {/* Header Description */}
+            <div className="bg-card-bg border border-panel-border rounded-3xl p-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-panel-border pb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-2xl shadow-inner">
+                    🌐
+                  </div>
+                  <div>
+                    <h2 className="text-base sm:text-lg font-black tracking-tight text-foreground">
+                      Custom Domains & Dedicated Subdomain
+                    </h2>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      White-label your library with an instant .libraryos.in address or your own custom branded domain.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
+                    isDomainVerified
+                      ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                      : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full ${isDomainVerified ? "bg-emerald-500" : "bg-amber-500"} animate-pulse`} />
+                    {isDomainVerified ? "Custom Domain Verified" : "Subdomain Active"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Feedback messages */}
+              {domainSaveSuccess && (
+                <div className="mt-4 p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200">
+                  <span>✅</span> Domain preferences saved successfully!
+                </div>
+              )}
+
+              {domainErrorMessage && (
+                <div className="mt-4 p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200">
+                  <span>⚠️</span> {domainErrorMessage}
+                </div>
+              )}
+
+              {domainVerifyResult && (
+                <div className={`mt-4 p-3.5 rounded-2xl border text-xs font-bold flex items-start gap-2.5 animate-in fade-in duration-200 ${
+                  domainVerifyResult.verified
+                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                    : "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300"
+                }`}>
+                  <span className="text-base shrink-0">{domainVerifyResult.verified ? "✅" : "⏳"}</span>
+                  <div className="leading-relaxed">{domainVerifyResult.details}</div>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveDomain} className="space-y-6 pt-5">
+                {/* 1. Free Subdomain */}
+                <div className="p-5 rounded-2xl bg-background border border-panel-border space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <h3 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+                        <span>⚡</span> Option 1: Instant Free Subdomain
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                          Zero Setup Required
+                        </span>
+                      </h3>
+                      <p className="text-xs text-text-muted mt-0.5">
+                        Your library is immediately accessible on this unique web address.
+                      </p>
+                    </div>
+
+                    {subdomainInput && (
+                      <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-xl border border-emerald-500/20">
+                        https://{subdomainInput}.libraryos.in
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-text-muted select-none">https://</span>
+                    <input
+                      type="text"
+                      value={subdomainInput}
+                      onChange={(e) => setSubdomainInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                      placeholder="target"
+                      className="px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-panel-border bg-input-bg focus:border-rose-500 focus:outline-none w-48"
+                    />
+                    <span className="text-xs font-mono text-text-muted select-none">.libraryos.in</span>
+                  </div>
+                </div>
+
+                {/* 2. Custom Domain (White-Label) */}
+                <div className="p-5 rounded-2xl bg-background border border-panel-border space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <h3 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+                        <span>🏷️</span> Option 2: Custom Branded Domain
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                          100% White-Label
+                        </span>
+                      </h3>
+                      <p className="text-xs text-text-muted mt-0.5">
+                        Connect your own apex domain (e.g. <code>thetargetlibrary.in</code>) or subdomain (e.g. <code>study.mysite.com</code>).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <input
+                      type="text"
+                      value={customDomainInput}
+                      onChange={(e) => setCustomDomainInput(e.target.value)}
+                      placeholder="e.g. thetargetlibrary.in or study.yourlibrary.com"
+                      className="flex-1 px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-panel-border bg-input-bg focus:border-rose-500 focus:outline-none"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleVerifyDomain}
+                      disabled={verifyingDomain || !customDomainInput.trim()}
+                      className="px-4 py-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {verifyingDomain ? "Verifying DNS..." : "🔍 Check DNS Records"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. DNS Instructions Assistant */}
+                <div className="p-5 rounded-2xl bg-neutral-500/5 border border-panel-border space-y-3 text-xs">
+                  <h4 className="font-extrabold text-foreground flex items-center gap-2">
+                    <span>📋</span> DNS Configuration Guide (GoDaddy, Namecheap, Cloudflare)
+                  </h4>
+                  <p className="text-text-muted text-[11px] leading-relaxed">
+                    To point your custom domain, log into your DNS registrar, add the following CNAME record, and wait 5–10 minutes for global DNS caching:
+                  </p>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs font-mono border-collapse bg-card-bg rounded-xl border border-panel-border">
+                      <thead>
+                        <tr className="border-b border-panel-border text-text-muted text-[10px] uppercase">
+                          <th className="p-2.5">Record Type</th>
+                          <th className="p-2.5">Name / Host</th>
+                          <th className="p-2.5">Target / Value</th>
+                          <th className="p-2.5">TTL</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="p-2.5 font-bold text-rose-600">CNAME</td>
+                          <td className="p-2.5 font-bold text-foreground">
+                            {customDomainInput && customDomainInput.includes(".") && customDomainInput.split(".").length > 2
+                              ? customDomainInput.split(".")[0]
+                              : "@"}
+                          </td>
+                          <td className="p-2.5 font-bold text-indigo-600">cname.vercel-dns.com</td>
+                          <td className="p-2.5 text-text-muted">Auto / 300s</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Save Domain Changes Button */}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingDomain}
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-black text-xs shadow-md shadow-rose-600/20 transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                  >
+                    {savingDomain ? "Saving..." : "💾 Save Domain Settings"}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
