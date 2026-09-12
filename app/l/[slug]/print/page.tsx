@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Library, LibrarySettings } from "@/lib/types";
 import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, isDemoSlug } from "@/lib/tenant";
 import LibraryLogo from "@/lib/LibraryLogo";
-import HeaderNavbar from "@/lib/HeaderNavbar";
 import { generateUpiIntentUrl } from "@/lib/upi";
 
 type TemplateType = "entrance_poster" | "counter_tent" | "wifi_card" | "rules_poster";
@@ -229,13 +228,8 @@ export default function PrintableStudioPage({
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-rose-500/20">
-      {/* Global Navbar */}
-      <div className="no-print">
-        <HeaderNavbar />
-      </div>
-
       {/* Top Banner Toolbar */}
-      <div className="no-print border-b border-panel-border bg-card-bg/70 backdrop-blur-md px-4 py-3 sticky top-0 z-30 shadow-xs">
+      <div className="no-print border-b border-panel-border bg-card-bg/70 backdrop-blur-md px-4 py-3 shadow-xs">
         <div className="max-w-[1750px] mx-auto flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="p-2 rounded-xl bg-rose-500/10 text-rose-600 text-lg">🖨️</span>

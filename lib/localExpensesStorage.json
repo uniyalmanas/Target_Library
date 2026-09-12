@@ -1,57 +1,57 @@
 [
   {
-    "id": "exp-init-01",
     "library_id": "00000000-0000-0000-0000-000000000001",
-    "title": "Commercial AC Power Bill (July/August)",
-    "category": "electricity",
-    "amount": 14200,
-    "payment_mode": "online",
-    "expense_date": "2026-09-05",
-    "notes": "State power corporation online receipt #UP-8291",
-    "created_at": "2026-09-05T17:05:36.798Z"
+    "title": "Maintainance",
+    "category": "maintenance",
+    "amount": 1000,
+    "payment_mode": "upi",
+    "expense_date": "2026-09-12",
+    "notes": null,
+    "id": "exp-1789237787401-ai4rq",
+    "created_at": "2026-09-12T18:29:47.401Z"
   },
   {
-    "id": "exp-init-02",
     "library_id": "00000000-0000-0000-0000-000000000001",
-    "title": "Hall Monthly Rent",
-    "category": "rent",
-    "amount": 22000,
-    "payment_mode": "online",
-    "expense_date": "2026-09-02",
-    "notes": "NEFT transfer to landlord",
-    "created_at": "2026-09-02T17:05:36.798Z"
+    "title": "RO Drinking Water 20L Cans (30 Jars)",
+    "category": "water_tea",
+    "amount": 900,
+    "payment_mode": "upi",
+    "expense_date": "2026-09-12",
+    "notes": null,
+    "id": "exp-1789237760369-b1q16",
+    "created_at": "2026-09-12T18:29:20.369Z"
   },
   {
-    "id": "exp-init-03",
     "library_id": "00000000-0000-0000-0000-000000000001",
-    "title": "Airtel Commercial Fiber 300 Mbps",
+    "title": "Airtel / Jio Commercial Fiber Wi-Fi",
     "category": "wifi",
     "amount": 1999,
     "payment_mode": "online",
-    "expense_date": "2026-09-08",
-    "notes": "Monthly business broadband connection",
-    "created_at": "2026-09-08T17:05:36.798Z"
+    "expense_date": "2026-09-12",
+    "notes": "internet bills paid",
+    "id": "exp-1789237734887-2jbm5",
+    "created_at": "2026-09-12T18:28:54.887Z"
   },
   {
-    "id": "exp-init-04",
     "library_id": "00000000-0000-0000-0000-000000000001",
-    "title": "RO Water Dispenser 20L Cans",
-    "category": "water_tea",
-    "amount": 950,
-    "payment_mode": "upi",
-    "expense_date": "2026-09-11",
-    "notes": "Delivered 30 chilled water jars",
-    "created_at": "2026-09-11T17:05:36.798Z"
-  },
-  {
-    "id": "exp-init-05",
-    "library_id": "00000000-0000-0000-0000-000000000001",
-    "title": "Night Supervisor & Caretaker",
+    "title": "Housekeeping & Floor Mopping",
     "category": "staff_salary",
     "amount": 8000,
-    "payment_mode": "cash",
-    "expense_date": "2026-09-07",
-    "notes": "Desk duty and evening lockup",
-    "created_at": "2026-09-07T17:05:36.798Z"
+    "payment_mode": "online",
+    "expense_date": "2026-09-12",
+    "notes": "payed to the maid",
+    "id": "exp-1789237689608-9l7pz",
+    "created_at": "2026-09-12T18:28:09.608Z"
+  },
+  {
+    "library_id": "00000000-0000-0000-0000-000000000001",
+    "title": "Commercial Electricity & AC Bill",
+    "category": "electricity",
+    "amount": 12500,
+    "payment_mode": "online",
+    "expense_date": "2026-09-12",
+    "notes": "paid to landlord",
+    "id": "exp-1789237638513-3r0xc",
+    "created_at": "2026-09-12T18:27:18.513Z"
   }
 ]
