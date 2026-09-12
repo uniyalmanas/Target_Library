@@ -165,6 +165,7 @@ Whether managing a 50-seat quiet study hall or a 300-seat multi-shift reading li
 | `/l/[slug]/student` | Public / Students | Virtual digital membership pass with live validity badge & QR code |
 | `/l/[slug]/settings` | Owner Only | Brand customization, shift configurations, UPI Soundbox, and passwords |
 | `/l/[slug]/print` | Staff / Owner | Printable entrance posters, counter tent cards, Wi-Fi table cards studio |
+| `/l/[slug]/kiosk` | Staff / Owner | Digital tablet self-check-in kiosk and real-time shift overstay radar |
 | `/members?slug=[slug]` | Staff / Owner | Permanent member search ledger with seat numbers and payment history |
 | `/collections?slug=[slug]` | Staff / Owner | Daily fee collection ledger with cash vs. UPI breakdown and date filtering |
 | `/due-fees?slug=[slug]` | Staff / Owner | Overdue student tracker with 1-click WhatsApp reminder generator |
@@ -229,6 +230,28 @@ Whether managing a 50-seat quiet study hall or a 300-seat multi-shift reading li
 - **Pixel-Perfect Print Engine (`@media print`)**:
   - Automatically isolates printable canvas, hides browser UI, sets A4 dimensions, and locks `-webkit-print-color-adjust: exact`.
   - Responsive 1:1 preview zoom controls and local storage persistence for customized headlines, Wi-Fi keys, and contacts.
+
+---
+
+### 🚪 13. Digital Tablet Gate Kiosk & Shift Overstay Tracker (`/l/[slug]/kiosk`)
+> **Solving Hall Shift Friction**: Prevents morning shift students from lingering hours past their shift cutoff, ensuring incoming evening shift students always find their reserved seats ready.
+
+- **Dual-Mode Architecture**:
+  - 🚪 **Student Tablet Kiosk (Touch-First Terminal)**:
+    - High-contrast touch-first layout designed for counter tablets and wall displays.
+    - Touch numpad with rapid keyboard and barcode input support.
+    - Instant recognition by 4-digit Member ID or 10-digit registered phone number.
+    - Large **🟢 PUNCH IN** and **🔴 PUNCH OUT** buttons with audio synthesizer chimes (Web Audio API).
+    - Success greeting card displaying reserved seat number, shift hours, and 4-second auto-reset for the next student.
+  - 🚨 **Desk Overstay Radar (Staff Monitoring Dashboard)**:
+    - Live Headcount Metric Bar: Currently Inside, Active Overstay Violations, Expiring in <30 Mins, Total Punches Today.
+    - **Active Shift Overstay Queue**: Instantly highlights students registered for Shift 1 (ended at 2:00 PM) who are still inside the hall with exact elapsed overstay duration (e.g. `+1h 35m`).
+    - **⚡ 1-Click WhatsApp Overstay Notice**: Sends polite, professional message notifying student that incoming shift students are waiting and requesting them to vacate or upgrade to Full Day.
+    - **🚪 1-Click Desk Checkout**: Receptionist can mark a student checked out if they walked out without punching the tablet.
+    - **📜 Real-Time Gate Stream**: Chronological feed of all check-ins and check-outs with timestamps.
+- **Persistence & Fallback Engine**:
+  - Database table schema (`supabase/gate_kiosk.sql`) with automatic persistent local storage fallback (`lib/localGateLogs.ts`).
+  - Synthetic gate telemetry for `demo-library` showing realistic check-ins and live overstay alerts for testing.
 
 ---
 
