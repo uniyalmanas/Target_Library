@@ -213,19 +213,25 @@ export default function LibraryOwnerSettingsPage({
 
   // Verify Owner Credentials & Role
   useEffect(() => {
+    const session = getStoredSession();
+    const isStaff = session.role === "staff" && !session.isMaster;
+    if (isStaff) {
+      setIsOwnerAuthenticated(false);
+      setCheckingOwnerAuth(false);
+      return;
+    }
+
     if (isSuperAdminAuthenticated() || isOwnerAuthorizedForSlug(slug) || isDemoSlug(slug)) {
       setIsOwnerAuthenticated(true);
       setCheckingOwnerAuth(false);
       return;
     }
 
-    const session = getStoredSession();
     const ownerAuth = sessionStorage.getItem("target_lib_owner_auth") || localStorage.getItem("target_lib_owner_auth");
-    const isStaff = session.role === "staff" && !session.isMaster;
-    const isOwnerRole = (session.role === "owner" || session.role === "superadmin" || session.isMaster) && !isStaff;
+    const isOwnerRole = session.role === "owner" || session.role === "superadmin" || session.isMaster;
     const isMatchingSlug = session.librarySlug === slug || session.role === "superadmin" || session.isMaster;
 
-    if (!isStaff && ((isOwnerRole && isMatchingSlug) || ownerAuth === "true")) {
+    if ((isOwnerRole && isMatchingSlug) || ownerAuth === "true") {
       setIsOwnerAuthenticated(true);
     } else {
       setIsOwnerAuthenticated(false);

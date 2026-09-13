@@ -118,18 +118,22 @@ export default function TenantDeskPage({
   const [isOwner, setIsOwner] = useState<boolean>(false);
 
   useEffect(() => {
+    const session = getStoredSession();
+    const isStaffSession = session?.role === "staff" && !session?.isMaster;
+    if (isStaffSession) {
+      setIsOwner(false);
+      return;
+    }
+
     const isSuper = isSuperAdminAuthenticated();
     const isOwnerAuth = isOwnerAuthorizedForSlug(slug);
-    const session = getStoredSession();
     const ownerAuth = sessionStorage.getItem("target_lib_owner_auth") || localStorage.getItem("target_lib_owner_auth");
-    const isStaff = session?.role === "staff" && !isSuper && !session?.isMaster;
     const isDemo = isDemoSlug(slug);
-    const hasOwner = isSuper || isOwnerAuth || isDemo || (!isStaff && (
+    const hasOwner = isSuper || session?.isMaster || isOwnerAuth || isDemo || (
       session?.role === "owner" ||
       session?.role === "superadmin" ||
-      session?.isMaster ||
       ownerAuth === "true"
-    ));
+    );
     setIsOwner(hasOwner);
   }, [slug]);
 

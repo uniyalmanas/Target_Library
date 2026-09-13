@@ -53,6 +53,12 @@ export function setStoredSession(session: AuthSession): void {
 export function clearStoredSession(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(SUPERADMIN_MASTER_KEY);
+  sessionStorage.removeItem(SUPERADMIN_SESSION_KEY);
+  localStorage.removeItem(ADMIN_OVERRIDE_KEY);
+  sessionStorage.removeItem(ADMIN_OVERRIDE_KEY);
+  localStorage.removeItem(OWNER_AUTH_KEY);
+  sessionStorage.removeItem(OWNER_AUTH_KEY);
 }
 
 /**
@@ -62,9 +68,13 @@ export function clearStoredSession(): void {
 export function isSuperAdminAuthenticated(): boolean {
   if (typeof window === "undefined") return false;
   try {
+    const session = getStoredSession();
+    // If active session is explicitly staff, strictly ignore any leftover founder master tokens
+    if (session?.role === "staff" && !session?.isMaster) {
+      return false;
+    }
     if (localStorage.getItem(SUPERADMIN_MASTER_KEY) === "true") return true;
     if (sessionStorage.getItem(SUPERADMIN_SESSION_KEY) === "true") return true;
-    const session = getStoredSession();
     if (session?.role === "superadmin" || session?.isMaster === true) return true;
   } catch {
     // ignore
@@ -104,11 +114,15 @@ export function setSuperAdminMasterSession(enabled: boolean): void {
  */
 export function isOwnerAuthorizedForSlug(slug?: string): boolean {
   if (typeof window === "undefined") return false;
-  if (isSuperAdminAuthenticated()) return true;
   try {
+    const session = getStoredSession();
+    // If active session is staff, strictly deny owner authority
+    if (session?.role === "staff" && !session?.isMaster) {
+      return false;
+    }
+    if (isSuperAdminAuthenticated()) return true;
     const ownerAuth = sessionStorage.getItem(OWNER_AUTH_KEY) || localStorage.getItem(OWNER_AUTH_KEY);
     if (ownerAuth === "true") return true;
-    const session = getStoredSession();
     if (session?.role === "owner" && (!slug || !session.librarySlug || session.librarySlug === slug)) {
       return true;
     }

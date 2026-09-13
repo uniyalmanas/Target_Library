@@ -84,17 +84,25 @@ function HeaderNavbarContent() {
 
     setActiveSlug(effective);
 
-    const isSuper = isSuperAdminAuthenticated();
-
-    const ownerAuth = sessionStorage.getItem("target_lib_owner_auth") || localStorage.getItem("target_lib_owner_auth");
-    const isStaff = session?.role === "staff" && !isSuper && !session?.isMaster;
     const isDemo = isDemoSlug(effective);
-    const hasOwner = isSuper || isDemo || (!isStaff && (
+    const isStaffSession = session?.role === "staff" && !session?.isMaster;
+
+    let hasOwner = false;
+    if (isStaffSession) {
+      // Staff session is strictly Front Desk: never Owner
+      hasOwner = false;
+    } else if (isSuperAdminAuthenticated() || session?.isMaster) {
+      hasOwner = true;
+    } else if (isDemo) {
+      hasOwner = true;
+    } else if (
       session?.role === "owner" ||
       session?.role === "superadmin" ||
-      session?.isMaster ||
-      ownerAuth === "true"
-    ));
+      sessionStorage.getItem("target_lib_owner_auth") === "true" ||
+      localStorage.getItem("target_lib_owner_auth") === "true"
+    ) {
+      hasOwner = true;
+    }
 
     setIsOwner(hasOwner);
   }, [pathname, searchParams, getUrlSlug]);

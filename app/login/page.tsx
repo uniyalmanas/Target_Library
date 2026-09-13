@@ -114,6 +114,10 @@ function LoginContent() {
       localStorage.removeItem("library_last_slug");
       sessionStorage.removeItem("target_lib_auth");
       sessionStorage.removeItem("target_lib_owner_auth");
+      localStorage.removeItem("target_lib_owner_auth");
+      sessionStorage.removeItem("target_lib_admin_override");
+      localStorage.removeItem("target_lib_admin_override");
+      setSuperAdminMasterSession(false);
       clearStoredSession();
       router.replace("/login");
     }
@@ -158,9 +162,6 @@ function LoginContent() {
       }
 
       const isSuper = data.user.role === "superadmin" || Boolean(data.user.isMaster);
-      if (isSuper) {
-        setSuperAdminMasterSession(true);
-      }
 
       setStoredSession({
         role: data.user.role,
@@ -168,11 +169,24 @@ function LoginContent() {
         librarySlug: data.user.slug || cleanSlug,
         username: data.user.username,
         fullName: data.user.fullName,
-        isMaster: data.user.isMaster,
+        isMaster: Boolean(data.user.isMaster),
       });
 
       sessionStorage.setItem("target_lib_auth", "true");
-      if (data.user.role === "owner" || data.user.role === "superadmin" || isSuper) {
+
+      if (data.user.role === "staff") {
+        // Staff login: strictly clear all owner & master privileges
+        setSuperAdminMasterSession(false);
+        sessionStorage.removeItem("target_lib_owner_auth");
+        localStorage.removeItem("target_lib_owner_auth");
+        sessionStorage.removeItem("target_lib_admin_override");
+        localStorage.removeItem("target_lib_admin_override");
+        sessionStorage.removeItem("libraryos_superadmin_auth");
+        localStorage.removeItem("libraryos_superadmin_master");
+      } else if (data.user.role === "owner" || data.user.role === "superadmin" || isSuper) {
+        if (isSuper) {
+          setSuperAdminMasterSession(true);
+        }
         sessionStorage.setItem("target_lib_owner_auth", "true");
         localStorage.setItem("target_lib_owner_auth", "true");
       } else {

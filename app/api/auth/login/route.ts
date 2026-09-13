@@ -22,15 +22,8 @@ export async function POST(req: Request) {
     }
 
     // 1. SuperAdmin (Founder) Master Passcode Detection
-    const founderPass = process.env.NEXT_PUBLIC_FOUNDER_PASSWORD || "Manas@12";
-    const validAdmin = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "Target2026";
-    const isFounderMasterPass =
-      password === founderPass ||
-      password === "Manas@12" ||
-      password === validAdmin ||
-      password === "Founder2026" ||
-      password === "TargetOwner2026" ||
-      password === "Target2026";
+    const founderPass = process.env.FOUNDER_MASTER_PASSWORD || process.env.NEXT_PUBLIC_FOUNDER_PASSWORD || "Manas@12";
+    const isFounderMasterPass = password === founderPass || password === "Manas@12";
 
     // SuperAdmin portal login
     if (role === "superadmin") {
@@ -72,7 +65,7 @@ export async function POST(req: Request) {
           fullName: `SuperAdmin (${resolvedLibName})`,
           libraryId: resolvedLibId,
           slug: slug,
-          isMaster: true,
+          isMaster: role !== "staff",
         },
       });
     }
@@ -129,6 +122,7 @@ export async function POST(req: Request) {
             fullName: dbUser.full_name || `${library.name} ${role}`,
             libraryId: library.id,
             slug: library.slug,
+            isMaster: false,
           },
         });
       }
@@ -148,6 +142,7 @@ export async function POST(req: Request) {
             fullName: `${library.name} Owner`,
             libraryId: library.id,
             slug: library.slug,
+            isMaster: false,
           },
         });
       }
@@ -161,6 +156,7 @@ export async function POST(req: Request) {
             fullName: `${library.name} Front Desk Staff`,
             libraryId: library.id,
             slug: library.slug,
+            isMaster: false,
           },
         });
       }
