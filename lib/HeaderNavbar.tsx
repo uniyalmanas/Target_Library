@@ -71,7 +71,6 @@ function HeaderNavbarContent() {
     };
   });
   const [isOwner, setIsOwner] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   // Synchronize active slug and owner authentication role
   useEffect(() => {
@@ -86,7 +85,6 @@ function HeaderNavbarContent() {
     setActiveSlug(effective);
 
     const isSuper = isSuperAdminAuthenticated();
-    setIsSuperAdmin(isSuper);
 
     const ownerAuth = sessionStorage.getItem("target_lib_owner_auth") || localStorage.getItem("target_lib_owner_auth");
     const isStaff = session?.role === "staff" && !isSuper && !session?.isMaster;
@@ -194,16 +192,7 @@ function HeaderNavbarContent() {
               >
                 {libInfo.name}
               </Link>
-              {isSuperAdmin ? (
-                <Link
-                  href="/superadmin"
-                  className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 hover:bg-amber-500/30 transition flex items-center gap-1 whitespace-nowrap shadow-2xs"
-                  title="SuperAdmin Master Privileges Active: Click to return to SaaS Control Center"
-                >
-                  <span>👑</span> SuperAdmin Master
-                  <span className="text-[9px] opacity-75">← Portal</span>
-                </Link>
-              ) : isDemoSlug(activeSlug) ? (
+              {isDemoSlug(activeSlug) ? (
                 <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 whitespace-nowrap flex items-center gap-1">
                   <span>✨</span> Demo Lounge
                 </span>
@@ -224,15 +213,6 @@ function HeaderNavbarContent() {
 
           {/* Mobile-Only Action Utilities */}
           <div className="flex md:hidden items-center gap-1.5 shrink-0">
-            {isSuperAdmin && (
-              <Link
-                href="/superadmin"
-                className="p-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-black transition flex items-center justify-center shadow-2xs"
-                title="SuperAdmin Control Center"
-              >
-                👑
-              </Link>
-            )}
             <Link
               href={`/l/${activeSlug}/new-receipt`}
               className={`px-2.5 py-1.5 rounded-xl text-xs font-extrabold shadow-sm transition active:scale-95 whitespace-nowrap ${
@@ -385,17 +365,6 @@ function HeaderNavbarContent() {
             >
               + Walk-in Admission
             </Link>
-
-            {isSuperAdmin && (
-              <Link
-                href="/superadmin"
-                className="px-2.5 py-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-black transition flex items-center gap-1 shadow-2xs"
-                title="Return to SaaS SuperAdmin Control Center"
-              >
-                <span>👑</span>
-                <span className="hidden xl:inline">SuperAdmin</span>
-              </Link>
-            )}
 
             <Link
               href={`/login?slug=${encodeURIComponent(activeSlug)}`}

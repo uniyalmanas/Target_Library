@@ -413,16 +413,6 @@ function LoginContent() {
             </Link>
           </div>
         </div>
-
-        {/* Discreet Footer */}
-        <div className="text-center pt-2">
-          <Link
-            href="/superadmin"
-            className="text-[11px] text-text-muted hover:text-text-main transition opacity-60 hover:opacity-100"
-          >
-            SaaS Platform Administration (Founder) &rarr;
-          </Link>
-        </div>
       </div>
 
       {/* --------------------------------------------------------------------- */}
