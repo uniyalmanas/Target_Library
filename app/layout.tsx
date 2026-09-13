@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import HeaderNavbar from "@/lib/HeaderNavbar";
 import TenantFooter from "@/lib/TenantFooter";
 import AuthGate from "@/lib/AuthGate";
+import PWAInstallPrompt from "@/lib/PWAInstallPrompt";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -12,8 +13,18 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Library Management System",
-  description: "Seat, member and subscription management workspace",
+  title: "The Target Library • LibraryOS",
+  description: "Seat, member, and subscription management workspace for Indian study libraries",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "LibraryOS",
+  },
+  icons: {
+    icon: "/lib-logo.png",
+    apple: "/icons/icon-192.png",
+  },
 };
 
 export default function RootLayout({
@@ -24,6 +35,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${jakarta.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
+        <meta name="theme-color" content="#e11d48" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -46,6 +60,7 @@ export default function RootLayout({
         </main>
         
         <TenantFooter />
+        <PWAInstallPrompt />
       </body>
     </html>
   );
