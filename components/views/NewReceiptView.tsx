@@ -3,19 +3,9 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-
-const PRICING: any = {
-  full_day: {
-    default: { base: 900, with_sheet: 1200 }
-  },
-  half_day: {
-    shift_1: { base: 600, with_sheet: 900 },
-    morning: { base: 600, with_sheet: 900 },
-    shift_2: { base: 600, with_sheet: 900 },
-    evening: { base: 600, with_sheet: 900 },
-    shift_3: { base: 500, with_sheet: 800 },
-  }
-};
+import { ShiftConfig } from "@/lib/types";
+import { DEFAULT_SHIFTS } from "@/lib/tenant";
+import { getShiftDisplayLabel } from "@/lib/shifts";
 
 function computeEndDate(startStr: string, days: number): string {
   if (!startStr) return "";
@@ -52,23 +42,34 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
   const [phone, setPhone] = useState("");
   const [aadharNo, setAadharNo] = useState("");
   const [seatNumber, setSeatNumber] = useState(presetSeat);
+  const [shiftsConfig, setShiftsConfig] = useState<ShiftConfig[]>(DEFAULT_SHIFTS);
   const [subscriptionType, setSubscriptionType] = useState<"full_day" | "half_day">(
     presetSubscriptionType || "full_day"
   );
-  const [shiftType, setShiftType] = useState<"shift_1" | "shift_2" | "shift_3" | "morning" | "evening">(
-    (presetShiftType as any) || "shift_1"
+  const [shiftType, setShiftType] = useState<string>(
+    (presetShiftType as string) || "shift_1"
   );
   const [hasSheet, setHasSheet] = useState(presetHasSheet);
   const [amount, setAmount] = useState<number>(() => {
     if (presetAmount !== null) return presetAmount;
-    if ((presetSubscriptionType || "full_day") === "full_day") {
-      return PRICING.full_day.default[presetHasSheet ? "with_sheet" : "base"];
-    } else {
-      const sType = presetShiftType || "shift_1";
-      const pricingObj = PRICING.half_day[sType] || PRICING.half_day.shift_1;
-      return pricingObj[presetHasSheet ? "with_sheet" : "base"];
-    }
+    return presetHasSheet ? 1200 : 900;
   });
+
+  // Fetch library shifts and pricing dynamically from settings
+  useEffect(() => {
+    fetch(`/api/libraries/${encodeURIComponent(slug)}/settings`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.settings?.shifts_config && data.settings.shifts_config.length > 0) {
+          setShiftsConfig(data.settings.shifts_config);
+          const halfShifts = data.settings.shifts_config.filter((s: ShiftConfig) => s.id !== "full_day");
+          if (halfShifts.length > 0 && !presetShiftType) {
+            setShiftType((prev) => (halfShifts.some((s: ShiftConfig) => s.id === prev) ? prev : halfShifts[0].id));
+          }
+        }
+      })
+      .catch(() => {});
+  }, [slug, presetShiftType]);
   const [startDate, setStartDate] = useState(
     presetStartDate || new Date().toISOString().split("T")[0]
   );
@@ -98,10 +99,13 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
 
   const getMonthlyBaseRate = (subType = subscriptionType, sType = shiftType, sheet = hasSheet) => {
     if (subType === "full_day") {
-      return PRICING.full_day.default[sheet ? "with_sheet" : "base"];
+      const fullShift = shiftsConfig.find((s) => s.id === "full_day");
+      if (fullShift) return sheet ? fullShift.sheet_price : fullShift.base_price;
+      return sheet ? 1200 : 900;
     } else {
-      const pricingObj = PRICING.half_day[sType] || PRICING.half_day.shift_1;
-      return pricingObj[sheet ? "with_sheet" : "base"];
+      const shift = shiftsConfig.find((s) => s.id === sType) || shiftsConfig.find((s) => s.id !== "full_day");
+      if (shift) return sheet ? shift.sheet_price : shift.base_price;
+      return sheet ? 900 : 600;
     }
   };
 
@@ -117,7 +121,7 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
     } else {
       setAmount(monthlyRate);
     }
-  }, [subscriptionType, shiftType, hasSheet, tenureMode, durationDays]);
+  }, [subscriptionType, shiftType, hasSheet, tenureMode, durationDays, shiftsConfig]);
 
   // Fetch member preview when existing student ID is typed/passed
   useEffect(() => {
@@ -227,14 +231,7 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
     }
 
     const actualEndDate = endDate || computeEndDate(startDate, 30);
-    const shiftLabel =
-      subscriptionType === "half_day"
-        ? shiftType === "shift_1" || shiftType === "morning"
-          ? "Shift 1 (6am–2pm)"
-          : shiftType === "shift_2" || shiftType === "evening"
-            ? "Shift 2 (2pm–12am)"
-            : "Shift 3 (4pm–12am)"
-        : "Full day (6am–12am)";
+    const shiftLabel = getShiftDisplayLabel(shiftType, subscriptionType, shiftsConfig);
 
     setCreatedReceiptNo(data.receipt.receipt_no);
     setResult({
@@ -413,12 +410,16 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
                 <label className="block text-xs font-semibold text-text-muted mb-1.5">Shift Window</label>
                 <select
                   value={shiftType}
-                  onChange={(e) => setShiftType(e.target.value as any)}
+                  onChange={(e) => setShiftType(e.target.value)}
                   className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 outline-none"
                 >
-                  <option value="shift_1">Shift 1 (6:00 AM - 2:00 PM)</option>
-                  <option value="shift_2">Shift 2 (2:00 PM - 12:00 AM)</option>
-                  <option value="shift_3">Shift 3 (4:00 PM - 12:00 AM)</option>
+                  {shiftsConfig
+                    .filter((s) => s.id !== "full_day")
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} (₹{s.base_price}/mo)
+                      </option>
+                    ))}
                 </select>
               </div>
             )}

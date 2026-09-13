@@ -3,7 +3,7 @@
 import { useEffect, useState, use, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Library, LibrarySettings, AdmissionRequest } from "@/lib/types";
-import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, DEMO_LIBRARY, DEMO_SETTINGS, isDemoSlug, DEFAULT_LIBRARY_SLUG, getLibraryAccessStatus } from "@/lib/tenant";
+import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, DEMO_LIBRARY, DEMO_SETTINGS, isDemoSlug, DEFAULT_LIBRARY_SLUG, DEFAULT_SHIFTS, getLibraryAccessStatus } from "@/lib/tenant";
 import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 import ThemeToggle from "@/lib/ThemeToggle";
 import LibraryLogo from "@/lib/LibraryLogo";
@@ -11,6 +11,7 @@ import TenantAccessBarrier from "@/lib/TenantAccessBarrier";
 import { getStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
 import DynamicUpiModal from "@/lib/DynamicUpiModal";
 import { generateDueFeeWhatsAppMessage } from "@/lib/upi";
+import { getAvailableShiftsForSeat, getShiftDisplayLabel } from "@/lib/shifts";
 
 interface MemberData {
   student_id: number;
@@ -23,7 +24,7 @@ interface ReceiptData {
   receipt_no: number;
   student_id: number;
   subscription_type: "full_day" | "half_day";
-  shift_type: "shift_1" | "shift_2" | "shift_3" | "morning" | "evening" | null;
+  shift_type: string | null;
   has_sheet: boolean;
   amount_paid: number;
   start_date: string;
@@ -42,6 +43,8 @@ interface SeatData {
   has_due?: boolean;
   is_double_shift?: boolean;
   status?: string;
+  can_accommodate_another?: boolean;
+  available_shifts?: any[];
   receipts: ReceiptData[];
 }
 
@@ -303,27 +306,28 @@ export default function TenantDeskPage({
   };
 
   // Seat classification helpers
-  const isSeatDoubleShift = (s: SeatData) =>
-    s.occupied &&
-    !s.is_overdue &&
-    s.status !== "due" &&
-    s.status !== "partial_due" &&
-    (s.is_double_shift || s.status === "double_shift" || (s.receipts?.length >= 2 && !s.receipts.some((r) => r.subscription_type === "full_day")));
-
   const isSeatFullDay = (s: SeatData) =>
     s.occupied &&
     !s.is_overdue &&
     s.status !== "due" &&
     s.status !== "partial_due" &&
-    s.receipts?.some((r) => r.subscription_type === "full_day");
+    (s.status === "full_day" || s.receipts?.some((r) => r.subscription_type === "full_day"));
+
+  const isSeatDoubleShift = (s: SeatData) =>
+    s.occupied &&
+    !s.is_overdue &&
+    s.status !== "due" &&
+    s.status !== "partial_due" &&
+    !isSeatFullDay(s) &&
+    (s.status === "double_shift" || s.can_accommodate_another === false || s.is_double_shift === true);
 
   const isSeatHalfDay = (s: SeatData) =>
     s.occupied &&
     !s.is_overdue &&
     s.status !== "due" &&
     s.status !== "partial_due" &&
-    s.receipts?.length === 1 &&
-    s.receipts[0].subscription_type === "half_day";
+    !isSeatFullDay(s) &&
+    !isSeatDoubleShift(s);
 
   const isSeatDue = (s: SeatData) =>
     s.is_overdue || s.status === "due" || s.status === "partial_due";
@@ -482,11 +486,7 @@ export default function TenantDeskPage({
   };
 
   const shiftLabel = (shift: string | null, subType?: string) => {
-    if (subType === "full_day") return "Full day (6am–12am)";
-    if (shift === "shift_1" || shift === "morning") return "Shift 1 (6am–2pm)";
-    if (shift === "shift_2" || shift === "evening") return "Shift 2 (2pm–12am)";
-    if (shift === "shift_3") return "Shift 3 (4pm–12am)";
-    return shift || "Half Day";
+    return getShiftDisplayLabel(shift, subType, settings.shifts_config || DEFAULT_SHIFTS);
   };
 
   const getRenewUrl = (r: ReceiptData) => {
@@ -1203,73 +1203,61 @@ export default function TenantDeskPage({
                     })}
                   </div>
 
-                  {/* If seat is half_day and has room for another shift */}
-                  {selected.receipts.length === 1 &&
-                    selected.receipts[0].subscription_type === "half_day" && (
+                  {/* If seat has room for another non-overlapping shift */}
+                  {(() => {
+                    const activeOnly = selected.receipts.filter((r) => !r.is_overdue);
+                    const available = getAvailableShiftsForSeat(
+                      activeOnly,
+                      settings.shifts_config || DEFAULT_SHIFTS
+                    );
+                    if (available.length === 0) return null;
+
+                    return (
                       <div className="bg-panel-bg/40 border border-panel-border border-dashed rounded-2xl p-3 text-center space-y-2">
                         <p className="text-xs text-text-muted font-medium">
-                          Assign another non-overlapping shift to this seat:
+                          Assign another non-overlapping shift to this seat ({available.length} slot{available.length === 1 ? "" : "s"} available):
                         </p>
                         <div className="flex flex-wrap gap-2 justify-center">
-                          {selected.receipts[0].shift_type === "shift_1" ||
-                          selected.receipts[0].shift_type === "morning" ? (
-                            <>
-                              <Link
-                                href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_2`}
-                                className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] px-3.5 py-1.5 rounded-xl font-bold transition shadow-sm cursor-pointer"
-                              >
-                                + Shift 2 (2pm-12am)
-                              </Link>
-                              <Link
-                                href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_3`}
-                                className="bg-blue-600 hover:bg-blue-500 text-white text-[11px] px-3.5 py-1.5 rounded-xl font-bold transition shadow-sm cursor-pointer"
-                              >
-                                + Shift 3 (4pm-12am)
-                              </Link>
-                            </>
-                          ) : (
+                          {available.map((av) => (
                             <Link
-                              href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_1`}
+                              key={av.id}
+                              href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=${av.id}`}
                               className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] px-3.5 py-1.5 rounded-xl font-bold transition shadow-sm cursor-pointer"
                             >
-                              + Shift 1 (6am-2pm)
+                              + {av.name} (₹{av.base_price})
                             </Link>
-                          )}
+                          ))}
                         </div>
                       </div>
-                    )}
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="space-y-3 py-2">
                   <p className="text-text-muted text-xs">
-                    This seat is completely unoccupied for both shifts.
+                    This seat is completely unoccupied for all shifts.
                   </p>
                   <div className="flex flex-col gap-2">
-                    <Link
-                      href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=full_day`}
-                      className="block text-center bg-rose-600 hover:bg-rose-500 text-white text-xs py-2 rounded-xl font-bold shadow-md shadow-rose-600/20 transition hover:-translate-y-0.5 cursor-pointer"
-                    >
-                      Assign Full Day (₹{settings.shifts_config?.find((s) => s.id === "full_day")?.base_price || 900} / ₹{settings.shifts_config?.find((s) => s.id === "full_day")?.sheet_price || 1200})
-                    </Link>
-                    <div className="grid grid-cols-3 gap-2">
+                    {settings.shifts_config?.find((s) => s.id === "full_day") && (
                       <Link
-                        href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_1`}
-                        className="block text-center bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] py-1.5 rounded-xl font-bold shadow-sm transition hover:-translate-y-0.5 cursor-pointer"
+                        href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=full_day`}
+                        className="block text-center bg-rose-600 hover:bg-rose-500 text-white text-xs py-2 rounded-xl font-bold shadow-md shadow-rose-600/20 transition hover:-translate-y-0.5 cursor-pointer"
                       >
-                        Shift 1 (₹{settings.shifts_config?.find((s) => s.id === "shift_1")?.base_price || 600})
+                        Assign Full Day (₹{settings.shifts_config.find((s) => s.id === "full_day")?.base_price} / ₹{settings.shifts_config.find((s) => s.id === "full_day")?.sheet_price})
                       </Link>
-                      <Link
-                        href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_2`}
-                        className="block text-center bg-amber-500 hover:bg-amber-400 text-neutral-900 text-[11px] py-1.5 rounded-xl font-bold shadow-sm transition hover:-translate-y-0.5 cursor-pointer"
-                      >
-                        Shift 2 (₹{settings.shifts_config?.find((s) => s.id === "shift_2")?.base_price || 600})
-                      </Link>
-                      <Link
-                        href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=shift_3`}
-                        className="block text-center bg-blue-600 hover:bg-blue-500 text-white text-[11px] py-1.5 rounded-xl font-bold shadow-sm transition hover:-translate-y-0.5 cursor-pointer"
-                      >
-                        Shift 3 (₹{settings.shifts_config?.find((s) => s.id === "shift_3")?.base_price || 500})
-                      </Link>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {(settings.shifts_config || DEFAULT_SHIFTS)
+                        .filter((s) => s.id !== "full_day")
+                        .map((s) => (
+                          <Link
+                            key={s.id}
+                            href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=${s.id}`}
+                            className="flex-1 min-w-[130px] text-center bg-card-bg border border-panel-border hover:border-emerald-500 hover:bg-emerald-500/10 text-text-main text-[11px] py-2 px-2.5 rounded-xl font-bold shadow-xs transition hover:-translate-y-0.5 cursor-pointer"
+                          >
+                            {s.name} (₹{s.base_price})
+                          </Link>
+                        ))}
                     </div>
                   </div>
                 </div>

@@ -37,6 +37,8 @@ export interface SeatWithOccupant {
   occupied: boolean;
   is_overdue?: boolean;
   is_double_shift?: boolean;
+  can_accommodate_another?: boolean;
+  available_shifts?: any[];
   status?: string;
   receipt?: Receipt;
   member?: Member;

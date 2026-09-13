@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug, DEFAULT_LIBRARY_ID } from "@/lib/tenant";
+import { getLibraryBySlug, getLibrarySettings, DEFAULT_LIBRARY_ID, DEFAULT_SHIFTS } from "@/lib/tenant";
+import { doShiftsClash, getShiftDisplayLabel } from "@/lib/shifts";
 
 // GET /api/receipts?student_id=1287  -> full history for a member
 // GET /api/receipts?seat_id=12        -> history for a seat
@@ -166,7 +167,7 @@ export async function POST(req: Request) {
   const today = new Date().toISOString().split("T")[0];
   const { data: activeOnSeat, error: activeError } = await supabase
     .from("receipts")
-    .select("receipt_no, subscription_type, shift_type, start_date, end_date")
+    .select("receipt_no, subscription_type, shift_type, start_date, end_date, members(name)")
     .eq("seat_id", resolvedSeatId)
     .eq("library_id", libraryId)
     .gte("end_date", today);
@@ -175,35 +176,49 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: activeError.message }, { status: 500 });
   }
 
+  // Load library shift configurations to accurately detect clashes
+  let shiftsConfig = DEFAULT_SHIFTS;
+  try {
+    const settings = await getLibrarySettings(libraryId);
+    if (settings?.shifts_config && settings.shifts_config.length > 0) {
+      shiftsConfig = settings.shifts_config;
+    }
+  } catch {
+    // fallback
+  }
+
+  let conflictingReceipt: any = null;
   const conflict = (activeOnSeat ?? []).some((r) => {
     // Check if the date ranges actually overlap
     const isDateOverlap = r.start_date <= resolvedEndDate && r.end_date >= start_date;
     if (!isDateOverlap) return false;
 
-    if (r.subscription_type === "full_day" || subscription_type === "full_day") return true;
-    
-    const rShift = r.shift_type;
-    const newShift = shift_type;
+    // If either is full day, it unconditionally conflicts
+    if (r.subscription_type === "full_day" || subscription_type === "full_day") {
+      conflictingReceipt = r;
+      return true;
+    }
 
-    // Direct match (same shift)
-    if (rShift === newShift) return true;
-    if ((rShift === "morning" && newShift === "shift_1") || (rShift === "shift_1" && newShift === "morning")) return true;
-    if ((rShift === "evening" && newShift === "shift_2") || (rShift === "shift_2" && newShift === "evening")) return true;
-
-    // Overlap checks: Shift 2 (or legacy "evening") overlaps with Shift 3
-    const isRShift2 = rShift === "shift_2" || rShift === "evening";
-    const isNewShift2 = newShift === "shift_2" || newShift === "evening";
-    const isRShift3 = rShift === "shift_3";
-    const isNewShift3 = newShift === "shift_3";
-
-    if ((isRShift2 && isNewShift3) || (isRShift3 && isNewShift2)) return true;
+    // Dynamic shift interval collision check
+    if (doShiftsClash(r.shift_type, shift_type, shiftsConfig)) {
+      conflictingReceipt = r;
+      return true;
+    }
 
     return false;
   });
 
   if (conflict) {
+    const conflictShiftName = getShiftDisplayLabel(
+      conflictingReceipt?.shift_type,
+      conflictingReceipt?.subscription_type,
+      shiftsConfig
+    );
+    const occupantName = conflictingReceipt?.members?.name ? ` by ${conflictingReceipt.members.name}` : "";
     return NextResponse.json(
-      { error: "This seat (or shift) is already occupied for the selected dates." },
+      {
+        error: `Seat #${targetSeatNum || resolvedSeatId} is already occupied${occupantName} for conflicting shift: "${conflictShiftName}" during these dates.`,
+      },
       { status: 409 }
     );
   }

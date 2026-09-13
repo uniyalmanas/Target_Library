@@ -7,6 +7,7 @@ import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, DEMO_LIBRARY, DEMO_SETTINGS
 import LibraryLogo from "@/lib/LibraryLogo";
 import TenantAccessBarrier from "@/lib/TenantAccessBarrier";
 import { getStoredSession, setStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
+import { doShiftsClash } from "@/lib/shifts";
 
 export const PRESET_EMBLEMS = [
   { id: "academy", label: "Academy Crest", icon: "🏛️", gradient: ["#8B5CF6", "#6D28D9"] },
@@ -1390,6 +1391,115 @@ export default function LibraryOwnerSettingsPage({
                 <p className="text-[11px] text-amber-800/70 dark:text-amber-300/70">
                   When enabled, students onboarding at the door QR or front desk can opt into clean desk sheet protection.
                 </p>
+              </div>
+
+              {/* Shift Collision & Seat Color Guidelines Card */}
+              {(() => {
+                const halfShifts = shifts.filter((s) => s.id !== "full_day");
+                const clashes: Array<{ shiftA: string; shiftB: string }> = [];
+                for (let i = 0; i < halfShifts.length; i++) {
+                  for (let j = i + 1; j < halfShifts.length; j++) {
+                    if (doShiftsClash(halfShifts[i].id, halfShifts[j].id, shifts)) {
+                      clashes.push({ shiftA: halfShifts[i].name, shiftB: halfShifts[j].name });
+                    }
+                  }
+                }
+
+                return (
+                  <div className="p-4 rounded-2xl bg-background border border-panel-border space-y-3">
+                    <div className="flex items-center justify-between border-b border-panel-border pb-2.5">
+                      <div className="font-extrabold text-xs text-text-main flex items-center gap-1.5">
+                        <span>🚦</span> Shift Collision &amp; Seat Color Rules
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-500/10 text-text-muted">
+                        Real-Time Validation
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+                      <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                          RED: 1 Person Full Day
+                        </div>
+                        <p className="text-[10px] text-text-muted mt-1 leading-relaxed">
+                          1 student bought the seat for the month/tenure. Entire seat is occupied.
+                        </p>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                          YELLOW: Shift Available
+                        </div>
+                        <p className="text-[10px] text-text-muted mt-1 leading-relaxed">
+                          1 or more shifts occupied, yet you can still accommodate another person in that seat.
+                        </p>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-700 dark:text-purple-400">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                          PURPLE: Full (Multiple Shifts)
+                        </div>
+                        <p className="text-[10px] text-text-muted mt-1 leading-relaxed">
+                          Multiple students occupied different shifts and seat is 100% full. No one else can fit.
+                        </p>
+                      </div>
+                    </div>
+
+                    {clashes.length > 0 ? (
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs space-y-1">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <span>⚠️</span> Detected Overlapping Shifts:
+                        </div>
+                        <ul className="list-disc list-inside text-[11px] text-amber-700 dark:text-amber-300/90 pl-1 space-y-0.5">
+                          {clashes.map((c, idx) => (
+                            <li key={idx}>
+                              <strong>{c.shiftA}</strong> and <strong>{c.shiftB}</strong> overlap in time. The system will prevent booking both on the same seat.
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
+                        <span>✓</span> All half-day shifts are complementary and non-overlapping! Multiple students can cleanly share seats without conflict.
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Action Bar for Seats & Shifts */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-panel-border">
+                {saveSuccess ? (
+                  <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 animate-in fade-in">
+                    <span>✅</span> Shifts &amp; seat capacity saved successfully!
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-muted">
+                    Changes apply immediately to your Desk Seat Matrix, Door QR Join Form, and Walk-in Billings.
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-6 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md shadow-rose-600/20 transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  {saving ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Saving Changes...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>💾</span>
+                      <span>Save Shifts &amp; Capacity</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>

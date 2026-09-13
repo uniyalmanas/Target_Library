@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug, DEFAULT_LIBRARY_ID, isDemoSlug } from "@/lib/tenant";
+import { getLibraryBySlug, getLibrarySettings, DEFAULT_LIBRARY_ID, DEFAULT_SHIFTS, isDemoSlug } from "@/lib/tenant";
 import { getDemoAdmissionRequests } from "@/lib/demoData";
+import { doShiftsClash, getShiftDisplayLabel } from "@/lib/shifts";
 
 export const dynamic = "force-dynamic";
 
@@ -186,12 +187,64 @@ export async function PUT(req: Request) {
         studentId = newMem.student_id;
       }
 
-      // 2. Generate Receipt
-      const today = new Date();
-      const sDate = start_date || today.toISOString().split("T")[0];
+      // 2. Validate seat availability & shift conflict
+      const todayStr = new Date().toISOString().split("T")[0];
+      const sDate = start_date || todayStr;
       const eDate =
         end_date ||
-        new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        new Date(new Date(sDate).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+      let shiftsConfig = DEFAULT_SHIFTS;
+      try {
+        const settings = await getLibrarySettings(request.library_id);
+        if (settings?.shifts_config && settings.shifts_config.length > 0) {
+          shiftsConfig = settings.shifts_config;
+        }
+      } catch {
+        // fallback
+      }
+
+      const { data: activeOnSeat } = await supabase
+        .from("receipts")
+        .select("receipt_no, subscription_type, shift_type, start_date, end_date, members(name)")
+        .eq("seat_id", Number(seat_id))
+        .eq("library_id", request.library_id)
+        .gte("end_date", todayStr);
+
+      let conflictingReceipt: any = null;
+      const conflict = (activeOnSeat ?? []).some((r) => {
+        const isDateOverlap = r.start_date <= eDate && r.end_date >= sDate;
+        if (!isDateOverlap) return false;
+
+        if (r.subscription_type === "full_day" || request.subscription_type === "full_day") {
+          conflictingReceipt = r;
+          return true;
+        }
+
+        if (doShiftsClash(r.shift_type, request.shift_type, shiftsConfig)) {
+          conflictingReceipt = r;
+          return true;
+        }
+
+        return false;
+      });
+
+      if (conflict) {
+        const conflictShiftName = getShiftDisplayLabel(
+          conflictingReceipt?.shift_type,
+          conflictingReceipt?.subscription_type,
+          shiftsConfig
+        );
+        const occupantName = conflictingReceipt?.members?.name ? ` by ${conflictingReceipt.members.name}` : "";
+        return NextResponse.json(
+          {
+            error: `Seat #${seat_id} is already occupied${occupantName} for conflicting shift: "${conflictShiftName}". Please select another seat.`,
+          },
+          { status: 409 }
+        );
+      }
+
+      // 3. Generate Receipt
 
       const { data: receipt, error: recErr } = await supabase
         .from("receipts")

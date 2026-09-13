@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug, getLibrarySettings, isDemoSlug } from "@/lib/tenant";
+import { getLibraryBySlug, getLibrarySettings, isDemoSlug, DEFAULT_SHIFTS } from "@/lib/tenant";
 import { getDemoSeats } from "@/lib/demoData";
+import { computeSeatStatus } from "@/lib/shifts";
 
 // Returns seats, each annotated with whether it's currently occupied
 // (an active receipt with end_date >= today) and by whom.
@@ -17,19 +18,21 @@ export async function GET(req: Request) {
 
     let libraryId = "00000000-0000-0000-0000-000000000001";
     let totalSeatsLimit: number | null = null;
+    let librarySettings: any = null;
     if (slug) {
       const library = await getLibraryBySlug(slug);
       libraryId = library.id;
-      const settings = await getLibrarySettings(library.id);
-      if (settings?.total_seats) {
-        totalSeatsLimit = settings.total_seats;
+      librarySettings = await getLibrarySettings(library.id);
+      if (librarySettings?.total_seats) {
+        totalSeatsLimit = librarySettings.total_seats;
       }
     } else {
-      const settings = await getLibrarySettings(libraryId);
-      if (settings?.total_seats) {
-        totalSeatsLimit = settings.total_seats;
+      librarySettings = await getLibrarySettings(libraryId);
+      if (librarySettings?.total_seats) {
+        totalSeatsLimit = librarySettings.total_seats;
       }
     }
+    const shiftsConfig = librarySettings?.shifts_config || DEFAULT_SHIFTS;
 
     const { data: seatsData, error: seatsError } = await supabase
       .from("seats")
@@ -161,26 +164,10 @@ export async function GET(req: Request) {
       visibleReceipts.sort((a, b) => b.end_date.localeCompare(a.end_date));
 
       const isAllOverdue = activeReceipts.length === 0 && deduplicatedOverdue.length > 0;
-      const isPartialDue = activeReceipts.length > 0 && deduplicatedOverdue.length > 0;
       const isOccupied = visibleReceipts.length > 0;
 
-      const isFullDay = activeReceipts.some((r) => r.subscription_type === "full_day");
-      const isDoubleShift = activeReceipts.length >= 2 && !isFullDay;
-
-      let status = "free";
-      if (isAllOverdue) {
-        status = "due"; // Entire seat is BLUE (due fees)
-      } else if (isPartialDue) {
-        status = "partial_due"; // 1 active shift + 1 overdue shift
-      } else if (activeReceipts.length > 0) {
-        if (isFullDay) {
-          status = "full_day"; // RED (single full-day student)
-        } else if (isDoubleShift) {
-          status = "double_shift"; // PURPLE (seat split across 2 active shifts)
-        } else {
-          status = "half_day"; // AMBER (only 1 shift occupied, 1 shift free)
-        }
-      }
+      const computed = computeSeatStatus(activeReceipts, deduplicatedOverdue, shiftsConfig);
+      const isDoubleShift = computed.status === "double_shift";
 
       return {
         seat_id: seat.seat_id,
@@ -189,7 +176,9 @@ export async function GET(req: Request) {
         is_overdue: isAllOverdue,
         has_due: deduplicatedOverdue.length > 0,
         is_double_shift: isDoubleShift,
-        status,
+        can_accommodate_another: computed.canAccommodateAnother,
+        available_shifts: computed.availableShifts,
+        status: computed.status,
         receipts: visibleReceipts.map((r) => {
           const isDue = r.end_date < today;
           const endDateTime = new Date(`${r.end_date}T00:00:00`).getTime();
