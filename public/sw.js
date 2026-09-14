@@ -1,9 +1,10 @@
 // Service Worker for LibraryOS PWA
-const CACHE_NAME = 'libraryos-v2';
+const CACHE_NAME = 'libraryos-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.webmanifest',
   '/manifest.json',
+  '/libraryos-logo.png',
   '/lib-logo.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',

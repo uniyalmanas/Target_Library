@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "The Target Library • LibraryOS",
+    name: "LibraryOS • Modern Library Management",
     short_name: "LibraryOS",
     description: "Modern Operating System for Study Libraries, Seat Allocations & Dues Tracking",
     start_url: "/",

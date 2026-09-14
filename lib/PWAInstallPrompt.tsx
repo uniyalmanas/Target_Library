@@ -150,8 +150,8 @@ export default function PWAInstallPrompt() {
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 p-0.5 shadow-md shrink-0 flex items-center justify-center overflow-hidden">
                 <div className="w-full h-full bg-background rounded-[14px] flex items-center justify-center overflow-hidden">
                   <Image
-                    src="/lib-logo.png"
-                    alt="Library App Icon"
+                    src="/libraryos-logo.png"
+                    alt="LibraryOS App Icon"
                     width={44}
                     height={44}
                     className="object-contain"

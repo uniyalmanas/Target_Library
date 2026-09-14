@@ -22,8 +22,12 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "The Target Library • LibraryOS",
-  description: "Seat, member, and subscription management workspace for Indian study libraries",
+  metadataBase: new URL("https://library-ms-three.vercel.app"),
+  title: {
+    default: "LibraryOS • Modern Operating System for Study Libraries",
+    template: "%s | LibraryOS",
+  },
+  description: "Modern Operating System for Study Libraries, Seat Allocations & Dues Tracking",
   manifest: "/manifest.webmanifest",
   applicationName: "LibraryOS",
   appleWebApp: {
@@ -44,6 +48,28 @@ export const metadata: Metadata = {
       { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
     ],
+  },
+  openGraph: {
+    title: "LibraryOS • Modern Operating System for Study Libraries",
+    description: "Automate seat management, WhatsApp due fees alerts, and walk-in admissions for Indian study libraries.",
+    url: "https://library-ms-three.vercel.app",
+    siteName: "LibraryOS",
+    images: [
+      {
+        url: "/libraryos-logo.png",
+        width: 512,
+        height: 512,
+        alt: "LibraryOS App Logo",
+      },
+    ],
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "LibraryOS • Modern Operating System for Study Libraries",
+    description: "Automate seat management, WhatsApp due fees alerts, and walk-in admissions for Indian study libraries.",
+    images: ["/libraryos-logo.png"],
   },
 };
 
