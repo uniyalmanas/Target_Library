@@ -18,9 +18,10 @@ export default function SubscriptionPaymentModal({
   library,
   onSuccess,
 }: SubscriptionPaymentModalProps) {
-  // SaaS Payment Configuration
-  const saasUpiId = process.env.NEXT_PUBLIC_SAAS_UPI_ID || "uniyalmanas@oksbi";
-  const saasPayeeName = process.env.NEXT_PUBLIC_SAAS_UPI_NAME || "Manas Uniyal";
+  // Dynamic SaaS Payment Configuration
+  const [saasUpiId, setSaasUpiId] = useState(process.env.NEXT_PUBLIC_SAAS_UPI_ID || "uniyalmanas@oksbi");
+  const [saasPayeeName, setSaasPayeeName] = useState(process.env.NEXT_PUBLIC_SAAS_UPI_NAME || "Manas Uniyal");
+  const [saasPhone, setSaasPhone] = useState("8535035757");
 
   // Plan Selection State
   const totalSeats = (library as any).library_settings?.total_seats || 60;
@@ -77,6 +78,16 @@ export default function SubscriptionPaymentModal({
       fetchLatestRequest();
       setSubmitSuccess(false);
       setSubmitError(null);
+
+      // Fetch dynamic platform UPI config from database
+      fetch("/api/platform-config")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.upi_id) setSaasUpiId(data.upi_id);
+          if (data?.upi_name) setSaasPayeeName(data.upi_name);
+          if (data?.phone) setSaasPhone(data.phone);
+        })
+        .catch(() => {});
     }
   }, [isOpen, library.slug]);
 
@@ -229,6 +240,9 @@ export default function SubscriptionPaymentModal({
     note: `LibraryOS sub ${library.slug}`,
   });
 
+  const cleanWaPhone = saasPhone.replace(/\D/g, "");
+  const waPhoneWithCountry = cleanWaPhone.length === 10 ? `91${cleanWaPhone}` : cleanWaPhone;
+
   const waMessage = encodeURIComponent(
     `Hi LibraryOS Admin, I am the owner of ${library.name} (/l/${library.slug}). I have completed the early payment of ₹${payAmount} for the ${planName} plan and uploaded my screenshot on the portal. Please approve my workspace.`
   );
@@ -328,7 +342,7 @@ export default function SubscriptionPaymentModal({
             {/* Action Buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
               <a
-                href={`https://wa.me/918535035757?text=${waMessage}`}
+                href={`https://wa.me/${waPhoneWithCountry}?text=${waMessage}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5 text-center cursor-pointer"
@@ -457,7 +471,7 @@ export default function SubscriptionPaymentModal({
                     </div>
                     <div className="text-[10px] text-text-muted pt-0.5 flex items-center justify-between flex-wrap gap-1 border-t border-panel-border/60">
                       <span>Payee: <strong className="text-foreground">{saasPayeeName}</strong></span>
-                      <span>Phone: <strong className="text-foreground font-mono">8535035757</strong></span>
+                      <span>Phone: <strong className="text-foreground font-mono">{saasPhone}</strong></span>
                     </div>
                   </div>
 
@@ -561,8 +575,8 @@ export default function SubscriptionPaymentModal({
         {/* Footer Support Info */}
         <div className="text-center text-[11px] text-text-muted pt-2 border-t border-panel-border">
           Need instant activation on the spot? WhatsApp Founder Desk at{" "}
-          <a href="tel:+918535035757" className="font-bold text-rose-600 hover:underline">
-            +91 8535035757
+          <a href={`tel:+${waPhoneWithCountry}`} className="font-bold text-rose-600 hover:underline">
+            {saasPhone}
           </a>
         </div>
       </div>

@@ -6,6 +6,7 @@ import { Library, SubscriptionRequest } from "@/lib/types";
 import { getLibraryAccessStatus } from "@/lib/tenant";
 import { downloadCsv } from "@/lib/exportCsv";
 import { getStoredSession, setStoredSession, clearStoredSession, isSuperAdminAuthenticated, setSuperAdminMasterSession, impersonateTenantOwner } from "@/lib/auth";
+import { generateUpiQrCodeUrl } from "@/lib/upi";
 
 export default function SuperAdminPage() {
   const [libraries, setLibraries] = useState<Library[]>([]);
@@ -62,6 +63,66 @@ export default function SuperAdminPage() {
   const [updatingStaffPass, setUpdatingStaffPass] = useState(false);
   const [passwordActionFeedback, setPasswordActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
+  // Founder SaaS Receiver UPI Configuration State
+  const [showUpiModal, setShowUpiModal] = useState(false);
+  const [platformUpiId, setPlatformUpiId] = useState("uniyalmanas@oksbi");
+  const [platformUpiName, setPlatformUpiName] = useState("Manas Uniyal");
+  const [platformPhone, setPlatformPhone] = useState("8535035757");
+  const [savingUpi, setSavingUpi] = useState(false);
+  const [upiSaveFeedback, setUpiSaveFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const fetchPlatformConfig = async () => {
+    try {
+      const res = await fetch("/api/platform-config");
+      const data = await res.json();
+      if (res.ok && data) {
+        if (data.upi_id) setPlatformUpiId(data.upi_id);
+        if (data.upi_name) setPlatformUpiName(data.upi_name);
+        if (data.phone) setPlatformPhone(data.phone);
+      }
+    } catch {
+      // Fallback
+    }
+  };
+
+  const handleSavePlatformUpi = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!platformUpiId.trim()) {
+      setUpiSaveFeedback({ type: "error", message: "A valid UPI ID is required (e.g. uniyalmanas@oksbi)." });
+      return;
+    }
+    setSavingUpi(true);
+    setUpiSaveFeedback(null);
+    try {
+      const res = await fetch("/api/platform-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          upi_id: platformUpiId.trim(),
+          upi_name: platformUpiName.trim(),
+          phone: platformPhone.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUpiSaveFeedback({
+          type: "success",
+          message: "Receiver UPI settings updated! All payment QR codes, modal popups, and lock barriers across all libraries now receive payments at this UPI ID.",
+        });
+        setTimeout(() => {
+          setUpiSaveFeedback(null);
+          setShowUpiModal(false);
+        }, 2200);
+      } else {
+        setUpiSaveFeedback({ type: "error", message: data.error || "Failed to save UPI settings." });
+      }
+    } catch (err: unknown) {
+      setUpiSaveFeedback({ type: "error", message: err instanceof Error ? err.message : "Network error" });
+    } finally {
+      setSavingUpi(false);
+    }
+  };
+
   const fetchLibraries = async () => {
     setLoading(true);
     setError(null);
@@ -99,6 +160,7 @@ export default function SuperAdminPage() {
       setIsSuperAdminAuth(true);
       fetchLibraries();
       fetchSubRequests();
+      fetchPlatformConfig();
     } else {
       setIsSuperAdminAuth(false);
       setLoading(false);
@@ -135,6 +197,7 @@ export default function SuperAdminPage() {
         setIsSuperAdminAuth(true);
         fetchLibraries();
         fetchSubRequests();
+        fetchPlatformConfig();
       } else {
         setPasscodeError(data.error || "Incorrect founder passcode. Access denied.");
       }
@@ -360,6 +423,7 @@ export default function SuperAdminPage() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (showAddModal) setShowAddModal(false);
+        if (showUpiModal) setShowUpiModal(false);
         if (editingLibrary) setEditingLibrary(null);
         if (selectedScreenshot) setSelectedScreenshot(null);
         if (rejectModalReq) setRejectModalReq(null);
@@ -367,7 +431,7 @@ export default function SuperAdminPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showAddModal, editingLibrary, selectedScreenshot, rejectModalReq]);
+  }, [showAddModal, showUpiModal, editingLibrary, selectedScreenshot, rejectModalReq]);
 
   // Handle Slug Auto-generation
   const handleNameChange = (name: string) => {
@@ -684,6 +748,17 @@ export default function SuperAdminPage() {
             title="Download full client directory as CSV"
           >
             <span>📥</span> Export Tenants CSV
+          </button>
+          <button
+            onClick={() => {
+              setUpiSaveFeedback(null);
+              fetchPlatformConfig();
+              setShowUpiModal(true);
+            }}
+            className="px-3.5 py-2 text-xs font-bold rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="Configure Receiver UPI ID for SaaS Subscriptions"
+          >
+            <span>💳</span> SaaS UPI Settings
           </button>
           <button
             onClick={() => setShowAddModal(true)}
@@ -1673,6 +1748,169 @@ export default function SuperAdminPage() {
                 {processingReqId === rejectModalReq.id ? "Rejecting..." : "Confirm Rejection"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SaaS Platform Receiver UPI Settings Modal */}
+      {showUpiModal && (
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 md:p-6 z-50 overflow-y-auto animate-in fade-in"
+          onClick={() => setShowUpiModal(false)}
+        >
+          <div
+            className="my-auto bg-card-bg border-2 border-amber-500/30 rounded-3xl max-w-xl w-full shadow-2xl animate-in fade-in zoom-in duration-150 flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-panel-border p-4 sm:p-5 shrink-0 bg-card-bg">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-xl shrink-0">
+                  💳
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base sm:text-lg text-text-main flex items-center gap-2">
+                    SaaS Receiver UPI Settings
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                      Founder Only
+                    </span>
+                  </h3>
+                  <p className="text-xs text-text-muted">
+                    Configure where library owners send subscription & renewal payments.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowUpiModal(false)}
+                className="w-8 h-8 rounded-full bg-neutral-500/10 hover:bg-neutral-500/20 text-text-muted hover:text-text-main flex items-center justify-center text-sm font-bold cursor-pointer transition shrink-0"
+                title="Close (Esc)"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSavePlatformUpi} className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1 overscroll-contain">
+              {upiSaveFeedback && (
+                <div
+                  className={`p-3 rounded-xl border text-xs font-semibold flex items-start gap-2 ${
+                    upiSaveFeedback.type === "success"
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                      : "bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400"
+                  }`}
+                >
+                  <span className="text-sm">{upiSaveFeedback.type === "success" ? "✓" : "⚠️"}</span>
+                  <span>{upiSaveFeedback.message}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Left side: Inputs */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="font-bold block mb-1 text-text-main">
+                      Founder Receiver UPI ID *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. uniyalmanas@oksbi"
+                      value={platformUpiId}
+                      onChange={(e) => setPlatformUpiId(e.target.value)}
+                      className="w-full bg-background border border-panel-border rounded-xl px-3 py-2 text-xs font-mono font-bold text-text-main focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <p className="text-[10px] text-text-muted mt-1">
+                      Direct VPA linked to your bank (GPay, PhonePe, SBI, Paytm).
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="font-bold block mb-1 text-text-main">
+                      Payee Display Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Manas Uniyal"
+                      value={platformUpiName}
+                      onChange={(e) => setPlatformUpiName(e.target.value)}
+                      className="w-full bg-background border border-panel-border rounded-xl px-3 py-2 text-xs text-text-main focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <p className="text-[10px] text-text-muted mt-1">
+                      Shown to library owners in payment prompts and bank confirmation.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="font-bold block mb-1 text-text-main">
+                      Founder Support Phone *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 8535035757"
+                      value={platformPhone}
+                      onChange={(e) => setPlatformPhone(e.target.value)}
+                      className="w-full bg-background border border-panel-border rounded-xl px-3 py-2 text-xs font-mono text-text-main focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <p className="text-[10px] text-text-muted mt-1">
+                      Used for WhatsApp fast-track payment submission and urgent support.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right side: Live QR Preview */}
+                <div className="p-3.5 bg-neutral-500/5 rounded-2xl border border-panel-border flex flex-col items-center justify-center text-center">
+                  <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">
+                    Live Scanner Preview (₹599)
+                  </div>
+                  <div className="p-2.5 bg-white rounded-xl shadow-xs border border-neutral-200 inline-block">
+                    <img
+                      src={generateUpiQrCodeUrl(
+                        {
+                          upiId: platformUpiId || "uniyalmanas@oksbi",
+                          payeeName: platformUpiName || "Manas Uniyal",
+                          amount: 599,
+                          note: "Test Scan - LibraryOS",
+                        },
+                        180
+                      )}
+                      alt="Live Preview QR Code"
+                      className="w-36 h-36 object-contain"
+                    />
+                  </div>
+                  <div className="text-[11px] font-mono font-bold text-text-main mt-2">
+                    {platformUpiId || "uniyalmanas@oksbi"}
+                  </div>
+                  <p className="text-[10px] text-text-muted mt-1 leading-tight max-w-[200px]">
+                    Scan this test QR with your phone to verify it opens your bank account.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-amber-800 dark:text-amber-200 text-[11px] leading-relaxed">
+                ℹ️ <strong>Instant Live Sync:</strong> When you hit save, all payment screens (Pay &amp; Activate Early popup, trial banners, and subscription lock walls) across all study libraries in Dehradun update in real-time.
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-panel-border">
+                <button
+                  type="button"
+                  onClick={() => setShowUpiModal(false)}
+                  className="px-4 py-2 rounded-xl border border-panel-border text-xs font-semibold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingUpi}
+                  className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <span>{savingUpi ? "⏳" : "💾"}</span>
+                  {savingUpi ? "Saving Configuration..." : "Save Receiver Settings"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -44,6 +44,7 @@ export async function GET(req: Request) {
             has_sheet_enabled
           )
         `)
+        .neq("slug", "platform-config")
         .order("created_at", { ascending: false });
 
       if (error) {

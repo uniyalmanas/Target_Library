@@ -24,9 +24,10 @@ export default function TenantAccessBarrier({
   const [overridePass, setOverridePass] = useState("");
   const [overrideError, setOverrideError] = useState<string | null>(null);
 
-  // SaaS Payment Configuration
-  const saasUpiId = process.env.NEXT_PUBLIC_SAAS_UPI_ID || "uniyalmanas@oksbi";
-  const saasPayeeName = process.env.NEXT_PUBLIC_SAAS_UPI_NAME || "Manas Uniyal";
+  // Dynamic SaaS Payment Configuration
+  const [saasUpiId, setSaasUpiId] = useState(process.env.NEXT_PUBLIC_SAAS_UPI_ID || "uniyalmanas@oksbi");
+  const [saasPayeeName, setSaasPayeeName] = useState(process.env.NEXT_PUBLIC_SAAS_UPI_NAME || "Manas Uniyal");
+  const [saasPhone, setSaasPhone] = useState("8535035757");
 
   // Plan Selection State
   const totalSeats = (library as any).library_settings?.total_seats || 60;
@@ -80,6 +81,16 @@ export default function TenantAccessBarrier({
 
   useEffect(() => {
     fetchLatestRequest();
+
+    // Fetch dynamic platform UPI config from database
+    fetch("/api/platform-config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.upi_id) setSaasUpiId(data.upi_id);
+        if (data?.upi_name) setSaasPayeeName(data.upi_name);
+        if (data?.phone) setSaasPhone(data.phone);
+      })
+      .catch(() => {});
   }, [library.slug]);
 
   // Handle Refresh Verification
@@ -247,6 +258,9 @@ export default function TenantAccessBarrier({
     note: `LibraryOS sub ${library.slug}`,
   });
 
+  const cleanWaPhone = saasPhone.replace(/\D/g, "");
+  const waPhoneWithCountry = cleanWaPhone.length === 10 ? `91${cleanWaPhone}` : cleanWaPhone;
+
   const waMessage = encodeURIComponent(
     `Hi LibraryOS Admin, I am the owner of ${library.name} (/l/${library.slug}). I have completed the payment of ₹${payAmount} for the ${planName} plan and uploaded my screenshot on the portal. Please approve my workspace.`
   );
@@ -358,7 +372,7 @@ export default function TenantAccessBarrier({
             {/* Action Buttons for Pending State */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
               <a
-                href={`https://wa.me/918535035757?text=${waMessage}`}
+                href={`https://wa.me/${waPhoneWithCountry}?text=${waMessage}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
@@ -530,7 +544,7 @@ export default function TenantAccessBarrier({
                     </div>
                     <div className="text-[11px] text-text-muted pt-1 flex items-center justify-between flex-wrap gap-1 border-t border-panel-border/60">
                       <span>Payee: <strong className="text-foreground">{saasPayeeName}</strong></span>
-                      <span>Phone: <strong className="text-foreground font-mono">8535035757</strong></span>
+                      <span>Phone: <strong className="text-foreground font-mono">{saasPhone}</strong></span>
                     </div>
                   </div>
 
@@ -672,10 +686,10 @@ export default function TenantAccessBarrier({
           <div>
             Need instant activation or help? Call or WhatsApp SaaS Support at{" "}
             <a
-              href="tel:+918535035757"
+              href={`tel:+${waPhoneWithCountry}`}
               className="font-bold text-rose-600 dark:text-rose-400 hover:underline"
             >
-              +91 8535035757
+              {saasPhone}
             </a>{" "}
             (Founder Desk).
           </div>
