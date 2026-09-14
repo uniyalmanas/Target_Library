@@ -127,7 +127,6 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
   useEffect(() => {
     if (!existingStudentId) {
       setMemberPreview(null);
-      setAadharNo("");
       return;
     }
     const delayDebounceFn = setTimeout(() => {
@@ -144,6 +143,8 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
               phone: data.member.phone,
               aadhar_no: data.member.aadhar_no || null,
             });
+            setName(data.member.name || "");
+            setPhone(data.member.phone || "");
             if (data.member.aadhar_no) {
               setAadharNo(data.member.aadhar_no);
             }
@@ -184,6 +185,13 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
       return;
     }
 
+    const trimmedName = (name || memberPreview?.name || "").trim();
+    if (!trimmedName) {
+      setResult({ ok: false, message: "Please enter Student Full Name." });
+      setSubmitting(false);
+      return;
+    }
+
     const payload: any = {
       subscription_type: subscriptionType,
       shift_type: subscriptionType === "half_day" ? shiftType : null,
@@ -194,14 +202,13 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
       end_date: endDate,
       seat_id,
       slug,
+      name: trimmedName,
+      phone: (phone || memberPreview?.phone || "").trim() || null,
+      aadhar_no: (aadharNo || memberPreview?.aadhar_no || "").trim() || null,
     };
 
-    if (existingStudentId) {
-      payload.student_id = Number(existingStudentId);
-    } else {
-      payload.name = name;
-      payload.phone = phone || null;
-      payload.aadhar_no = aadharNo || null;
+    if (existingStudentId && existingStudentId.trim()) {
+      payload.student_id = Number(existingStudentId.trim());
     }
 
     const res = await fetch("/api/receipts", {
@@ -239,8 +246,8 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
       message: `Receipt #${data.receipt.receipt_no} created for member #${data.student_id}, seat ${seatNumber} for ${durationDays} days (valid until ${actualEndDate}).`,
     });
 
-    const activeName = existingStudentId ? (memberPreview?.name || "Member") : name;
-    const activePhone = existingStudentId ? (memberPreview?.phone || "") : phone;
+    const activeName = trimmedName;
+    const activePhone = (phone || memberPreview?.phone || "").trim();
 
     if (activePhone) {
       setSendingWhatsapp(true);
@@ -308,7 +315,7 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
           <div className="border border-panel-border/80 bg-background/50 p-4 rounded-xl space-y-3">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-bold text-foreground">
-                Existing Member ID (Optional)
+                Student / Member ID (Optional)
               </label>
               {loadingPreview && (
                 <span className="text-[10px] text-text-muted animate-pulse">
@@ -317,68 +324,94 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
               )}
             </div>
 
-            <input
-              type="number"
-              placeholder="e.g. 104"
-              value={existingStudentId}
-              onChange={(e) => setExistingStudentId(e.target.value)}
-              className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2 text-sm text-foreground placeholder-text-muted transition-all duration-200 outline-none"
-            />
+            <div className="relative">
+              <input
+                type="number"
+                placeholder="Leave blank to auto-generate ID, or enter custom ID (e.g. 104)"
+                value={existingStudentId}
+                onChange={(e) => setExistingStudentId(e.target.value)}
+                className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2 text-sm text-foreground placeholder-text-muted transition-all duration-200 outline-none font-mono"
+              />
+              {existingStudentId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExistingStudentId("");
+                    setMemberPreview(null);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-text-muted hover:text-rose-500 bg-panel-bg/80 px-2 py-0.5 rounded cursor-pointer transition"
+                >
+                  Clear ID
+                </button>
+              )}
+            </div>
 
             {memberPreview && (
               <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-lg p-3 text-xs space-y-1">
-                <div className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
-                  <span>✓</span> Member Found: {memberPreview.name}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
+                    <span>✓</span> Existing Member Found: {memberPreview.name} (ID #{existingStudentId})
+                  </div>
                 </div>
                 <div className="text-text-muted text-[11px] flex gap-3 flex-wrap">
                   {memberPreview.phone && <span>Phone: {memberPreview.phone}</span>}
                   {memberPreview.aadhar_no && <span>Aadhaar: •••• {memberPreview.aadhar_no.slice(-4)}</span>}
                 </div>
+                <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 italic pt-0.5">
+                  Profile loaded. You can verify or update student details below.
+                </p>
               </div>
             )}
 
             {!memberPreview && existingStudentId && !loadingPreview && (
-              <p className="text-[11px] text-text-muted italic">
-                No member matched this ID. Fill in student details below to create a new profile.
+              <div className="bg-blue-500/10 border border-blue-500/25 rounded-lg p-2.5 text-xs text-blue-700 dark:text-blue-300">
+                <span>
+                  ℹ️ New Member ID <strong>#{existingStudentId}</strong>: This ID is available and will be assigned to this student. Please fill in their name and details below.
+                </span>
+              </div>
+            )}
+
+            {!existingStudentId && (
+              <p className="text-[11px] text-text-muted">
+                Leave blank to automatically assign the next sequential Member ID, or enter an ID from your library register.
               </p>
             )}
           </div>
 
-          {!existingStudentId && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1.5">Student Full Name *</label>
-                <input
-                  required
-                  placeholder="e.g. Rahul Sharma"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder-text-muted transition-all duration-200 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1.5">WhatsApp Mobile Number</label>
-                <input
-                  placeholder="e.g. 9876543210"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder-text-muted transition-all duration-200 outline-none"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-text-muted mb-1.5">Aadhaar Card Number (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 1234 5678 9012"
-                  value={aadharNo}
-                  onChange={(e) => setAadharNo(e.target.value)}
-                  className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder-text-muted transition-all duration-200 outline-none"
-                />
-              </div>
+          {/* Student Profile Information: ALWAYS VISIBLE */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">Student Full Name *</label>
+              <input
+                required
+                placeholder="e.g. Rahul Sharma"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder-text-muted transition-all duration-200 outline-none"
+              />
             </div>
-          )}
+
+            <div>
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">WhatsApp Mobile Number</label>
+              <input
+                placeholder="e.g. 9876543210"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder-text-muted transition-all duration-200 outline-none"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">Aadhaar Card Number (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. 1234 5678 9012"
+                value={aadharNo}
+                onChange={(e) => setAadharNo(e.target.value)}
+                className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder-text-muted transition-all duration-200 outline-none"
+              />
+            </div>
+          </div>
 
           <div>
             <label className="block text-xs font-semibold text-text-muted mb-1.5">Assigned Seat Number *</label>

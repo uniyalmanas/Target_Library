@@ -262,22 +262,49 @@ export async function POST(req: Request) {
         }
 
         if (memberError) {
-          return NextResponse.json({ error: memberError.message }, { status: 500 });
+          // If inserting with custom student_id failed, retry auto-generating student_id
+          const fallbackData = { ...memberData };
+          delete fallbackData.student_id;
+          const retryAuto = await supabase.from("members").insert(fallbackData).select().single();
+          if (retryAuto.data) {
+            resolvedStudentId = retryAuto.data.student_id;
+          } else {
+            return NextResponse.json({ error: memberError.message }, { status: 500 });
+          }
         }
       } else {
         return NextResponse.json(
-          { error: `Member ID #${resolvedStudentId} does not exist.` },
+          { error: `Member ID #${resolvedStudentId} does not exist. Please enter Student Full Name to create a new profile.` },
           { status: 400 }
         );
       }
     } else {
-      // Existing member: update Aadhaar if provided
-      if (aadhar_no) {
+      // Existing member: update details if provided
+      const updateData: Record<string, any> = {};
+      if (aadhar_no && typeof aadhar_no === "string" && aadhar_no.trim()) {
+        updateData.aadhar_no = aadhar_no.trim();
+      }
+      if (phone && typeof phone === "string" && phone.trim()) {
+        updateData.phone = phone.trim();
+      }
+      if (name && typeof name === "string" && name.trim()) {
+        updateData.name = name.trim();
+      }
+      if (Object.keys(updateData).length > 0) {
         try {
-          await supabase
+          const { error: updErr } = await supabase
             .from("members")
-            .update({ aadhar_no: aadhar_no.trim() })
+            .update(updateData)
             .eq("student_id", resolvedStudentId);
+          if (updErr && (updErr.code === "42703" || updErr.message?.includes("aadhar_no"))) {
+            delete updateData.aadhar_no;
+            if (Object.keys(updateData).length > 0) {
+              await supabase
+                .from("members")
+                .update(updateData)
+                .eq("student_id", resolvedStudentId);
+            }
+          }
         } catch {
           // ignore if column doesn't exist
         }
