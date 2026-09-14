@@ -12,6 +12,7 @@ import { getStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug }
 import DynamicUpiModal from "@/lib/DynamicUpiModal";
 import { generateDueFeeWhatsAppMessage } from "@/lib/upi";
 import { getAvailableShiftsForSeat, getShiftDisplayLabel } from "@/lib/shifts";
+import SubscriptionPaymentModal from "@/lib/SubscriptionPaymentModal";
 
 interface MemberData {
   student_id: number;
@@ -119,6 +120,7 @@ export default function TenantDeskPage({
 
   // User Authentication & Role Detection
   const [isOwner, setIsOwner] = useState<boolean>(false);
+  const [showPayEarlyModal, setShowPayEarlyModal] = useState<boolean>(false);
 
   useEffect(() => {
     const session = getStoredSession();
@@ -601,16 +603,13 @@ export default function TenantDeskPage({
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-              <a
-                href={`https://wa.me/918535035757?text=${encodeURIComponent(
-                  `Hi LibraryOS Admin, I am testing ${library.name} (/l/${library.slug}) on the 7-day trial and want to activate the ₹${library.monthly_fee || 600}/mo subscription.`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition active:scale-95 text-center cursor-pointer"
+              <button
+                type="button"
+                onClick={() => setShowPayEarlyModal(true)}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition active:scale-95 text-center cursor-pointer flex items-center justify-center gap-1.5"
               >
-                Activate ₹{library.monthly_fee || 600}/mo Plan 🚀
-              </a>
+                <span>⚡</span> Pay &amp; Activate Plan Early 🚀
+              </button>
             </div>
           </div>
         )}
@@ -1353,6 +1352,14 @@ export default function TenantDeskPage({
           shiftLabel={shiftLabel(selectedUpiCandidate.shift_type, selectedUpiCandidate.subscription_type)}
         />
       )}
+
+      {/* Instant Early Subscription Payment Modal */}
+      <SubscriptionPaymentModal
+        isOpen={showPayEarlyModal}
+        onClose={() => setShowPayEarlyModal(false)}
+        library={library}
+        onSuccess={loadInfo}
+      />
     </div>
   );
 }

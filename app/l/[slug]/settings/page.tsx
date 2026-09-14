@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useCallback } from "react";
 import Link from "next/link";
 import { Library, LibrarySettings, ShiftConfig } from "@/lib/types";
 import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, DEMO_LIBRARY, DEMO_SETTINGS, isDemoSlug, getEffectiveLogo, getLibraryAccessStatus } from "@/lib/tenant";
@@ -8,6 +8,7 @@ import LibraryLogo from "@/lib/LibraryLogo";
 import TenantAccessBarrier from "@/lib/TenantAccessBarrier";
 import { getStoredSession, setStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
 import { doShiftsClash } from "@/lib/shifts";
+import SubscriptionPaymentModal from "@/lib/SubscriptionPaymentModal";
 
 export const PRESET_EMBLEMS = [
   { id: "academy", label: "Academy Crest", icon: "🏛️", gradient: ["#8B5CF6", "#6D28D9"] },
@@ -81,7 +82,8 @@ export default function LibraryOwnerSettingsPage({
   const [newShiftSheetPrice, setNewShiftSheetPrice] = useState<number>(900);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<"branding" | "seats_shifts" | "matrix_layout" | "upi_soundbox" | "passwords" | "general" | "poster" | "domains" | "backup">("branding");
+  const [activeTab, setActiveTab] = useState<"branding" | "seats_shifts" | "matrix_layout" | "upi_soundbox" | "passwords" | "general" | "poster" | "domains" | "backup" | "billing">("branding");
+  const [showBillingPaymentModal, setShowBillingPaymentModal] = useState(false);
 
   // Seat Matrix Display & Layout States
   const [matrixPreset, setMatrixPreset] = useState<"fit" | "compact" | "standard" | "large" | "custom">("fit");
@@ -118,56 +120,57 @@ export default function LibraryOwnerSettingsPage({
   const [domainErrorMessage, setDomainErrorMessage] = useState<string | null>(null);
 
   // Fetch initial settings
-  useEffect(() => {
-    async function loadSettings() {
-      try {
-        const res = await fetch(`/api/libraries/${slug}/settings`);
-        if (res.ok) {
-          const data = await res.json();
-          const isDemo = isDemoSlug(slug);
-          const lib = data.library || (isDemo ? DEMO_LIBRARY : FALLBACK_TARGET_LIBRARY);
-          const sett = data.settings || (isDemo ? DEMO_SETTINGS : FALLBACK_SETTINGS);
+  const loadSettings = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/libraries/${slug}/settings`);
+      if (res.ok) {
+        const data = await res.json();
+        const isDemo = isDemoSlug(slug);
+        const lib = data.library || (isDemo ? DEMO_LIBRARY : FALLBACK_TARGET_LIBRARY);
+        const sett = data.settings || (isDemo ? DEMO_SETTINGS : FALLBACK_SETTINGS);
 
-          setLibrary(lib);
-          setSettings(sett);
+        setLibrary(lib);
+        setSettings(sett);
 
-          setName(lib.name || "");
-          setPhone(lib.phone || "");
-          setCity(lib.city || (isDemo ? "Innovation Hub" : "Dehradun"));
-          setAddress(lib.address || "");
-          setUpiId(lib.upi_id || "");
-          setUpiName(lib.upi_name || "");
-          setLogoUrl(lib.logo_url || "");
-          setCustomInitials((lib.name || slug).replace(/^the\s+/i, "").slice(0, 2).toUpperCase());
+        setName(lib.name || "");
+        setPhone(lib.phone || "");
+        setCity(lib.city || (isDemo ? "Innovation Hub" : "Dehradun"));
+        setAddress(lib.address || "");
+        setUpiId(lib.upi_id || "");
+        setUpiName(lib.upi_name || "");
+        setLogoUrl(lib.logo_url || "");
+        setCustomInitials((lib.name || slug).replace(/^the\s+/i, "").slice(0, 2).toUpperCase());
 
-          setTotalSeats(sett.total_seats || 297);
-          setShifts(sett.shifts_config || FALLBACK_SETTINGS.shifts_config);
-          setHasSheetEnabled(sett.has_sheet_enabled ?? true);
-          setSheetPriceMonthly(sett.sheet_price_monthly ?? 300);
-        }
-
-        // Fetch domain and subdomain configuration
-        try {
-          const dRes = await fetch(`/api/domains/manage?slug=${slug}`);
-          if (dRes.ok) {
-            const dData = await dRes.json();
-            if (dData.config) {
-              setSubdomainInput(dData.config.subdomain || "");
-              setCustomDomainInput(dData.config.custom_domain || "");
-              setIsDomainVerified(dData.config.custom_domain_verified || false);
-            }
-          }
-        } catch {
-          // ignore
-        }
-      } catch (err) {
-        console.error("Failed to load settings:", err);
-      } finally {
-        setLoading(false);
+        setTotalSeats(sett.total_seats || 297);
+        setShifts(sett.shifts_config || FALLBACK_SETTINGS.shifts_config);
+        setHasSheetEnabled(sett.has_sheet_enabled ?? true);
+        setSheetPriceMonthly(sett.sheet_price_monthly ?? 300);
       }
+
+      // Fetch domain and subdomain configuration
+      try {
+        const dRes = await fetch(`/api/domains/manage?slug=${slug}`);
+        if (dRes.ok) {
+          const dData = await dRes.json();
+          if (dData.config) {
+            setSubdomainInput(dData.config.subdomain || "");
+            setCustomDomainInput(dData.config.custom_domain || "");
+            setIsDomainVerified(dData.config.custom_domain_verified || false);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    } catch (err) {
+      console.error("Failed to load settings:", err);
+    } finally {
+      setLoading(false);
     }
-    loadSettings();
   }, [slug]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   // Restore saved seat matrix display preferences and check ?tab= query parameter
   useEffect(() => {
@@ -811,6 +814,16 @@ export default function LibraryOwnerSettingsPage({
             }`}
           >
             <span>📊</span> Data Backup &amp; Excel
+          </button>
+          <button
+            onClick={() => setActiveTab("billing")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "billing"
+                ? "bg-rose-600 text-white shadow-xs"
+                : "text-text-muted hover:text-text-main hover:bg-neutral-500/5"
+            }`}
+          >
+            <span>💳</span> Subscription &amp; Billing
           </button>
         </div>
 
@@ -2590,7 +2603,128 @@ export default function LibraryOwnerSettingsPage({
             </div>
           </div>
         )}
+
+        {/* TAB 9: Subscription & SaaS Billing Suite */}
+        {activeTab === "billing" && (
+          <div className="space-y-6 animate-in fade-in">
+            {/* Hero Subscription Status Card */}
+            <div className="bg-card-bg border-2 border-rose-500/30 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 relative overflow-hidden">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-panel-border pb-5">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center text-3xl shrink-0">
+                    💳
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-xl font-black text-text-main tracking-tight">
+                        Subscription &amp; Platform License
+                      </h2>
+                      {access.isTrial ? (
+                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                          7-Day Free Trial ({access.trialDaysRemaining} days left)
+                        </span>
+                      ) : access.status === "active" ? (
+                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                          Active Plan ({access.subscriptionDaysRemaining} days remaining)
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                          Expired / Renewal Required
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-text-muted mt-1">
+                      Manage your LibraryOS software license, renewal dates, and instant payment receipts.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowBillingPaymentModal(true)}
+                  className="px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <span>⚡</span> Pay &amp; Activate Early 🚀
+                </button>
+              </div>
+
+              {/* Status & Plan Breakdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-2xl bg-neutral-500/5 border border-panel-border space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-text-muted tracking-wider">Current Plan</span>
+                  <div className="text-lg font-black text-foreground">
+                    Flat Monthly Pro
+                  </div>
+                  <p className="text-xs text-text-muted font-medium">₹599 / month flat</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-neutral-500/5 border border-panel-border space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-text-muted tracking-wider">License Expiry</span>
+                  <div className="text-lg font-black text-foreground">
+                    {access.isTrial
+                      ? `${access.trialDaysRemaining} Days Left`
+                      : library.subscription_ends_at
+                        ? new Date(library.subscription_ends_at).toLocaleDateString("en-IN", { dateStyle: "medium" })
+                        : "Lifetime Active"}
+                  </div>
+                  <p className="text-xs text-text-muted font-medium">
+                    {access.isTrial ? "Trial Evaluation Phase" : "Automatic data preservation guaranteed"}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-neutral-500/5 border border-panel-border space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-text-muted tracking-wider">Total Seats Managed</span>
+                  <div className="text-lg font-black text-foreground">
+                    {totalSeats} Physical Seats
+                  </div>
+                  <p className="text-xs text-text-muted font-medium">Multi-shift &amp; sheet configs included</p>
+                </div>
+              </div>
+
+              {/* Instant In-Person Field Sales Payment Info Box */}
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-card-bg to-emerald-500/5 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+                <div className="space-y-1">
+                  <h4 className="font-extrabold text-foreground flex items-center gap-1.5 text-sm">
+                    <span>📱</span> Instant On-The-Spot Payment (UPI QR)
+                  </h4>
+                  <p className="text-text-muted leading-relaxed max-w-xl">
+                    Want to pay right now on the spot? Click the button to scan our official dynamic UPI QR code with GPay, PhonePe, or Paytm and attach your transaction screenshot. Our team will verify and add 30 days instantly.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBillingPaymentModal(true)}
+                  className="px-5 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white font-bold text-xs shadow-sm transition active:scale-95 shrink-0 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>📷</span> Scan QR &amp; Upload Screenshot
+                </button>
+              </div>
+
+              {/* Data Safety & Founder Support */}
+              <div className="pt-2 border-t border-panel-border flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-500 font-bold">✓</span>
+                  <span>Zero lock-in • 100% data preservation even if subscription expires</span>
+                </div>
+                <div>
+                  Founder Desk Support:{" "}
+                  <a href="tel:+918535035757" className="font-bold text-rose-600 hover:underline">
+                    +91 8535035757
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Subscription Payment Modal */}
+      <SubscriptionPaymentModal
+        isOpen={showBillingPaymentModal}
+        onClose={() => setShowBillingPaymentModal(false)}
+        library={library}
+        onSuccess={loadSettings}
+      />
     </div>
   );
 }
