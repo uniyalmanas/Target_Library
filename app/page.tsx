@@ -187,19 +187,19 @@ export default function SaaSMarketingLandingPage() {
 
             {/* Quick Status Legend */}
             <div className="flex items-center gap-2 flex-wrap text-[11px]">
-              <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-950 font-bold border border-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-500/40">
+              <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-950 font-bold border border-emerald-400 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/20">
                 🟢 Free
               </span>
-              <span className="px-2 py-0.5 rounded-lg bg-rose-100 text-rose-950 font-bold border border-rose-400 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-500/40">
+              <span className="px-2 py-0.5 rounded-lg bg-rose-100 text-rose-950 font-bold border border-rose-400 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/20">
                 🔴 Full Day
               </span>
-              <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-950 font-bold border border-amber-400 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-500/40">
+              <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-950 font-bold border border-amber-400 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20">
                 🟡 Half Day
               </span>
-              <span className="px-2 py-0.5 rounded-lg bg-purple-100 text-purple-950 font-bold border border-purple-400 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-500/40">
+              <span className="px-2 py-0.5 rounded-lg bg-purple-100 text-purple-950 font-bold border border-purple-400 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/20">
                 🟣 2x Shift Split
               </span>
-              <span className="px-2 py-0.5 rounded-lg bg-blue-100 text-blue-950 font-bold border border-blue-400 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-500/40">
+              <span className="px-2 py-0.5 rounded-lg bg-blue-100 text-blue-950 font-bold border border-blue-400 dark:bg-blue-500/15 dark:text-blue-400 dark:border-blue-500/20">
                 🔵 Due Fee
               </span>
             </div>
@@ -208,19 +208,19 @@ export default function SaaSMarketingLandingPage() {
           {/* 24-Seat Simulator Grid */}
           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2.5">
             {demoSeats.map((s) => {
-              let color = "bg-emerald-100 text-emerald-950 border-2 border-emerald-400 hover:bg-emerald-200 hover:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-500/40 dark:hover:bg-emerald-900/60";
+              let color = "bg-emerald-100 text-emerald-950 border-2 border-emerald-400 hover:bg-emerald-200 hover:border-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border dark:border-emerald-500/20 dark:hover:bg-emerald-500/20 dark:hover:border-emerald-500/40";
               let label = "Free";
               if (s.status === "full_day") {
-                color = "bg-rose-100 text-rose-950 border-2 border-rose-400 hover:bg-rose-200 hover:border-rose-500 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-500/40 dark:hover:bg-rose-900/60";
+                color = "bg-rose-100 text-rose-950 border-2 border-rose-400 hover:bg-rose-200 hover:border-rose-500 dark:bg-rose-500/10 dark:text-rose-400 dark:border dark:border-rose-500/20 dark:hover:bg-rose-500/20 dark:hover:border-rose-500/40";
                 label = "Full";
               } else if (s.status === "half_day") {
-                color = "bg-amber-100 text-amber-950 border-2 border-amber-400 hover:bg-amber-200 hover:border-amber-500 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-500/40 dark:hover:bg-amber-900/60";
+                color = "bg-amber-100 text-amber-950 border-2 border-amber-400 hover:bg-amber-200 hover:border-amber-500 dark:bg-amber-500/10 dark:text-amber-400 dark:border dark:border-amber-500/20 dark:hover:bg-amber-500/20 dark:hover:border-amber-500/40";
                 label = "1x Shift";
               } else if (s.status === "double_shift") {
-                color = "bg-purple-100 text-purple-950 border-2 border-purple-400 hover:bg-purple-200 hover:border-purple-500 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-500/40 dark:hover:bg-purple-900/60";
+                color = "bg-purple-100 text-purple-950 border-2 border-purple-400 hover:bg-purple-200 hover:border-purple-500 dark:bg-purple-500/15 dark:text-purple-300 dark:border dark:border-purple-500/40 dark:hover:bg-purple-500/25 dark:hover:border-purple-500/60";
                 label = "2x Shift";
               } else if (s.status === "due") {
-                color = "bg-blue-100 text-blue-950 border-2 border-blue-400 hover:bg-blue-200 hover:border-blue-500 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-500/40 dark:hover:bg-blue-900/60";
+                color = "bg-blue-100 text-blue-950 border-2 border-blue-400 hover:bg-blue-200 hover:border-blue-500 dark:bg-blue-500/15 dark:text-blue-400 dark:border dark:border-blue-500/40 dark:hover:bg-blue-500/25 dark:hover:border-blue-500/60";
                 label = "Due";
               }
 
