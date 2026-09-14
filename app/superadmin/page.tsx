@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { Library } from "@/lib/types";
+import { Library, SubscriptionRequest } from "@/lib/types";
 import { getLibraryAccessStatus } from "@/lib/tenant";
 import { downloadCsv } from "@/lib/exportCsv";
 import { getStoredSession, setStoredSession, clearStoredSession, isSuperAdminAuthenticated, setSuperAdminMasterSession, impersonateTenantOwner } from "@/lib/auth";
@@ -18,6 +18,15 @@ export default function SuperAdminPage() {
   const [passcodeInput, setPasscodeInput] = useState("");
   const [passcodeError, setPasscodeError] = useState("");
   const [unlocking, setUnlocking] = useState(false);
+
+  // Subscription Payment Verifications State
+  const [subRequests, setSubRequests] = useState<SubscriptionRequest[]>([]);
+  const [loadingSubRequests, setLoadingSubRequests] = useState(false);
+  const [selectedScreenshot, setSelectedScreenshot] = useState<{ url: string; title: string } | null>(null);
+  const [processingReqId, setProcessingReqId] = useState<string | null>(null);
+  const [rejectModalReq, setRejectModalReq] = useState<SubscriptionRequest | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [showRequestsHistory, setShowRequestsHistory] = useState(false);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,12 +77,28 @@ export default function SuperAdminPage() {
     }
   };
 
+  const fetchSubRequests = async () => {
+    setLoadingSubRequests(true);
+    try {
+      const res = await fetch("/api/subscription-requests?all=true");
+      const data = await res.json();
+      if (res.ok) {
+        setSubRequests(data.requests || []);
+      }
+    } catch {
+      // Ignore network errors
+    } finally {
+      setLoadingSubRequests(false);
+    }
+  };
+
   // Verify Founder Passcode Session
   useEffect(() => {
     if (isSuperAdminAuthenticated()) {
       setSuperAdminMasterSession(true);
       setIsSuperAdminAuth(true);
       fetchLibraries();
+      fetchSubRequests();
     } else {
       setIsSuperAdminAuth(false);
       setLoading(false);
@@ -109,6 +134,7 @@ export default function SuperAdminPage() {
         });
         setIsSuperAdminAuth(true);
         fetchLibraries();
+        fetchSubRequests();
       } else {
         setPasscodeError(data.error || "Incorrect founder passcode. Access denied.");
       }
@@ -192,6 +218,74 @@ export default function SuperAdminPage() {
     }
   };
 
+  // Subscription Requests Approval & Rejection Handlers
+  const handleApproveSubRequest = async (req: SubscriptionRequest) => {
+    const confirmApprove = window.confirm(
+      `Approve payment of ₹${req.amount} for ${req.library_name}? This will activate their subscription for ${req.billing_period_days || 30} days.`
+    );
+    if (!confirmApprove) return;
+
+    setProcessingReqId(req.id);
+    try {
+      const res = await fetch("/api/subscription-requests", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: req.id,
+          action: "approve",
+          reviewed_by: "Founder Admin",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to approve request");
+
+      alert(data.message || "Payment verified and subscription activated!");
+      fetchSubRequests();
+      fetchLibraries();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error approving payment");
+    } finally {
+      setProcessingReqId(null);
+    }
+  };
+
+  const handleRejectSubRequest = async () => {
+    if (!rejectModalReq) return;
+    if (!rejectionReason.trim()) {
+      alert("Please provide a reason for rejecting this payment submission.");
+      return;
+    }
+
+    setProcessingReqId(rejectModalReq.id);
+    try {
+      const res = await fetch("/api/subscription-requests", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: rejectModalReq.id,
+          action: "reject",
+          rejection_reason: rejectionReason.trim(),
+          reviewed_by: "Founder Admin",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to reject request");
+
+      setRejectModalReq(null);
+      setRejectionReason("");
+      fetchSubRequests();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error rejecting payment");
+    } finally {
+      setProcessingReqId(null);
+    }
+  };
+
+  // Pending Subscription Requests Memo
+  const pendingSubRequests = useMemo(() => {
+    return subRequests.filter((r) => r.status === "pending");
+  }, [subRequests]);
+
   // Stats Calculations: Only count verified paid active subscriptions toward MRR
   // Free 7-day trials (like testing-library-1) have NOT paid fees and do not inflate MRR!
   const stats = useMemo(() => {
@@ -267,11 +361,13 @@ export default function SuperAdminPage() {
       if (e.key === "Escape") {
         if (showAddModal) setShowAddModal(false);
         if (editingLibrary) setEditingLibrary(null);
+        if (selectedScreenshot) setSelectedScreenshot(null);
+        if (rejectModalReq) setRejectModalReq(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showAddModal, editingLibrary]);
+  }, [showAddModal, editingLibrary, selectedScreenshot, rejectModalReq]);
 
   // Handle Slug Auto-generation
   const handleNameChange = (name: string) => {
@@ -573,7 +669,10 @@ export default function SuperAdminPage() {
             ← SaaS Home
           </Link>
           <button
-            onClick={fetchLibraries}
+            onClick={() => {
+              fetchLibraries();
+              fetchSubRequests();
+            }}
             className="px-3 py-2 text-xs font-semibold rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
           >
             🔄 Refresh
@@ -651,6 +750,132 @@ export default function SuperAdminPage() {
           <div className="text-[11px] text-text-muted mt-1">Data safely preserved</div>
         </div>
       </div>
+
+      {/* Pending Payment Verifications Section */}
+      {pendingSubRequests.length > 0 && (
+        <div className="my-6 p-5 rounded-3xl bg-amber-500/10 border-2 border-amber-500/40 shadow-lg space-y-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl p-2.5 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                🔔
+              </span>
+              <div>
+                <h2 className="text-base font-black text-foreground flex items-center gap-2">
+                  <span>Pending Subscription Payment Verifications</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-amber-500 text-black">
+                    {pendingSubRequests.length} Waiting
+                  </span>
+                </h2>
+                <p className="text-xs text-text-muted mt-0.5">
+                  Library owners have uploaded UPI payment screenshots. Verify the transaction and approve with 1 click.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={fetchSubRequests}
+              className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+            >
+              🔄 Refresh Queue
+            </button>
+          </div>
+
+          {/* List of Pending Requests */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pendingSubRequests.map((req) => (
+              <div
+                key={req.id}
+                className="bg-card-bg border border-amber-500/30 rounded-2xl p-4 shadow-sm space-y-3.5 flex flex-col justify-between"
+              >
+                <div className="space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-extrabold text-sm text-foreground flex items-center gap-1.5">
+                        <span>📚</span> {req.library_name}
+                      </h3>
+                      <Link
+                        href={`/l/${encodeURIComponent(req.library_slug)}`}
+                        target="_blank"
+                        className="text-[11px] text-text-muted hover:text-rose-500 font-mono transition inline-block"
+                      >
+                        /l/{req.library_slug} ↗
+                      </Link>
+                    </div>
+                    <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      ₹{req.amount}
+                    </span>
+                  </div>
+
+                  <div className="text-xs space-y-1 text-text-muted">
+                    <div className="flex justify-between">
+                      <span>Plan:</span>
+                      <span className="font-semibold text-foreground">{req.plan_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Submitted:</span>
+                      <span>{new Date(req.created_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</span>
+                    </div>
+                    {req.utr_number && (
+                      <div className="flex justify-between">
+                        <span>UTR / Ref:</span>
+                        <span className="font-mono font-bold text-foreground">{req.utr_number}</span>
+                      </div>
+                    )}
+                    {req.notes && (
+                      <div className="text-[11px] italic bg-neutral-500/5 p-2 rounded-lg border border-panel-border mt-1">
+                        &ldquo;{req.notes}&rdquo;
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Screenshot Thumbnail Preview */}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedScreenshot({
+                          url: req.screenshot_url,
+                          title: `${req.library_name} — ₹${req.amount} Payment Screenshot`,
+                        })
+                      }
+                      className="w-full relative group rounded-xl overflow-hidden border border-panel-border bg-neutral-900/10 hover:border-amber-500/50 transition cursor-pointer"
+                    >
+                      <img
+                        src={req.screenshot_url}
+                        alt="Payment Receipt Screenshot"
+                        className="w-full h-32 object-cover object-top"
+                      />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1.5">
+                        <span>🔍</span> Click to Inspect Screenshot
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-panel-border">
+                  <button
+                    onClick={() => handleApproveSubRequest(req)}
+                    disabled={processingReqId === req.id}
+                    className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    <span>{processingReqId === req.id ? "⏳" : "✓"}</span> Approve (+30d)
+                  </button>
+                  <button
+                    onClick={() => {
+                      setRejectModalReq(req);
+                      setRejectionReason("");
+                    }}
+                    disabled={processingReqId === req.id}
+                    className="py-2.5 px-3 rounded-xl bg-card-bg border border-rose-500/30 hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    <span>✕</span> Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Search & Status Filter Toolbar */}
       <div className="bg-card-bg border border-panel-border rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 my-6">
@@ -1343,6 +1568,110 @@ export default function SuperAdminPage() {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Screen Screenshot Lightbox Modal */}
+      {selectedScreenshot && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setSelectedScreenshot(null)}
+        >
+          <div
+            className="bg-card-bg border border-panel-border rounded-3xl max-w-4xl max-h-[90vh] w-full p-6 shadow-2xl flex flex-col space-y-4 relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-panel-border pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📸</span>
+                <h3 className="font-extrabold text-sm text-foreground">
+                  {selectedScreenshot.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedScreenshot(null)}
+                className="w-8 h-8 rounded-full bg-neutral-500/10 hover:bg-neutral-500/20 text-foreground font-bold flex items-center justify-center transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto flex items-center justify-center p-2 bg-neutral-950/50 rounded-2xl min-h-[300px]">
+              <img
+                src={selectedScreenshot.url}
+                alt="Full Payment Screenshot"
+                className="max-h-[70vh] max-w-full object-contain rounded-xl shadow-lg"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-panel-border text-xs text-text-muted">
+              <span>Press Escape or click outside to close</span>
+              <a
+                href={selectedScreenshot.url}
+                download="payment-screenshot.webp"
+                className="font-bold text-rose-600 dark:text-rose-400 hover:underline"
+              >
+                Download Screenshot 📥
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Payment Request Dialog Modal */}
+      {rejectModalReq && (
+        <div
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setRejectModalReq(null)}
+        >
+          <div
+            className="bg-card-bg border-2 border-rose-500/30 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+              <span className="text-2xl">⚠️</span>
+              <h3 className="font-black text-base text-foreground">
+                Reject Payment Submission
+              </h3>
+            </div>
+
+            <p className="text-xs text-text-muted leading-relaxed">
+              You are rejecting the payment submission of <strong>₹{rejectModalReq.amount}</strong> for <strong>{rejectModalReq.library_name}</strong>. The owner will see this reason on their renewal paywall and can re-upload a valid receipt.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                Reason for Rejection
+              </label>
+              <textarea
+                rows={3}
+                required
+                placeholder="e.g. Screenshot unreadable, amount does not match, or transaction ID not found in bank statement..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                className="w-full bg-background border border-panel-border rounded-xl p-3 text-xs text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-panel-border">
+              <button
+                type="button"
+                onClick={() => setRejectModalReq(null)}
+                className="px-4 py-2 rounded-xl border border-panel-border text-xs font-semibold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={processingReqId === rejectModalReq.id || !rejectionReason.trim()}
+                onClick={handleRejectSubRequest}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition cursor-pointer disabled:opacity-50"
+              >
+                {processingReqId === rejectModalReq.id ? "Rejecting..." : "Confirm Rejection"}
+              </button>
             </div>
           </div>
         </div>

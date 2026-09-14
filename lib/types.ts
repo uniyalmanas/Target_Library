@@ -135,6 +135,25 @@ export interface AdmissionRequest {
   reviewed_by?: string | null;
 }
 
+export interface SubscriptionRequest {
+  id: string;
+  library_id: string;
+  library_slug: string;
+  library_name: string;
+  amount: number;
+  plan_name: string;
+  billing_period_days: number;
+  screenshot_url: string;
+  utr_number?: string | null;
+  notes?: string | null;
+  status: "pending" | "approved" | "rejected";
+  rejection_reason?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export function toISODate(d: Date) {
   return d.toISOString().split("T")[0];
 }
