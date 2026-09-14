@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import HeaderNavbar from "@/lib/HeaderNavbar";
 import TenantFooter from "@/lib/TenantFooter";
@@ -12,18 +12,33 @@ const jakarta = Plus_Jakarta_Sans({
   variable: "--font-sans",
 });
 
+export const viewport: Viewport = {
+  themeColor: "#e11d48",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
   title: "The Target Library • LibraryOS",
   description: "Seat, member, and subscription management workspace for Indian study libraries",
   manifest: "/manifest.webmanifest",
+  applicationName: "LibraryOS",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "LibraryOS",
   },
   icons: {
-    icon: "/lib-logo.png",
-    apple: "/icons/icon-192.png",
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
   },
 };
 
