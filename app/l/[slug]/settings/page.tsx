@@ -1789,19 +1789,19 @@ export default function LibraryOwnerSettingsPage({
 
               {/* Status Color Legend */}
               <div className="flex items-center gap-2 flex-wrap text-[11px] pb-1">
-                <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/20">
+                <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-950 font-bold border border-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-500/40">
                   🟢 Free (Available)
                 </span>
-                <span className="px-2 py-0.5 rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-400 font-bold border border-rose-500/20">
+                <span className="px-2 py-0.5 rounded-lg bg-rose-100 text-rose-950 font-bold border border-rose-400 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-500/40">
                   🔴 Full Day
                 </span>
-                <span className="px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold border border-amber-500/20">
+                <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-950 font-bold border border-amber-400 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-500/40">
                   🟡 Half Day
                 </span>
-                <span className="px-2 py-0.5 rounded-lg bg-purple-500/15 text-purple-700 dark:text-purple-300 font-bold border border-purple-500/20">
+                <span className="px-2 py-0.5 rounded-lg bg-purple-100 text-purple-950 font-bold border border-purple-400 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-500/40">
                   🟣 2x Shift Split
                 </span>
-                <span className="px-2 py-0.5 rounded-lg bg-blue-500/15 text-blue-700 dark:text-blue-400 font-bold border border-blue-500/20">
+                <span className="px-2 py-0.5 rounded-lg bg-blue-100 text-blue-950 font-bold border border-blue-400 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-500/40">
                   🔵 Overdue Fee
                 </span>
               </div>
@@ -1833,18 +1833,18 @@ export default function LibraryOwnerSettingsPage({
                     const isDouble = seatNum === 7 || seatNum === 17 || seatNum === 31;
                     const isFree = !isDue && !isFull && !isHalf && !isDouble;
 
-                    let colorClass = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20";
+                    let colorClass = "bg-emerald-100 text-emerald-950 border-2 border-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-500/40";
                     let badge = "";
                     if (isDue) {
-                      colorClass = "bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/40";
+                      colorClass = "bg-blue-100 text-blue-950 border-2 border-blue-400 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-500/40";
                       badge = "Due";
                     } else if (isDouble) {
-                      colorClass = "bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/40";
+                      colorClass = "bg-purple-100 text-purple-950 border-2 border-purple-400 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-500/40";
                       badge = "2x";
                     } else if (isFull) {
-                      colorClass = "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20";
+                      colorClass = "bg-rose-100 text-rose-950 border-2 border-rose-400 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-500/40";
                     } else if (isHalf) {
-                      colorClass = "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20";
+                      colorClass = "bg-amber-100 text-amber-950 border-2 border-amber-400 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-500/40";
                     }
 
                     const isTiny = matrixTileSize < 34;

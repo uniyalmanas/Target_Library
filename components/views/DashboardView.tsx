@@ -567,7 +567,7 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                     <Link
                       key={s.seat_id}
                       href={`/l/${encodeURIComponent(slug)}/new-receipt?seat_number=${s.seat_number}`}
-                      className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40 px-3 py-2.5 rounded-xl font-bold text-center text-xs transition-all hover:-translate-y-0.5 shadow-sm hover:shadow-emerald-500/10 flex items-center justify-center gap-1 cursor-pointer"
+                      className="bg-emerald-100 text-emerald-950 border-2 border-emerald-400 hover:bg-emerald-200 hover:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-500/40 dark:hover:bg-emerald-900/60 px-3 py-2.5 rounded-xl font-black text-center text-xs transition-all hover:-translate-y-0.5 shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <span className="text-[10px]">🪑</span> Seat {s.seat_number}
                     </Link>
@@ -589,7 +589,7 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                       <Link
                         key={s.seat_id}
                         href={`/l/${encodeURIComponent(slug)}/members/${r.student_id}`}
-                        className="bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/15 hover:border-amber-500/35 p-4 rounded-2xl flex justify-between items-center transition-all hover:-translate-y-0.5 shadow-sm hover:shadow-amber-500/5 group cursor-pointer"
+                        className="bg-amber-50/50 hover:bg-amber-100/60 dark:bg-amber-950/15 dark:hover:bg-amber-950/30 border border-amber-300 dark:border-amber-500/25 p-4 rounded-2xl flex justify-between items-center transition-all hover:-translate-y-0.5 shadow-2xs group cursor-pointer"
                       >
                         <div className="space-y-1">
                           <p className="text-xs text-text-muted">Seat number</p>
@@ -597,10 +597,10 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                             <span className="text-sm">🪑</span> {s.seat_number}
                           </p>
                           <p className="text-[11px] text-text-details font-medium mt-1">
-                            Occupant: <span className="font-semibold text-foreground group-hover:text-amber-500 transition-colors">{r.member?.name}</span>
+                            Occupant: <span className="font-semibold text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{r.member?.name}</span>
                           </p>
                         </div>
-                        <span className="text-[9px] font-extrabold uppercase bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25 px-2.5 py-1 rounded-full tracking-wider">
+                        <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-950 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-400 dark:border-amber-500/30 px-2.5 py-1 rounded-full tracking-wider">
                           {r.shift_type === "shift_1" || r.shift_type === "morning" ? "Shift 1" : r.shift_type === "shift_2" || r.shift_type === "evening" ? "Shift 2" : "Shift 3"}
                         </span>
                       </Link>
@@ -627,13 +627,13 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                   {doubleShiftSeatsList.map((s) => (
                     <div
                       key={s.seat_id}
-                      className="bg-purple-500/5 border border-purple-500/15 p-4 rounded-2xl flex flex-col justify-between gap-3 shadow-sm hover:border-purple-500/35 transition"
+                      className="bg-purple-50/50 hover:bg-purple-100/60 dark:bg-purple-950/15 dark:hover:bg-purple-950/30 border border-purple-300 dark:border-purple-500/25 p-4 rounded-2xl flex flex-col justify-between gap-3 shadow-2xs transition"
                     >
                       <div className="flex justify-between items-center">
                         <p className="text-base font-extrabold text-foreground flex items-center gap-1.5">
                           <span className="text-sm">🪑</span> Seat {s.seat_number}
                         </p>
-                        <span className="text-[9px] font-extrabold uppercase bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25 px-2.5 py-1 rounded-full tracking-wider flex items-center gap-1">
+                        <span className="text-[9px] font-black uppercase bg-purple-100 text-purple-950 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-400 dark:border-purple-500/30 px-2.5 py-1 rounded-full tracking-wider flex items-center gap-1">
                           <span>👥</span> 2 Shifts
                         </span>
                       </div>
@@ -642,10 +642,10 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                           <Link
                             key={r.receipt_no}
                             href={`/l/${encodeURIComponent(slug)}/members/${r.student_id}`}
-                            className="block text-xs p-3 rounded-xl bg-background/60 hover:bg-purple-500/10 border border-panel-border hover:border-purple-500/25 transition group cursor-pointer"
+                            className="block text-xs p-3 rounded-xl bg-card-bg hover:bg-purple-100/40 dark:bg-background/60 dark:hover:bg-purple-500/10 border border-panel-border hover:border-purple-400 dark:hover:border-purple-500/25 transition group cursor-pointer shadow-2xs"
                           >
                             <div className="flex justify-between items-center">
-                              <span className="font-bold text-foreground group-hover:text-purple-500 transition-colors">
+                              <span className="font-bold text-foreground group-hover:text-purple-700 dark:group-hover:text-purple-400 transition-colors">
                                 {r.member?.name}
                               </span>
                               <span className="text-[10px] text-text-muted font-mono">
@@ -653,7 +653,7 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                               </span>
                             </div>
                             <div className="flex justify-between items-center mt-1.5 text-[10px]">
-                              <span className="text-purple-600 dark:text-purple-400 font-bold uppercase">
+                              <span className="text-purple-700 dark:text-purple-400 font-bold uppercase">
                                 {r.shift_type === "shift_1" || r.shift_type === "morning"
                                   ? "Shift 1 (6AM–2PM)"
                                   : r.shift_type === "shift_2" || r.shift_type === "evening"
@@ -683,13 +683,13 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                   {fullSeatsList.map((s) => (
                     <div
                       key={s.seat_id}
-                      className="bg-rose-500/5 border border-rose-500/15 p-4 rounded-2xl flex flex-col justify-between gap-3.5 shadow-sm"
+                      className="bg-rose-50/50 hover:bg-rose-100/60 dark:bg-rose-950/15 dark:hover:bg-rose-950/30 border border-rose-300 dark:border-rose-500/25 p-4 rounded-2xl flex flex-col justify-between gap-3.5 shadow-2xs"
                     >
                       <div className="flex justify-between items-center">
                         <p className="text-base font-extrabold text-foreground flex items-center gap-1.5">
                           <span className="text-sm">🪑</span> Seat {s.seat_number}
                         </p>
-                        <span className="text-[9px] font-extrabold uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 px-2.5 py-1 rounded-full tracking-wider">
+                        <span className="text-[9px] font-black uppercase bg-rose-100 text-rose-950 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-400 dark:border-rose-500/30 px-2.5 py-1 rounded-full tracking-wider">
                           Full Day
                         </span>
                       </div>

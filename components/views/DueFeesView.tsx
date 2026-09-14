@@ -461,7 +461,7 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
                     <tr key={c.receipt_no} className="hover:bg-neutral-500/5 transition-colors group">
                       {/* Seat Number */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="inline-flex items-center justify-center font-mono font-black text-sm bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 w-10 h-10 rounded-lg shadow-inner">
+                        <span className="inline-flex items-center justify-center font-mono font-black text-sm bg-blue-100 text-blue-950 border border-blue-400 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-500/30 w-10 h-10 rounded-lg shadow-2xs">
                           {c.seat_number}
                         </span>
                       </td>

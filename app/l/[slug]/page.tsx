@@ -350,21 +350,21 @@ export default function TenantDeskPage({
 
   const seatColor = (s: SeatData) => {
     if (!s.occupied) {
-      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:shadow-[0_0_10px_rgba(16,185,129,0.15)] hover:-translate-y-0.5";
+      return "bg-emerald-100 text-emerald-950 border-2 border-emerald-400 hover:bg-emerald-200 hover:border-emerald-500 hover:shadow-md hover:shadow-emerald-500/15 hover:-translate-y-0.5 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-500/40 dark:hover:bg-emerald-900/60 dark:hover:border-emerald-400";
     }
     if (s.is_overdue || s.status === "due") {
-      return "bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/40 hover:bg-blue-500/25 hover:border-blue-500/60 hover:shadow-[0_0_12px_rgba(59,130,246,0.3)] hover:-translate-y-0.5";
+      return "bg-blue-100 text-blue-950 border-2 border-blue-400 hover:bg-blue-200 hover:border-blue-500 hover:shadow-md hover:shadow-blue-500/15 hover:-translate-y-0.5 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-500/40 dark:hover:bg-blue-900/60 dark:hover:border-blue-400";
     }
     if (s.status === "partial_due") {
-      return "bg-gradient-to-br from-blue-500/20 to-amber-500/20 text-blue-700 dark:text-blue-300 border border-blue-400/50 hover:border-blue-500/70 hover:shadow-[0_0_12px_rgba(59,130,246,0.25)] hover:-translate-y-0.5";
+      return "bg-gradient-to-br from-blue-100 to-amber-100 text-blue-950 border-2 border-blue-400 hover:border-blue-500 hover:shadow-md hover:shadow-blue-500/15 hover:-translate-y-0.5 dark:from-blue-950/50 dark:to-amber-950/50 dark:text-blue-200 dark:border-blue-500/50 dark:hover:border-blue-400";
     }
     if (isSeatDoubleShift(s)) {
-      return "bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/40 hover:bg-purple-500/25 hover:border-purple-500/60 hover:shadow-[0_0_12px_rgba(168,85,247,0.3)] hover:-translate-y-0.5";
+      return "bg-purple-100 text-purple-950 border-2 border-purple-400 hover:bg-purple-200 hover:border-purple-500 hover:shadow-md hover:shadow-purple-500/15 hover:-translate-y-0.5 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-500/40 dark:hover:bg-purple-900/60 dark:hover:border-purple-400";
     }
     if (isSeatFullDay(s)) {
-      return "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/40 hover:shadow-[0_0_10px_rgba(244,63,94,0.15)] hover:-translate-y-0.5";
+      return "bg-rose-100 text-rose-950 border-2 border-rose-400 hover:bg-rose-200 hover:border-rose-500 hover:shadow-md hover:shadow-rose-500/15 hover:-translate-y-0.5 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-500/40 dark:hover:bg-rose-900/60 dark:hover:border-rose-400";
     }
-    return "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 hover:shadow-[0_0_10px_rgba(245,158,11,0.15)] hover:-translate-y-0.5";
+    return "bg-amber-100 text-amber-950 border-2 border-amber-400 hover:bg-amber-200 hover:border-amber-500 hover:shadow-md hover:shadow-amber-500/15 hover:-translate-y-0.5 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-500/40 dark:hover:bg-amber-900/60 dark:hover:border-amber-400";
   };
 
   // Auto-fit calculation to scale seats so they fit within the visible desktop screen
@@ -734,55 +734,77 @@ export default function TenantDeskPage({
         )}
 
         {/* Stats Metrics Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
           <button
             onClick={() => setFilterStatus("all")}
-            className={`p-3 rounded-2xl border text-left transition ${
-              filterStatus === "all" ? "bg-rose-500/15 border-rose-500" : "bg-card-bg border-panel-border"
+            className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+              filterStatus === "all"
+                ? "bg-slate-100 dark:bg-neutral-800 border-2 border-slate-900 dark:border-white shadow-sm ring-2 ring-slate-400/20"
+                : "bg-card-bg border-panel-border hover:border-slate-300 dark:hover:border-neutral-700 shadow-2xs"
             }`}
           >
-            <div className="text-[10px] uppercase font-bold text-text-muted">Total Seats</div>
-            <div className="text-xl font-black font-mono mt-0.5">{seats.length}</div>
+            <div className="text-[10px] uppercase font-bold text-slate-600 dark:text-text-muted tracking-wider">Total Seats</div>
+            <div className="text-xl font-black font-mono mt-0.5 text-foreground">{seats.length}</div>
           </button>
 
           <button
             onClick={() => setFilterStatus("free")}
-            className={`p-3 rounded-2xl border text-left transition ${
-              filterStatus === "free" ? "bg-emerald-500/15 border-emerald-500" : "bg-card-bg border-panel-border"
+            className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+              filterStatus === "free"
+                ? "bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-600 dark:border-emerald-400 shadow-sm ring-2 ring-emerald-500/20"
+                : "bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 hover:border-emerald-400 shadow-2xs"
             }`}
           >
-            <div className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400">🟢 Free Seats</div>
-            <div className="text-xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">{freeCount}</div>
+            <div className="text-[10px] uppercase font-bold text-emerald-800 dark:text-emerald-400 tracking-wider">🟢 Free Seats</div>
+            <div className="text-xl font-black font-mono text-emerald-950 dark:text-emerald-300 mt-0.5">{freeCount}</div>
           </button>
 
           <button
             onClick={() => setFilterStatus("full_day")}
-            className={`p-3 rounded-2xl border text-left transition ${
-              filterStatus === "full_day" ? "bg-rose-500/15 border-rose-500" : "bg-card-bg border-panel-border"
+            className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+              filterStatus === "full_day"
+                ? "bg-rose-100 dark:bg-rose-950/60 border-2 border-rose-600 dark:border-rose-400 shadow-sm ring-2 ring-rose-500/20"
+                : "bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 hover:border-rose-400 shadow-2xs"
             }`}
           >
-            <div className="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400">🔴 Full Day</div>
-            <div className="text-xl font-black font-mono text-rose-600 dark:text-rose-400 mt-0.5">{fullDayCount}</div>
+            <div className="text-[10px] uppercase font-bold text-rose-800 dark:text-rose-400 tracking-wider">🔴 Full Day</div>
+            <div className="text-xl font-black font-mono text-rose-950 dark:text-rose-300 mt-0.5">{fullDayCount}</div>
           </button>
 
           <button
             onClick={() => setFilterStatus("half_day")}
-            className={`p-3 rounded-2xl border text-left transition ${
-              filterStatus === "half_day" ? "bg-amber-500/15 border-amber-500" : "bg-card-bg border-panel-border"
+            className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+              filterStatus === "half_day"
+                ? "bg-amber-100 dark:bg-amber-950/60 border-2 border-amber-600 dark:border-amber-400 shadow-sm ring-2 ring-amber-500/20"
+                : "bg-amber-50/70 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40 hover:border-amber-400 shadow-2xs"
             }`}
           >
-            <div className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400">🟡 Half Day</div>
-            <div className="text-xl font-black font-mono text-amber-600 dark:text-amber-400 mt-0.5">{partialCount}</div>
+            <div className="text-[10px] uppercase font-bold text-amber-800 dark:text-amber-400 tracking-wider">🟡 Half Day (1 Shift)</div>
+            <div className="text-xl font-black font-mono text-amber-950 dark:text-amber-300 mt-0.5">{partialCount}</div>
+          </button>
+
+          <button
+            onClick={() => setFilterStatus("double_shift")}
+            className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+              filterStatus === "double_shift"
+                ? "bg-purple-100 dark:bg-purple-950/60 border-2 border-purple-600 dark:border-purple-400 shadow-sm ring-2 ring-purple-500/20"
+                : "bg-purple-50/70 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/40 hover:border-purple-400 shadow-2xs"
+            }`}
+          >
+            <div className="text-[10px] uppercase font-bold text-purple-800 dark:text-purple-400 tracking-wider">🟣 Double Shift (Full)</div>
+            <div className="text-xl font-black font-mono text-purple-950 dark:text-purple-300 mt-0.5">{doubleShiftCount}</div>
           </button>
 
           <button
             onClick={() => setFilterStatus("due")}
-            className={`p-3 rounded-2xl border text-left transition ${
-              filterStatus === "due" ? "bg-blue-500/15 border-blue-500" : "bg-card-bg border-panel-border"
+            className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+              filterStatus === "due"
+                ? "bg-blue-100 dark:bg-blue-950/60 border-2 border-blue-600 dark:border-blue-400 shadow-sm ring-2 ring-blue-500/20"
+                : "bg-blue-50/70 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/40 hover:border-blue-400 shadow-2xs"
             }`}
           >
-            <div className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">🔵 Overdue Fees</div>
-            <div className="text-xl font-black font-mono text-blue-600 dark:text-blue-400 mt-0.5">{dueCount}</div>
+            <div className="text-[10px] uppercase font-bold text-blue-800 dark:text-blue-400 tracking-wider">🔵 Overdue Fees</div>
+            <div className="text-xl font-black font-mono text-blue-950 dark:text-blue-300 mt-0.5">{dueCount}</div>
           </button>
         </div>
 
@@ -794,7 +816,7 @@ export default function TenantDeskPage({
           }`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-panel-border pb-3.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-panel-border pb-3.5">
             <div className="flex items-center gap-3">
               <h2 className="font-black text-sm sm:text-base flex items-center gap-2">
                 <span>🎬</span> Real-Time Seat Matrix Layout
@@ -802,6 +824,32 @@ export default function TenantDeskPage({
               <span className="text-xs text-text-muted font-medium bg-neutral-500/10 px-2.5 py-0.5 rounded-full">
                 Showing {seats.filter(matchesFilter).length} of {seats.length} seats
               </span>
+            </div>
+
+            {/* Quick Status Legend & Fullscreen Button */}
+            <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 text-[11px] font-bold">
+              <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-950 border border-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-500/40">
+                🟢 Free
+              </span>
+              <span className="px-2 py-0.5 rounded-lg bg-rose-100 text-rose-950 border border-rose-400 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-500/40">
+                🔴 Full Day
+              </span>
+              <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-950 border border-amber-400 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-500/40">
+                🟡 Shift Avail
+              </span>
+              <span className="px-2 py-0.5 rounded-lg bg-purple-100 text-purple-950 border border-purple-400 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-500/40">
+                🟣 2x Shifts
+              </span>
+              <span className="px-2 py-0.5 rounded-lg bg-blue-100 text-blue-950 border border-blue-400 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-500/40">
+                🔵 Due
+              </span>
+              <button
+                onClick={toggleFullscreen}
+                className="ml-auto px-2.5 py-1 rounded-lg border border-panel-border bg-background hover:bg-neutral-500/10 text-text-muted hover:text-text-main text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                title="Toggle Fullscreen"
+              >
+                {isFullscreen ? "✕ Exit Fullscreen" : "⛶ Fullscreen"}
+              </button>
             </div>
           </div>
 
@@ -922,16 +970,16 @@ export default function TenantDeskPage({
                 <span
                   className={`px-2.5 sm:px-3 py-1 rounded-full text-[10px] uppercase font-black tracking-wider border text-center ${
                     !selected.occupied
-                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                      ? "bg-emerald-100 text-emerald-950 border-emerald-400 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-500/40"
                       : selected.is_overdue || selected.status === "due"
-                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/40"
+                      ? "bg-blue-100 text-blue-950 border-blue-400 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-500/40"
                       : selected.status === "partial_due"
-                      ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/40"
+                      ? "bg-gradient-to-r from-blue-100 to-amber-100 text-blue-950 border-blue-400 dark:from-blue-950/50 dark:to-amber-950/50 dark:text-blue-200 dark:border-blue-500/40"
                       : isSeatDoubleShift(selected)
-                      ? "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/35"
+                      ? "bg-purple-100 text-purple-950 border-purple-400 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-500/40"
                       : selected.receipts?.some((r) => r.subscription_type === "full_day")
-                      ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
-                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                      ? "bg-rose-100 text-rose-950 border-rose-400 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-500/40"
+                      : "bg-amber-100 text-amber-950 border-amber-400 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-500/40"
                   }`}
                 >
                   {!selected.occupied
@@ -941,10 +989,10 @@ export default function TenantDeskPage({
                     : selected.status === "partial_due"
                     ? "Partial Due"
                     : isSeatDoubleShift(selected)
-                    ? "👥 Double Shifted"
+                    ? "👥 Double Shifted (Full)"
                     : selected.receipts?.some((r) => r.subscription_type === "full_day")
-                    ? "Full Day"
-                    : `${shiftLabel(selected.receipts[0]?.shift_type)} Occupied`}
+                    ? "Full Day (Occupied)"
+                    : `${shiftLabel(selected.receipts[0]?.shift_type)} (Accommodating Shift Available)`}
                 </span>
                 <button
                   onClick={() => setSelected(null)}
