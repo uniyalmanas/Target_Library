@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Library, SubscriptionRequest } from "@/lib/types";
 import { getLibraryAccessStatus } from "@/lib/tenant";
 import { downloadCsv } from "@/lib/exportCsv";
 import { getStoredSession, setStoredSession, clearStoredSession, isSuperAdminAuthenticated, setSuperAdminMasterSession, impersonateTenantOwner } from "@/lib/auth";
 import { generateUpiQrCodeUrl } from "@/lib/upi";
+import LibraryLogo from "@/lib/LibraryLogo";
 
 export default function SuperAdminPage() {
   const [libraries, setLibraries] = useState<Library[]>([]);
@@ -71,6 +72,69 @@ export default function SuperAdminPage() {
   const [savingUpi, setSavingUpi] = useState(false);
   const [upiSaveFeedback, setUpiSaveFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
+  // Founder SaaS Platform Logo State
+  const [platformLogo, setPlatformLogo] = useState("/libraryos-logo.png");
+  const [showPlatformLogoModal, setShowPlatformLogoModal] = useState(false);
+  const [newPlatformLogoPreview, setNewPlatformLogoPreview] = useState<string | null>(null);
+  const [platformLogoFileSize, setPlatformLogoFileSize] = useState<string | null>(null);
+  const [savingPlatformLogo, setSavingPlatformLogo] = useState(false);
+  const [platformLogoFeedback, setPlatformLogoFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const platformLogoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Library Logo Modal State
+  const [logoModalLib, setLogoModalLib] = useState<Library | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoFileSize, setLogoFileSize] = useState<string | null>(null);
+  const [savingLogo, setSavingLogo] = useState(false);
+  const [logoActionFeedback, setLogoActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const libraryLogoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Process image file via HTML5 Canvas into compact WebP Base64 string (< 30KB)
+  const processImageFile = (file: File): Promise<{ dataUrl: string; sizeKb: number }> => {
+    return new Promise((resolve, reject) => {
+      if (!file.type.startsWith("image/")) {
+        reject(new Error("Please select an image file (PNG, JPG, WebP, SVG)."));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxDim = 256;
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            reject(new Error("Canvas context could not be created."));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL("image/webp", 0.88);
+          const approxSizeKb = Math.round(((compressed.length * 0.75) / 1024) * 10) / 10;
+          resolve({ dataUrl: compressed, sizeKb: approxSizeKb });
+        };
+        img.onerror = () => reject(new Error("Failed to load image."));
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error("Failed to read file."));
+      reader.readAsDataURL(file);
+    });
+  };
+
   const fetchPlatformConfig = async () => {
     try {
       const res = await fetch("/api/platform-config");
@@ -79,6 +143,7 @@ export default function SuperAdminPage() {
         if (data.upi_id) setPlatformUpiId(data.upi_id);
         if (data.upi_name) setPlatformUpiName(data.upi_name);
         if (data.phone) setPlatformPhone(data.phone);
+        if (data.logo_url) setPlatformLogo(data.logo_url);
       }
     } catch {
       // Fallback
@@ -120,6 +185,134 @@ export default function SuperAdminPage() {
       setUpiSaveFeedback({ type: "error", message: err instanceof Error ? err.message : "Network error" });
     } finally {
       setSavingUpi(false);
+    }
+  };
+
+  const handlePlatformLogoFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const { dataUrl, sizeKb } = await processImageFile(file);
+      setNewPlatformLogoPreview(dataUrl);
+      setPlatformLogoFileSize(`${sizeKb} KB (WebP)`);
+      setPlatformLogoFeedback(null);
+    } catch (err: unknown) {
+      setPlatformLogoFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Failed to process logo image",
+      });
+    }
+  };
+
+  const handleSavePlatformLogo = async () => {
+    setSavingPlatformLogo(true);
+    setPlatformLogoFeedback(null);
+    try {
+      const res = await fetch("/api/platform-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          logo_url: newPlatformLogoPreview || "/libraryos-logo.png",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save platform logo");
+
+      setPlatformLogo(newPlatformLogoPreview || "/libraryos-logo.png");
+      setPlatformLogoFeedback({
+        type: "success",
+        message: "Platform logo updated successfully! All platform views and prompts now display the new logo.",
+      });
+
+      setTimeout(() => {
+        setPlatformLogoFeedback(null);
+        setShowPlatformLogoModal(false);
+      }, 1500);
+    } catch (err: unknown) {
+      setPlatformLogoFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Failed to update platform logo",
+      });
+    } finally {
+      setSavingPlatformLogo(false);
+    }
+  };
+
+  const handleOpenLogoModal = (lib: Library) => {
+    setLogoModalLib(lib);
+    setLogoPreview(lib.logo_url || null);
+    setLogoFileSize(null);
+    setLogoActionFeedback(null);
+  };
+
+  const handleLibraryLogoFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const { dataUrl, sizeKb } = await processImageFile(file);
+      setLogoPreview(dataUrl);
+      setLogoFileSize(`${sizeKb} KB (WebP)`);
+      setLogoActionFeedback(null);
+    } catch (err: unknown) {
+      setLogoActionFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Failed to process logo image",
+      });
+    }
+  };
+
+  const handleSaveLibraryLogo = async () => {
+    if (!logoModalLib) return;
+    setSavingLogo(true);
+    setLogoActionFeedback(null);
+    try {
+      const res = await fetch("/api/libraries", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: logoModalLib.id,
+          logo_url: logoPreview || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update logo");
+
+      // Also ensure library_settings is synchronized
+      try {
+        await fetch(`/api/libraries/${logoModalLib.slug}/settings`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            logo_url: logoPreview || null,
+          }),
+        });
+      } catch {
+        // safe fallback
+      }
+
+      // Update local state immediately
+      setLibraries((prev) =>
+        prev.map((l) =>
+          l.id === logoModalLib.id ? { ...l, logo_url: logoPreview || null } : l
+        )
+      );
+
+      setLogoActionFeedback({
+        type: "success",
+        message: `Logo updated successfully for ${logoModalLib.name}! Passes, receipts, and headers are live.`,
+      });
+
+      setTimeout(() => {
+        setLogoActionFeedback(null);
+        setLogoModalLib(null);
+      }, 1500);
+    } catch (err: unknown) {
+      setLogoActionFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Error saving logo",
+      });
+    } finally {
+      setSavingLogo(false);
     }
   };
 
@@ -424,6 +617,9 @@ export default function SuperAdminPage() {
       if (e.key === "Escape") {
         if (showAddModal) setShowAddModal(false);
         if (showUpiModal) setShowUpiModal(false);
+        if (showPlatformLogoModal) setShowPlatformLogoModal(false);
+        if (logoModalLib) setLogoModalLib(null);
+        if (passwordModalLib) setPasswordModalLib(null);
         if (editingLibrary) setEditingLibrary(null);
         if (selectedScreenshot) setSelectedScreenshot(null);
         if (rejectModalReq) setRejectModalReq(null);
@@ -431,7 +627,7 @@ export default function SuperAdminPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showAddModal, showUpiModal, editingLibrary, selectedScreenshot, rejectModalReq]);
+  }, [showAddModal, showUpiModal, showPlatformLogoModal, logoModalLib, passwordModalLib, editingLibrary, selectedScreenshot, rejectModalReq]);
 
   // Handle Slug Auto-generation
   const handleNameChange = (name: string) => {
@@ -713,7 +909,34 @@ export default function SuperAdminPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-panel-border pb-6">
         <div>
           <div className="flex items-center gap-3">
-            <span className="text-3xl">🛡️</span>
+            <div className="relative group shrink-0">
+              <img
+                src={platformLogo || "/libraryos-logo.png"}
+                alt="Platform Logo"
+                className="w-10 h-10 rounded-2xl object-contain border border-panel-border shadow-xs bg-card-bg p-1 shrink-0 cursor-pointer group-hover:opacity-90 transition"
+                onClick={() => {
+                  setPlatformLogoFeedback(null);
+                  setNewPlatformLogoPreview(platformLogo);
+                  setPlatformLogoFileSize(null);
+                  setShowPlatformLogoModal(true);
+                }}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = "/libraryos-logo.png";
+                }}
+              />
+              <button
+                onClick={() => {
+                  setPlatformLogoFeedback(null);
+                  setNewPlatformLogoPreview(platformLogo);
+                  setPlatformLogoFileSize(null);
+                  setShowPlatformLogoModal(true);
+                }}
+                className="absolute inset-0 bg-black/50 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs text-white transition cursor-pointer"
+                title="Change SaaS Platform Logo"
+              >
+                ✏️
+              </button>
+            </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-black tracking-tight">
                 SaaS Founder Control Panel
@@ -748,6 +971,18 @@ export default function SuperAdminPage() {
             title="Download full client directory as CSV"
           >
             <span>📥</span> Export Tenants CSV
+          </button>
+          <button
+            onClick={() => {
+              setPlatformLogoFeedback(null);
+              setNewPlatformLogoPreview(platformLogo);
+              setPlatformLogoFileSize(null);
+              setShowPlatformLogoModal(true);
+            }}
+            className="px-3.5 py-2 text-xs font-bold rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="Change SaaS Platform Brand Logo"
+          >
+            <span>🖼️</span> Platform Logo
           </button>
           <button
             onClick={() => {
@@ -1078,16 +1313,36 @@ export default function SuperAdminPage() {
                       <tr key={lib.id} className="hover:bg-neutral-500/5 transition-colors">
                         {/* Name */}
                         <td className="py-3.5 px-4">
-                          <div className="font-bold text-text-main text-sm flex items-center gap-2">
-                            {lib.name}
-                            {lib.is_lifetime_fixed && (
-                              <span className="text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded font-bold">
-                                ⭐ Founding VIP
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[11px] text-text-muted mt-0.5">
-                            📞 {lib.phone || "No phone"} • UPI: {lib.upi_id || "None"}
+                          <div className="flex items-center gap-3">
+                            <div className="relative group shrink-0">
+                              <LibraryLogo
+                                slug={lib.slug}
+                                logoUrl={lib.logo_url}
+                                name={lib.name}
+                                size="md"
+                                className="border border-panel-border shadow-2xs"
+                              />
+                              <button
+                                onClick={() => handleOpenLogoModal(lib)}
+                                className="absolute inset-0 bg-black/60 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] text-white transition cursor-pointer"
+                                title="Change logo for this library"
+                              >
+                                ✏️
+                              </button>
+                            </div>
+                            <div>
+                              <div className="font-bold text-text-main text-sm flex items-center gap-2">
+                                {lib.name}
+                                {lib.is_lifetime_fixed && (
+                                  <span className="text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded font-bold">
+                                    ⭐ Founding VIP
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-text-muted mt-0.5">
+                                📞 {lib.phone || "No phone"} • UPI: {lib.upi_id || "None"}
+                              </div>
+                            </div>
                           </div>
                         </td>
 
@@ -1235,6 +1490,15 @@ export default function SuperAdminPage() {
                               title="View & Reset Owner or Staff Passwords without knowing previous passwords"
                             >
                               <span>🔑</span> Passwords
+                            </button>
+
+                            {/* 🖼️ Manage & Upload Logo Button */}
+                            <button
+                              onClick={() => handleOpenLogoModal(lib)}
+                              className="px-2 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                              title="Upload or Change Logo for this library"
+                            >
+                              <span>🖼️</span> Logo
                             </button>
 
                             <Link
@@ -1911,6 +2175,357 @@ export default function SuperAdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Change Library Logo Modal */}
+      {logoModalLib && (
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 md:p-6 z-50 overflow-y-auto animate-in fade-in"
+          onClick={() => setLogoModalLib(null)}
+        >
+          <div
+            className="my-auto bg-card-bg border border-panel-border rounded-3xl max-w-xl w-full shadow-2xl animate-in fade-in zoom-in duration-150 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-panel-border p-4 sm:p-5 bg-card-bg shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xl shrink-0">
+                  🖼️
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base sm:text-lg text-text-main flex items-center gap-2">
+                    Library Branding &amp; Logo
+                  </h3>
+                  <p className="text-xs text-text-muted">
+                    {logoModalLib.name} • <code className="font-mono text-rose-500">/l/{logoModalLib.slug}</code>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setLogoModalLib(null)}
+                className="w-8 h-8 rounded-full bg-neutral-500/10 hover:bg-neutral-500/20 text-text-muted hover:text-text-main flex items-center justify-center text-sm font-bold cursor-pointer transition shrink-0"
+                title="Close (Esc)"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-6 space-y-5 text-xs overflow-y-auto flex-1 overscroll-contain">
+              {/* Feedback toast */}
+              {logoActionFeedback && (
+                <div
+                  className={`p-3 rounded-xl border text-xs font-bold flex items-center gap-2 ${
+                    logoActionFeedback.type === "success"
+                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                      : "bg-rose-500/15 border-rose-500/30 text-rose-700 dark:text-rose-300"
+                  }`}
+                >
+                  <span>{logoActionFeedback.type === "success" ? "✅" : "⚠️"}</span>
+                  <span>{logoActionFeedback.message}</span>
+                </div>
+              )}
+
+              {/* Active Logo Visual Showcase */}
+              <div className="p-4 rounded-2xl bg-neutral-500/5 border border-panel-border flex flex-col sm:flex-row items-center gap-4">
+                <div className="p-3 bg-white dark:bg-neutral-900 rounded-2xl border border-panel-border shadow-xs flex items-center justify-center shrink-0">
+                  <LibraryLogo
+                    slug={logoModalLib.slug}
+                    logoUrl={logoPreview}
+                    name={logoModalLib.name}
+                    size="2xl"
+                  />
+                </div>
+                <div className="flex-1 text-center sm:text-left space-y-1">
+                  <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                    <span className="font-extrabold text-sm text-text-main">
+                      {logoPreview
+                        ? logoPreview.startsWith("data:")
+                          ? "Custom Uploaded Logo"
+                          : "Preset Brand Asset"
+                        : "Dynamic Monogram Badge"}
+                    </span>
+                    {logoFileSize && (
+                      <span className="text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/30">
+                        {logoFileSize}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-text-muted leading-relaxed">
+                    This logo appears instantly across member passes, thermal receipts, top navigation bars, and enrollment forms for this study room.
+                  </p>
+                </div>
+              </div>
+
+              {/* In-Context Mini Pass Preview */}
+              <div className="p-3.5 bg-neutral-500/5 rounded-2xl border border-panel-border space-y-2">
+                <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                  Live Preview in Student Pass &amp; Header
+                </div>
+                <div className="bg-card-bg border border-panel-border p-3 rounded-xl flex items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <LibraryLogo
+                      slug={logoModalLib.slug}
+                      logoUrl={logoPreview}
+                      name={logoModalLib.name}
+                      size="md"
+                    />
+                    <div>
+                      <div className="font-extrabold text-xs text-text-main">{logoModalLib.name}</div>
+                      <div className="text-[10px] text-text-muted">Digital Student ID Card • Verified Pass</div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                    🟢 Active
+                  </span>
+                </div>
+              </div>
+
+              {/* Upload Dropzone */}
+              <div>
+                <input
+                  ref={libraryLogoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  onChange={handleLibraryLogoFileSelect}
+                  className="hidden"
+                />
+                <div
+                  onClick={() => libraryLogoInputRef.current?.click()}
+                  className="border-2 border-dashed border-indigo-500/40 hover:border-indigo-500 rounded-2xl p-6 text-center cursor-pointer transition bg-indigo-500/5 hover:bg-indigo-500/10 group"
+                >
+                  <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">📁</div>
+                  <div className="font-extrabold text-xs text-text-main">
+                    Click to Choose Logo Image
+                  </div>
+                  <p className="text-[11px] text-text-muted mt-1">
+                    Supports PNG, JPG, WebP, SVG. Resized and converted to fast WebP (&lt; 30 KB) automatically.
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Presets / Actions */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block">
+                  Quick Presets &amp; Reset Options:
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLogoPreview(null);
+                      setLogoFileSize(null);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                      logoPreview === null
+                        ? "bg-rose-500/15 border-rose-500/40 text-rose-700 dark:text-rose-300 font-bold"
+                        : "bg-card-bg border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-main"
+                    }`}
+                  >
+                    <span>🎨</span> Reset to Monogram Badge
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLogoPreview("/libraryos-logo.png");
+                      setLogoFileSize("Default Asset");
+                    }}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                      logoPreview === "/libraryos-logo.png"
+                        ? "bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300 font-bold"
+                        : "bg-card-bg border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-main"
+                    }`}
+                  >
+                    <span>📚</span> LibraryOS Brand Emblem
+                  </button>
+
+                  {logoModalLib.slug === "target-library" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLogoPreview("/lib-logo.png");
+                        setLogoFileSize("Default Asset");
+                      }}
+                      className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                        logoPreview === "/lib-logo.png"
+                          ? "bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300 font-bold"
+                          : "bg-card-bg border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-main"
+                      }`}
+                    >
+                      <span>🏛️</span> Target Library Original
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between gap-2.5 p-4 sm:p-5 border-t border-panel-border bg-card-bg shrink-0">
+              <button
+                type="button"
+                onClick={() => setLogoModalLib(null)}
+                className="px-4 py-2 rounded-xl border border-panel-border text-xs font-semibold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={savingLogo}
+                  onClick={handleSaveLibraryLogo}
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <span>{savingLogo ? "⏳" : "💾"}</span>
+                  {savingLogo ? "Saving Logo..." : "Save Logo Changes"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SaaS Platform Brand Logo Modal */}
+      {showPlatformLogoModal && (
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 md:p-6 z-50 overflow-y-auto animate-in fade-in"
+          onClick={() => setShowPlatformLogoModal(false)}
+        >
+          <div
+            className="my-auto bg-card-bg border-2 border-purple-500/30 rounded-3xl max-w-lg w-full shadow-2xl animate-in fade-in zoom-in duration-150 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-panel-border p-4 sm:p-5 bg-card-bg shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xl shrink-0">
+                  🌐
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base sm:text-lg text-text-main flex items-center gap-2">
+                    Platform Brand Logo
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-500/20 text-purple-600 dark:text-purple-400">
+                      Founder Only
+                    </span>
+                  </h3>
+                  <p className="text-xs text-text-muted">
+                    Configure the global SaaS brand logo shown on LibraryOS headers &amp; PWA.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPlatformLogoModal(false)}
+                className="w-8 h-8 rounded-full bg-neutral-500/10 hover:bg-neutral-500/20 text-text-muted hover:text-text-main flex items-center justify-center text-sm font-bold cursor-pointer transition shrink-0"
+                title="Close (Esc)"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1 overscroll-contain">
+              {/* Feedback toast */}
+              {platformLogoFeedback && (
+                <div
+                  className={`p-3 rounded-xl border text-xs font-bold flex items-center gap-2 ${
+                    platformLogoFeedback.type === "success"
+                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                      : "bg-rose-500/15 border-rose-500/30 text-rose-700 dark:text-rose-300"
+                  }`}
+                >
+                  <span>{platformLogoFeedback.type === "success" ? "✅" : "⚠️"}</span>
+                  <span>{platformLogoFeedback.message}</span>
+                </div>
+              )}
+
+              {/* Active Logo Visual Showcase */}
+              <div className="p-4 rounded-2xl bg-neutral-500/5 border border-panel-border flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-white p-2 border border-panel-border shadow-xs flex items-center justify-center shrink-0">
+                  <img
+                    src={newPlatformLogoPreview || platformLogo || "/libraryos-logo.png"}
+                    alt="Platform Logo"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-sm text-text-main">
+                      {newPlatformLogoPreview && newPlatformLogoPreview.startsWith("data:")
+                        ? "Custom Founder Brand"
+                        : "LibraryOS Official Glowing Logo"}
+                    </span>
+                    {platformLogoFileSize && (
+                      <span className="text-[10px] font-mono font-bold bg-purple-500/15 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full border border-purple-500/30">
+                        {platformLogoFileSize}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-text-muted leading-relaxed">
+                    Used on SaaS Founder panel, PWA installation prompts, and system-wide badges.
+                  </p>
+                </div>
+              </div>
+
+              {/* Upload Dropzone */}
+              <div>
+                <input
+                  ref={platformLogoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  onChange={handlePlatformLogoFileSelect}
+                  className="hidden"
+                />
+                <div
+                  onClick={() => platformLogoInputRef.current?.click()}
+                  className="border-2 border-dashed border-purple-500/40 hover:border-purple-500 rounded-2xl p-6 text-center cursor-pointer transition bg-purple-500/5 hover:bg-purple-500/10 group"
+                >
+                  <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">📤</div>
+                  <div className="font-extrabold text-xs text-text-main">
+                    Click to Upload Custom Platform Logo
+                  </div>
+                  <p className="text-[11px] text-text-muted mt-1">
+                    Square PNG, SVG, or WebP recommended. Auto-compressed in browser.
+                  </p>
+                </div>
+              </div>
+
+              {/* Presets */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewPlatformLogoPreview("/libraryos-logo.png");
+                    setPlatformLogoFileSize("Default Asset");
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs font-semibold text-text-main transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>🔄</span> Restore Default /libraryos-logo.png
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between gap-2.5 p-4 sm:p-5 border-t border-panel-border bg-card-bg shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowPlatformLogoModal(false)}
+                className="px-4 py-2 rounded-xl border border-panel-border text-xs font-semibold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={savingPlatformLogo}
+                onClick={handleSavePlatformLogo}
+                className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md shadow-purple-600/20 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <span>{savingPlatformLogo ? "⏳" : "💾"}</span>
+                {savingPlatformLogo ? "Saving..." : "Save Platform Logo"}
+              </button>
+            </div>
           </div>
         </div>
       )}

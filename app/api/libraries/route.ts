@@ -176,7 +176,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, monthly_fee, subscription_status, subscription_ends_at, trial_ends_at, is_lifetime_fixed, discount_code } = body;
+    const { id, monthly_fee, subscription_status, subscription_ends_at, trial_ends_at, is_lifetime_fixed, discount_code, logo_url } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Library ID is required" }, { status: 400 });
@@ -189,6 +189,7 @@ export async function PUT(req: Request) {
     if (trial_ends_at !== undefined) updates.trial_ends_at = trial_ends_at;
     if (is_lifetime_fixed !== undefined) updates.is_lifetime_fixed = is_lifetime_fixed;
     if (discount_code !== undefined) updates.discount_code = discount_code;
+    if (logo_url !== undefined) updates.logo_url = logo_url;
 
     const { data, error } = await supabase
       .from("libraries")

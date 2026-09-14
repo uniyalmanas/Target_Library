@@ -6,16 +6,17 @@ export const dynamic = "force-dynamic";
 const DEFAULT_UPI_ID = process.env.NEXT_PUBLIC_SAAS_UPI_ID || "uniyalmanas@oksbi";
 const DEFAULT_UPI_NAME = process.env.NEXT_PUBLIC_SAAS_UPI_NAME || "Manas Uniyal";
 const DEFAULT_PHONE = "8535035757";
+const DEFAULT_LOGO_URL = "/libraryos-logo.png";
 
 /**
  * GET /api/platform-config
- * Fetch the current SaaS founder UPI ID, Payee Name, and Phone
+ * Fetch the current SaaS founder UPI ID, Payee Name, Phone, and Platform Logo
  */
 export async function GET() {
   try {
     const { data, error } = await supabase
       .from("libraries")
-      .select("upi_id, upi_name, phone, updated_at")
+      .select("upi_id, upi_name, phone, logo_url, updated_at")
       .eq("slug", "platform-config")
       .single();
 
@@ -24,6 +25,7 @@ export async function GET() {
         upi_id: DEFAULT_UPI_ID,
         upi_name: DEFAULT_UPI_NAME,
         phone: DEFAULT_PHONE,
+        logo_url: DEFAULT_LOGO_URL,
         source: "default",
       });
     }
@@ -32,6 +34,7 @@ export async function GET() {
       upi_id: data.upi_id || DEFAULT_UPI_ID,
       upi_name: data.upi_name || DEFAULT_UPI_NAME,
       phone: data.phone || DEFAULT_PHONE,
+      logo_url: data.logo_url || DEFAULT_LOGO_URL,
       updated_at: data.updated_at,
       source: "database",
     });
@@ -41,6 +44,7 @@ export async function GET() {
         upi_id: DEFAULT_UPI_ID,
         upi_name: DEFAULT_UPI_NAME,
         phone: DEFAULT_PHONE,
+        logo_url: DEFAULT_LOGO_URL,
         source: "fallback",
         error: err instanceof Error ? err.message : "Error loading config",
       },
@@ -51,23 +55,24 @@ export async function GET() {
 
 /**
  * PUT /api/platform-config
- * Founder SuperAdmin updates their SaaS receiver UPI ID, payee name, and phone
+ * Founder SuperAdmin updates their SaaS receiver UPI ID, payee name, phone, or platform logo
  */
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { upi_id, upi_name, phone } = body;
+    const { upi_id, upi_name, phone, logo_url } = body;
 
-    if (!upi_id || !upi_id.trim()) {
-      return NextResponse.json(
-        { error: "A valid UPI ID is required (e.g. uniyalmanas@oksbi)" },
-        { status: 400 }
-      );
-    }
+    // Fetch existing settings if any fields are omitted
+    const { data: existing } = await supabase
+      .from("libraries")
+      .select("upi_id, upi_name, phone, logo_url")
+      .eq("slug", "platform-config")
+      .single();
 
-    const cleanUpiId = upi_id.trim();
-    const cleanUpiName = upi_name?.trim() || "Manas Uniyal";
-    const cleanPhone = phone?.trim() || "8535035757";
+    const cleanUpiId = (upi_id && upi_id.trim()) || existing?.upi_id || DEFAULT_UPI_ID;
+    const cleanUpiName = upi_name?.trim() || existing?.upi_name || DEFAULT_UPI_NAME;
+    const cleanPhone = phone?.trim() || existing?.phone || DEFAULT_PHONE;
+    const cleanLogoUrl = logo_url !== undefined ? logo_url : (existing?.logo_url || DEFAULT_LOGO_URL);
 
     const { data, error } = await supabase
       .from("libraries")
@@ -78,6 +83,7 @@ export async function PUT(req: Request) {
           upi_id: cleanUpiId,
           upi_name: cleanUpiName,
           phone: cleanPhone,
+          logo_url: cleanLogoUrl,
           city: "Dehradun",
           monthly_fee: 0,
           subscription_status: "active",
@@ -85,7 +91,7 @@ export async function PUT(req: Request) {
         },
         { onConflict: "slug" }
       )
-      .select("upi_id, upi_name, phone, updated_at")
+      .select("upi_id, upi_name, phone, logo_url, updated_at")
       .single();
 
     if (error) {
@@ -94,11 +100,12 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Platform UPI configuration updated successfully! All QR codes now point to your new UPI ID.",
+      message: "Platform configuration updated successfully!",
       config: {
         upi_id: data.upi_id,
         upi_name: data.upi_name,
         phone: data.phone,
+        logo_url: data.logo_url,
         updated_at: data.updated_at,
       },
     });
