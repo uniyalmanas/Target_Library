@@ -201,6 +201,7 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
       start_date: startDate,
       end_date: endDate,
       seat_id,
+      seat_number: Number(seatNumber),
       slug,
       name: trimmedName,
       phone: (phone || memberPreview?.phone || "").trim() || null,
