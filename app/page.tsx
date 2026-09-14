@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { triggerPWAInstall } from "@/lib/PWAInstallPrompt";
 
 // Mini 24-seat interactive demo data for prospective library owners to test
 interface DemoSeat {
@@ -66,7 +67,7 @@ export default function SaaSMarketingLandingPage() {
           </Link>
 
           {/* Center Nav Links */}
-          <nav className="hidden md:flex items-center gap-7 text-xs font-semibold text-text-muted">
+          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-text-muted">
             <a href="#features" className="hover:text-text-main transition">Features</a>
             <Link href="/l/demo-library" className="hover:text-text-main text-rose-600 dark:text-rose-400 font-bold transition flex items-center gap-1">
               <span>✨</span> Live Demo
@@ -74,10 +75,24 @@ export default function SaaSMarketingLandingPage() {
             <a href="#interactive-demo" className="hover:text-text-main transition">Live Simulator</a>
             <a href="#how-it-works" className="hover:text-text-main transition">How It Works</a>
             <a href="#pricing" className="hover:text-text-main transition">Pricing</a>
+            <button
+              onClick={triggerPWAInstall}
+              className="px-2.5 py-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/25 font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+              title="Install LibraryOS PWA App"
+            >
+              <span>📲</span> Download App
+            </button>
           </nav>
 
           {/* Action CTAs */}
           <div className="flex items-center gap-2.5">
+            <button
+              onClick={triggerPWAInstall}
+              className="md:hidden px-3 py-1.5 rounded-xl text-xs font-extrabold text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/25 flex items-center gap-1 cursor-pointer shadow-2xs"
+              title="Install Mobile App"
+            >
+              <span>📲</span> App
+            </button>
             <Link
               href="/login"
               className="px-3.5 py-2 rounded-xl text-xs font-bold text-text-muted hover:text-text-main hover:bg-neutral-500/5 transition"
@@ -452,6 +467,38 @@ export default function SaaSMarketingLandingPage() {
               Start Free Trial →
             </Link>
           </div>
+        </div>
+
+        {/* Dedicated PWA App Download Banner right next to Pricing */}
+        <div className="bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-rose-500/10 border-2 border-rose-500/30 rounded-3xl p-6 sm:p-8 max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-4 text-center sm:text-left">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 p-0.5 shadow-md shrink-0 flex items-center justify-center overflow-hidden mx-auto sm:mx-0">
+              <div className="w-full h-full bg-background rounded-[14px] flex items-center justify-center">
+                <span className="text-2xl">📱</span>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                <h3 className="font-black text-base text-text-main">
+                  Download LibraryOS Mobile App (PWA)
+                </h3>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                  Free &bull; &lt;2MB
+                </span>
+              </div>
+              <p className="text-xs text-text-muted max-w-md leading-relaxed">
+                Available on Android, iPhone &amp; Desktop. Add directly to your phone&apos;s home screen for instant 1-tap full-screen reception desk, live soundbox chimes &amp; offline capability.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={triggerPWAInstall}
+            className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-extrabold text-xs shadow-lg shadow-rose-600/25 transition active:scale-95 text-center flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          >
+            <span>📲</span>
+            <span>Download / Install App</span>
+          </button>
         </div>
       </section>
 
