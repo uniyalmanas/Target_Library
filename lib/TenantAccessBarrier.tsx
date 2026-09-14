@@ -25,8 +25,8 @@ export default function TenantAccessBarrier({
   const [overrideError, setOverrideError] = useState<string | null>(null);
 
   // SaaS Payment Configuration
-  const saasUpiId = process.env.NEXT_PUBLIC_SAAS_UPI_ID || "8535035757@upi";
-  const saasPayeeName = process.env.NEXT_PUBLIC_SAAS_UPI_NAME || "LibraryOS Subscriptions";
+  const saasUpiId = process.env.NEXT_PUBLIC_SAAS_UPI_ID || "uniyalmanas@oksbi";
+  const saasPayeeName = process.env.NEXT_PUBLIC_SAAS_UPI_NAME || "Manas Uniyal";
 
   // Plan Selection State
   const totalSeats = (library as any).library_settings?.total_seats || 60;
@@ -527,6 +527,10 @@ export default function TenantAccessBarrier({
                       >
                         {copiedUpi ? "Copied! ✓" : "Copy"}
                       </button>
+                    </div>
+                    <div className="text-[11px] text-text-muted pt-1 flex items-center justify-between flex-wrap gap-1 border-t border-panel-border/60">
+                      <span>Payee: <strong className="text-foreground">{saasPayeeName}</strong></span>
+                      <span>Phone: <strong className="text-foreground font-mono">8535035757</strong></span>
                     </div>
                   </div>
 
