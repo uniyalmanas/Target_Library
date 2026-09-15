@@ -61,7 +61,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         const currentSearch = typeof window !== "undefined" ? window.location.search : "";
         const slugFromUrl = new URLSearchParams(currentSearch).get("slug");
         const stored = typeof window !== "undefined" ? getStoredSession() : null;
-        const effectiveSlug = pathSlug || slugFromUrl || stored?.librarySlug;
+        const storedSlug = typeof window !== "undefined" ? localStorage.getItem("library_last_slug") : null;
+        const effectiveSlug = pathSlug || slugFromUrl || stored?.librarySlug || storedSlug;
         const target = effectiveSlug ? `/login?slug=${encodeURIComponent(effectiveSlug)}` : "/login";
         router.replace(target);
       }

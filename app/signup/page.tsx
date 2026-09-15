@@ -105,6 +105,11 @@ function SignupContent() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to register library");
 
+      // Save to localStorage immediately so login page remembers it forever
+      if (typeof window !== "undefined") {
+        localStorage.setItem("library_last_slug", data.library.slug);
+      }
+
       setCreatedLibrary({
         slug: data.library.slug,
         name: data.library.name,
@@ -187,16 +192,16 @@ function SignupContent() {
             {/* Direct Action Buttons */}
             <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
               <Link
-                href={`/l/${createdLibrary.slug}`}
-                className="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md transition active:scale-95 text-center"
+                href={`/login?slug=${encodeURIComponent(createdLibrary.slug)}`}
+                className="w-full py-3.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md transition active:scale-95 text-center flex items-center justify-center gap-2 cursor-pointer"
               >
-                Open Desk Portal →
+                <span>🔑</span> Sign In to Desk Portal &rarr;
               </Link>
               <Link
-                href={`/l/${createdLibrary.slug}/settings`}
-                className="w-full py-3 rounded-2xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition text-center"
+                href={`/l/${createdLibrary.slug}`}
+                className="w-full py-3.5 rounded-2xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-xs font-bold transition text-center flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                🖨️ Print Door Poster →
+                <span>🪑</span> Direct Desk Matrix &rarr;
               </Link>
             </div>
           </div>
@@ -409,9 +414,9 @@ function SignupContent() {
             </button>
 
             <div className="text-center text-[11px] text-text-muted pt-1">
-              Already have an account?{" "}
-              <Link href="/login" className="font-bold underline hover:text-text-main">
-                Sign in to your portal
+              Already have a registered library?{" "}
+              <Link href="/login" className="font-bold underline text-rose-600 dark:text-rose-400 hover:text-text-main">
+                Sign in to your library portal &rarr;
               </Link>
             </div>
           </form>

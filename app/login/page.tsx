@@ -51,15 +51,24 @@ function LoginContent() {
     fetchRegisteredLibraries();
   }, []);
 
-  // If querySlug is present, load that library on initial mount
+  // Initial mount: load querySlug if present in URL, otherwise auto-load last remembered library from localStorage
   useEffect(() => {
     if (querySlug) {
       loadLibrary(querySlug);
-    } else {
-      setActiveSlug(null);
-      setLibrary(null);
-      setLoadingLib(false);
+      return;
     }
+
+    if (typeof window !== "undefined") {
+      const savedSlug = localStorage.getItem("library_last_slug") || getStoredSession()?.librarySlug;
+      if (savedSlug && savedSlug !== "undefined" && savedSlug !== "null") {
+        loadLibrary(savedSlug, true);
+        return;
+      }
+    }
+
+    setActiveSlug(null);
+    setLibrary(null);
+    setLoadingLib(false);
   }, [querySlug]);
 
   // Close directory modal on Escape
@@ -73,7 +82,8 @@ function LoginContent() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showDirectoryModal]);
 
-  const loadLibrary = async (slugToLoad: string) => {
+  const loadLibrary = async (slugToLoad: string, isFromStorage = false) => {
+    if (!slugToLoad) return;
     setLoadingLib(true);
     setAuthError(null);
     try {
@@ -81,15 +91,26 @@ function LoginContent() {
       const data = await res.json();
       if (res.ok && data.library) {
         setLibrary(data.library);
-        setActiveSlug(slugToLoad);
-        setSlugInput(slugToLoad);
+        setActiveSlug(data.library.slug);
+        setSlugInput(data.library.slug);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("library_last_slug", data.library.slug);
+        }
       } else {
-        setAuthError(`Library "${slugToLoad}" is not registered on LibraryOS. Only registered libraries can sign in.`);
+        if (!isFromStorage) {
+          setAuthError(`Library "${slugToLoad}" is not registered on LibraryOS. Only registered libraries can sign in.`);
+        } else {
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("library_last_slug");
+          }
+        }
         setLibrary(null);
         setActiveSlug(null);
       }
     } catch {
-      setAuthError("Unable to connect to library authentication service.");
+      if (!isFromStorage) {
+        setAuthError("Unable to connect to library authentication service.");
+      }
       setLibrary(null);
       setActiveSlug(null);
     } finally {
@@ -103,6 +124,10 @@ function LoginContent() {
     setSlugInput(lib.slug);
     setShowDirectoryModal(false);
     setAuthError(null);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("library_last_slug", lib.slug);
+    }
+    router.replace(`/login?slug=${encodeURIComponent(lib.slug)}`);
   };
 
   const handleClearWorkspace = () => {
@@ -112,15 +137,8 @@ function LoginContent() {
     setAuthError(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem("library_last_slug");
-      sessionStorage.removeItem("target_lib_auth");
-      sessionStorage.removeItem("target_lib_owner_auth");
-      localStorage.removeItem("target_lib_owner_auth");
-      sessionStorage.removeItem("target_lib_admin_override");
-      localStorage.removeItem("target_lib_admin_override");
-      setSuperAdminMasterSession(false);
-      clearStoredSession();
-      router.replace("/login");
     }
+    router.replace("/login");
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -173,6 +191,9 @@ function LoginContent() {
       });
 
       sessionStorage.setItem("target_lib_auth", "true");
+      if (typeof window !== "undefined") {
+        localStorage.setItem("library_last_slug", data.user.slug || cleanSlug);
+      }
 
       if (data.user.role === "staff") {
         // Staff login: strictly clear all owner & master privileges
@@ -271,14 +292,25 @@ function LoginContent() {
           <form onSubmit={handleLogin} className="space-y-4">
             {/* Workspace Identifier */}
             <div>
-              <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block mb-1.5">
-                Library Workspace Code
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block">
+                  Library Workspace
+                </label>
+                {library && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDirectoryModal(true)}
+                    className="text-[11px] font-extrabold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>🔄</span> Switch Library
+                  </button>
+                )}
+              </div>
 
               {library ? (
-                /* Selected Library Verified Badge */
-                <div className="p-3 rounded-2xl bg-rose-500/5 border border-rose-500/30 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
+                /* Selected Library Verified Badge - Completely replaces raw workspace code input */
+                <div className="p-3.5 rounded-2xl bg-rose-500/5 border border-rose-500/30 flex items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-3 min-w-0">
                     <LibraryLogo
                       slug={library.slug}
                       logoUrl={library.logo_url}
@@ -287,54 +319,115 @@ function LoginContent() {
                       className="shrink-0"
                     />
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-extrabold text-xs text-text-main truncate">
                           {library.name}
                         </span>
-                        <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 font-bold shrink-0">
-                          Verified
+                        <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
+                          ✓ Saved on Device
                         </span>
                       </div>
-                      <p className="text-[10px] text-text-muted font-mono truncate">
+                      <p className="text-[10px] text-text-muted font-mono truncate mt-0.5">
                         /l/{library.slug} &bull; {library.city || "Dehradun"}
                       </p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleClearWorkspace}
-                    className="px-2.5 py-1 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-[11px] font-semibold text-text-muted hover:text-text-main transition shrink-0 cursor-pointer"
-                  >
-                    Change
-                  </button>
-                </div>
-              ) : (
-                /* Workspace Slug Input */
-                <>
-                  <div className="flex items-center rounded-xl bg-background border border-panel-border overflow-hidden focus-within:ring-2 focus-within:ring-rose-500">
-                    <span className="px-3 py-2.5 text-xs font-mono text-text-muted bg-neutral-500/5 border-r border-panel-border select-none">
-                      /l/
-                    </span>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. testing-library-1 or target-library"
-                      value={slugInput}
-                      onChange={(e) => setSlugInput(e.target.value)}
-                      className="w-full bg-transparent px-3 py-2.5 text-xs font-mono text-text-main focus:outline-none"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between mt-1.5 text-[11px]">
-                    <span className="text-text-muted">Unique code assigned to your library</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
                       onClick={() => setShowDirectoryModal(true)}
-                      className="text-rose-600 dark:text-rose-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-xl border border-rose-500/30 bg-card-bg hover:bg-rose-500/10 text-[11px] font-bold text-rose-600 dark:text-rose-400 transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                      title="Switch to another registered library"
                     >
-                      <span>🔍</span> Browse all registered libraries
+                      <span>🔄</span> Switch
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearWorkspace}
+                      className="px-2 py-1 rounded-xl border border-panel-border bg-card-bg hover:bg-neutral-500/10 text-[10px] font-semibold text-text-muted hover:text-text-main transition cursor-pointer"
+                      title="Clear and enter workspace code manually"
+                    >
+                      ✕
                     </button>
                   </div>
-                </>
+                </div>
+              ) : (
+                /* Workspace Selection if no library is selected yet */
+                <div className="space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowDirectoryModal(true)}
+                    className="w-full p-3.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/15 border-2 border-dashed border-rose-500/40 text-left transition flex items-center justify-between gap-3 group cursor-pointer shadow-xs"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                        🏢
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-black text-text-main group-hover:text-rose-600 transition">
+                          Select from Registered Libraries
+                        </div>
+                        <div className="text-[10px] text-text-muted font-normal mt-0.5">
+                          Browse registered libraries &bull; Saved forever on this device
+                        </div>
+                      </div>
+                    </div>
+                    <span className="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-extrabold text-[11px] shrink-0 shadow-xs group-hover:bg-rose-500 transition">
+                      Browse List &rarr;
+                    </span>
+                  </button>
+
+                  {registeredLibraries.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center justify-between">
+                        <span>Quick Select:</span>
+                      </div>
+                      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                        {registeredLibraries.slice(0, 5).map((lib) => (
+                          <button
+                            key={lib.slug}
+                            type="button"
+                            onClick={() => handleSelectFromDirectory(lib)}
+                            className="px-2.5 py-1 rounded-xl bg-card-bg hover:bg-rose-500/10 border border-panel-border hover:border-rose-500/40 text-[11px] font-bold text-text-main hover:text-rose-600 transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs"
+                          >
+                            <span>📚</span>
+                            <span className="truncate max-w-[130px]">{lib.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-panel-border">
+                    <div className="flex items-center rounded-xl bg-background border border-panel-border overflow-hidden focus-within:ring-2 focus-within:ring-rose-500">
+                      <span className="px-3 py-2 text-xs font-mono text-text-muted bg-neutral-500/5 border-r border-panel-border select-none">
+                        /l/
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="Or type workspace code directly (e.g. target-library)"
+                        value={slugInput}
+                        onChange={(e) => setSlugInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && slugInput.trim()) {
+                            e.preventDefault();
+                            loadLibrary(slugInput.trim());
+                          }
+                        }}
+                        className="w-full bg-transparent px-3 py-2 text-xs font-mono text-text-main focus:outline-none"
+                      />
+                      {slugInput.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => loadLibrary(slugInput.trim())}
+                          className="px-3 py-2 text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 border-l border-panel-border transition cursor-pointer"
+                        >
+                          Load
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -502,11 +595,16 @@ function LoginContent() {
                   const totalSeats =
                     (lib as any).library_settings?.total_seats ||
                     (lib.slug === "target-library" ? 297 : 50);
+                  const isCurrent = (activeSlug || library?.slug) === lib.slug;
                   return (
                     <button
                       key={lib.id || lib.slug}
                       onClick={() => handleSelectFromDirectory(lib)}
-                      className="w-full text-left p-3 rounded-2xl border border-panel-border hover:border-rose-500/40 bg-background/50 hover:bg-rose-500/5 transition-all group flex items-center justify-between gap-3 cursor-pointer shadow-2xs"
+                      className={`w-full text-left p-3 rounded-2xl border transition-all group flex items-center justify-between gap-3 cursor-pointer shadow-2xs ${
+                        isCurrent
+                          ? "border-rose-500 bg-rose-500/10 shadow-xs"
+                          : "border-panel-border hover:border-rose-500/40 bg-background/50 hover:bg-rose-500/5"
+                      }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <LibraryLogo
@@ -521,9 +619,15 @@ function LoginContent() {
                             <h4 className="font-extrabold text-xs text-text-main group-hover:text-rose-600 transition truncate">
                               {lib.name}
                             </h4>
-                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-neutral-500/10 text-text-muted shrink-0">
-                              /l/{lib.slug}
-                            </span>
+                            {isCurrent ? (
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
+                                ✓ Active
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-neutral-500/10 text-text-muted shrink-0">
+                                /l/{lib.slug}
+                              </span>
+                            )}
                           </div>
                           <p className="text-[11px] text-text-muted truncate mt-0.5">
                             📍 {lib.city || "Dehradun"} &bull; {totalSeats} Seats Capacity
@@ -531,7 +635,7 @@ function LoginContent() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 shrink-0 group-hover:translate-x-0.5 transition-transform">
-                        <span>Select</span>
+                        <span>{isCurrent ? "Selected" : "Select & Remember"}</span>
                         <span>&rarr;</span>
                       </div>
                     </button>
