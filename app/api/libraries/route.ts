@@ -45,6 +45,7 @@ export async function GET(req: Request) {
           )
         `)
         .neq("slug", "platform-config")
+        .not("slug", "like", "sys-%")
         .order("created_at", { ascending: false });
 
       if (error) {

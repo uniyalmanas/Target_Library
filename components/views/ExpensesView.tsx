@@ -74,6 +74,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
   const [modalMode, setModalMode] = useState<"cash" | "online" | "upi">("cash");
   const [modalDate, setModalDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [modalNotes, setModalNotes] = useState("");
+  const [editingExpense, setEditingExpense] = useState<ExpenseItem | null>(null);
   const [savingExpense, setSavingExpense] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -89,6 +90,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isModalOpen) {
         setIsModalOpen(false);
+        setEditingExpense(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -157,7 +159,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
     else setLoading(true);
 
     try {
-      let url = `/api/expenses?slug=${encodeURIComponent(slug)}`;
+      let url = `/api/expenses?slug=${encodeURIComponent(slug)}&_t=${Date.now()}`;
       if (selectedMonth && selectedMonth !== "all") {
         url += `&month=${selectedMonth}`;
       }
@@ -165,7 +167,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
         url += `&category=${selectedCategory}`;
       }
 
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setExpenses(data.expenses || []);
@@ -185,6 +187,28 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
     }
   }, [slug, selectedMonth, selectedCategory, isOwnerAuthenticated]);
 
+  const handleOpenAddModal = () => {
+    setEditingExpense(null);
+    setModalTitle("");
+    setModalCategory("electricity");
+    setModalAmount("");
+    setModalMode("cash");
+    setModalDate(new Date().toISOString().split("T")[0]);
+    setModalNotes("");
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (exp: ExpenseItem) => {
+    setEditingExpense(exp);
+    setModalTitle(exp.title);
+    setModalCategory(exp.category);
+    setModalAmount(exp.amount.toString());
+    setModalMode(exp.payment_mode);
+    setModalDate(exp.expense_date);
+    setModalNotes(exp.notes || "");
+    setIsModalOpen(true);
+  };
+
   const handleApplyPreset = (preset: (typeof PRESETS)[0]) => {
     setModalTitle(preset.title);
     setModalCategory(preset.category);
@@ -192,7 +216,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
     setModalMode(preset.mode as any);
   };
 
-  const handleCreateExpense = async (e: React.FormEvent) => {
+  const handleSubmitExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalTitle.trim() || !modalAmount.trim()) {
       alert("Please enter title and amount.");
@@ -201,10 +225,12 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
 
     setSavingExpense(true);
     try {
+      const isEditing = Boolean(editingExpense);
       const res = await fetch("/api/expenses", {
-        method: "POST",
+        method: isEditing ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          id: editingExpense?.id,
           title: modalTitle.trim(),
           category: modalCategory,
           amount: Number(modalAmount),
@@ -217,6 +243,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
 
       if (res.ok) {
         setIsModalOpen(false);
+        setEditingExpense(null);
         setModalTitle("");
         setModalAmount("");
         setModalNotes("");
@@ -236,20 +263,25 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
     if (!confirm(`Are you sure you want to delete expense "${title}"?`)) return;
 
     setDeletingId(id);
+    // Optimistically remove from state immediately
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
+
     try {
-      const res = await fetch(`/api/expenses?id=${encodeURIComponent(id)}&slug=${encodeURIComponent(slug)}`, {
+      const res = await fetch(`/api/expenses?id=${encodeURIComponent(id)}&slug=${encodeURIComponent(slug)}&_t=${Date.now()}`, {
         method: "DELETE",
+        cache: "no-store",
       });
 
       if (res.ok) {
-        setExpenses((prev) => prev.filter((e) => e.id !== id));
         fetchExpenses(true);
       } else {
         const data = await res.json();
         alert(data.error || "Failed to delete expense");
+        fetchExpenses(true);
       }
     } catch (err: any) {
       alert(err.message || "Failed to delete expense");
+      fetchExpenses(true);
     } finally {
       setDeletingId(null);
     }
@@ -434,7 +466,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
           </select>
 
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleOpenAddModal}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-md shadow-rose-600/20 active:scale-95 cursor-pointer"
           >
             <span>+</span> Record Expense
@@ -624,7 +656,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
             </p>
             {expenses.length === 0 && (
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={handleOpenAddModal}
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition inline-block cursor-pointer shadow-sm"
               >
                 + Record First Expense
@@ -677,19 +709,29 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pl-13 sm:pl-0">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pl-13 sm:pl-0">
                     <span className="text-base font-black text-rose-600 dark:text-rose-400 font-mono">
                       -₹{Number(exp.amount).toLocaleString("en-IN")}
                     </span>
 
-                    <button
-                      onClick={() => handleDeleteExpense(exp.id, exp.title)}
-                      disabled={deletingId === exp.id}
-                      className="opacity-0 group-hover:opacity-100 p-2 rounded-lg text-text-muted hover:text-rose-600 hover:bg-rose-500/10 text-xs transition cursor-pointer disabled:opacity-50"
-                      title="Delete expense"
-                    >
-                      {deletingId === exp.id ? "..." : "🗑️"}
-                    </button>
+                    <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition">
+                      <button
+                        onClick={() => handleOpenEditModal(exp)}
+                        className="p-1.5 rounded-lg text-text-muted hover:text-indigo-600 hover:bg-indigo-500/10 text-xs transition cursor-pointer"
+                        title="Edit expense"
+                      >
+                        ✏️
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteExpense(exp.id, exp.title)}
+                        disabled={deletingId === exp.id}
+                        className="p-1.5 rounded-lg text-text-muted hover:text-rose-600 hover:bg-rose-500/10 text-xs transition cursor-pointer disabled:opacity-50"
+                        title="Delete expense"
+                      >
+                        {deletingId === exp.id ? "..." : "🗑️"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -710,7 +752,9 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
               <div className="flex items-center justify-between pb-3 border-b border-panel-border">
                 <div className="flex items-center gap-2">
                   <span className="text-xl">🧾</span>
-                  <h3 className="text-base font-extrabold text-foreground">Record Operating Expense</h3>
+                  <h3 className="text-base font-extrabold text-foreground">
+                    {editingExpense ? "Edit Operating Expense" : "Record Operating Expense"}
+                  </h3>
                 </div>
                 <button
                   onClick={() => setIsModalOpen(false)}
@@ -739,7 +783,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
                 </div>
               </div>
 
-              <form onSubmit={handleCreateExpense} className="space-y-3.5 pt-1">
+              <form onSubmit={handleSubmitExpense} className="space-y-3.5 pt-1">
                 {/* Title */}
                 <div>
                   <label className="block text-xs font-bold text-text-muted mb-1">Expense Title / Description *</label>
@@ -845,7 +889,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
                     disabled={savingExpense}
                     className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-md shadow-rose-600/20 cursor-pointer disabled:opacity-50"
                   >
-                    {savingExpense ? "Saving..." : "Record Expense"}
+                    {savingExpense ? "Saving..." : editingExpense ? "Update Expense" : "Record Expense"}
                   </button>
                 </div>
               </form>
