@@ -116,13 +116,12 @@ export function isOwnerAuthorizedForSlug(slug?: string): boolean {
   if (typeof window === "undefined") return false;
   try {
     const session = getStoredSession();
-    // If active session is staff, strictly deny owner authority
-    if (session?.role === "staff" && !session?.isMaster) {
-      return false;
-    }
-    if (isSuperAdminAuthenticated()) return true;
+    if (isSuperAdminAuthenticated() || session?.isMaster) return true;
+
+    // If owner passcode has been verified on this browser/session, grant owner authority!
     const ownerAuth = sessionStorage.getItem(OWNER_AUTH_KEY) || localStorage.getItem(OWNER_AUTH_KEY);
     if (ownerAuth === "true") return true;
+
     if (session?.role === "owner" && (!slug || !session.librarySlug || session.librarySlug === slug)) {
       return true;
     }

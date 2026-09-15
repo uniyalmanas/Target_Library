@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { isSuperAdminAuthenticated } from "@/lib/auth";
+import { getStoredSession, setStoredSession, isSuperAdminAuthenticated } from "@/lib/auth";
 
 export interface EditableReceipt {
   receipt_no: number;
@@ -99,7 +99,7 @@ export default function EditReceiptModal({
   if (!isOpen) return null;
 
   // Verify owner password
-  const handlePasscodeSubmit = (e: React.FormEvent) => {
+  const handlePasscodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = passcode.trim();
     if (
@@ -111,9 +111,45 @@ export default function EditReceiptModal({
     ) {
       sessionStorage.setItem("target_lib_owner_auth", "true");
       localStorage.setItem("target_lib_owner_auth", "true");
+      const current = getStoredSession();
+      setStoredSession({
+        ...current,
+        role: "owner",
+      });
       setIsOwnerAuthenticated(true);
       setPasscodeError("");
-    } else {
+      return;
+    }
+
+    try {
+      const session = getStoredSession();
+      const slug = session?.librarySlug || "target-library";
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          role: "owner",
+          password: clean,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        sessionStorage.setItem("target_lib_owner_auth", "true");
+        localStorage.setItem("target_lib_owner_auth", "true");
+        setStoredSession({
+          ...session,
+          role: "owner",
+          librarySlug: data.user?.slug || slug,
+          username: data.user?.username || session.username || "owner",
+          fullName: data.user?.fullName || session.fullName || "Library Owner",
+        });
+        setIsOwnerAuthenticated(true);
+        setPasscodeError("");
+      } else {
+        setPasscodeError(data.error || "Invalid Owner passcode. Access restricted to library owner.");
+      }
+    } catch {
       setPasscodeError("Invalid Owner passcode. Access restricted to library owner.");
     }
   };

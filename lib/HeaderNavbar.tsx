@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense, useCallback } from "react";
 import ThemeToggle from "@/lib/ThemeToggle";
-import { getStoredSession, isSuperAdminAuthenticated } from "@/lib/auth";
+import { getStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
 import LibraryLogo from "@/lib/LibraryLogo";
 
 import { isDemoSlug, getLibraryAccessStatus } from "./tenant";
@@ -85,23 +85,24 @@ function HeaderNavbarContent() {
     setActiveSlug(effective);
 
     const isDemo = isDemoSlug(effective);
-    const isStaffSession = session?.role === "staff" && !session?.isMaster;
+    const isOwnerAuth =
+      isSuperAdminAuthenticated() ||
+      session?.isMaster ||
+      isOwnerAuthorizedForSlug(effective) ||
+      (typeof window !== "undefined" && (
+        sessionStorage.getItem("target_lib_owner_auth") === "true" ||
+        localStorage.getItem("target_lib_owner_auth") === "true"
+      ));
 
     let hasOwner = false;
-    if (isStaffSession) {
-      // Staff session is strictly Front Desk: never Owner
-      hasOwner = false;
-    } else if (isSuperAdminAuthenticated() || session?.isMaster) {
+    if (isOwnerAuth) {
       hasOwner = true;
     } else if (isDemo) {
       hasOwner = true;
-    } else if (
-      session?.role === "owner" ||
-      session?.role === "superadmin" ||
-      sessionStorage.getItem("target_lib_owner_auth") === "true" ||
-      localStorage.getItem("target_lib_owner_auth") === "true"
-    ) {
+    } else if (session?.role === "owner" || session?.role === "superadmin") {
       hasOwner = true;
+    } else {
+      hasOwner = false;
     }
 
     setIsOwner(hasOwner);

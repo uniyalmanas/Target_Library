@@ -90,50 +90,68 @@ export async function POST(req: Request) {
       library = libData;
     }
 
-    // Query library_users table in database
-    const { data: dbUser, error: userErr } = await supabase
+    // Query library_users table in database for this library
+    const { data: dbUsers, error: userErr } = await supabase
       .from("library_users")
       .select("*")
-      .eq("library_id", library.id)
-      .eq("role", role)
-      .maybeSingle();
+      .eq("library_id", library.id);
 
-    if (!userErr && dbUser && dbUser.password_hash) {
-      let isMatch = false;
-      const storedHash = dbUser.password_hash;
+    const userList = Array.isArray(dbUsers) ? dbUsers : [];
+    const ownerUser = userList.find((u) => u.role === "owner");
+    const staffUser = userList.find((u) => u.role === "staff");
+
+    const checkPassword = async (userRecord: any) => {
+      if (!userRecord || !userRecord.password_hash) return false;
+      const storedHash = userRecord.password_hash;
       if (storedHash.startsWith("$2a$") || storedHash.startsWith("$2b$") || storedHash.startsWith("$2y$")) {
-        isMatch = await bcrypt.compare(password, storedHash);
-      } else {
-        isMatch = storedHash === password;
-        if (isMatch) {
-          // Opportunistically migrate legacy plaintext to secure bcrypt hash
-          bcrypt.hash(password, 10).then((hashed) => {
-            supabase.from("library_users").update({ password_hash: hashed }).eq("id", dbUser.id).then();
-          }).catch(() => {});
-        }
+        return await bcrypt.compare(password, storedHash);
       }
+      const isPlain = storedHash === password;
+      if (isPlain) {
+        // Opportunistically migrate legacy plaintext to secure bcrypt hash
+        bcrypt.hash(password, 10).then((hashed) => {
+          supabase.from("library_users").update({ password_hash: hashed }).eq("id", userRecord.id).then();
+        }).catch(() => {});
+      }
+      return isPlain;
+    };
 
-      if (isMatch) {
-        return NextResponse.json({
-          success: true,
-          user: {
-            role: dbUser.role,
-            username: dbUser.username,
-            fullName: dbUser.full_name || `${library.name} ${role}`,
-            libraryId: library.id,
-            slug: library.slug,
-            isMaster: false,
-          },
-        });
-      }
+    // 1. Check Owner user in database (grants Owner role regardless of frontend toggle)
+    if (ownerUser && (await checkPassword(ownerUser))) {
+      return NextResponse.json({
+        success: true,
+        user: {
+          role: "owner",
+          username: ownerUser.username,
+          fullName: ownerUser.full_name || `${library.name} Owner`,
+          libraryId: library.id,
+          slug: library.slug,
+          isMaster: false,
+        },
+      });
     }
 
-    // Fallback defaults for Target Library if not customized yet
+    // 2. Check Staff user in database
+    if (staffUser && (await checkPassword(staffUser))) {
+      return NextResponse.json({
+        success: true,
+        user: {
+          role: "staff",
+          username: staffUser.username,
+          fullName: staffUser.full_name || `${library.name} Front Desk Staff`,
+          libraryId: library.id,
+          slug: library.slug,
+          isMaster: false,
+        },
+      });
+    }
+
+    // 3. Fallback defaults for Target Library if not customized yet
     if (slug === DEFAULT_LIBRARY_SLUG) {
       const defaultOwnerPass = process.env.NEXT_PUBLIC_OWNER_PASSWORD || "TargetOwner2026";
       const defaultStaffPass = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "Target2026";
 
-      if (role === "owner" && (password === defaultOwnerPass || password === "TargetOwner2026")) {
+      if (password === defaultOwnerPass || password === "TargetOwner2026") {
         return NextResponse.json({
           success: true,
           user: {
@@ -147,7 +165,7 @@ export async function POST(req: Request) {
         });
       }
 
-      if (role === "staff" && (password === defaultStaffPass || password === "target2026" || password === "Target2026")) {
+      if (password === defaultStaffPass || password === "target2026" || password === "Target2026") {
         return NextResponse.json({
           success: true,
           user: {
@@ -163,7 +181,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(
-      { error: `Incorrect password for ${role === "owner" ? "Library Owner" : "Desk Staff"}` },
+      { error: "Incorrect passcode. Please verify your password." },
       { status: 401 }
     );
   } catch (err: unknown) {

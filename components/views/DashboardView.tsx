@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { getStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
+import { getStoredSession, setStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
 
 interface Stats {
   totalSeats: number;
@@ -93,6 +93,14 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
             ) {
               sessionStorage.setItem("target_lib_owner_auth", "true");
               localStorage.setItem("target_lib_owner_auth", "true");
+              const current = getStoredSession();
+              setStoredSession({
+                ...current,
+                role: "owner",
+                librarySlug: slug,
+                username: current.username || "owner",
+                fullName: current.fullName || "Library Owner",
+              });
               setIsOwnerAuthenticated(true);
               return;
             }
@@ -111,6 +119,14 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
               if (res.ok) {
                 sessionStorage.setItem("target_lib_owner_auth", "true");
                 localStorage.setItem("target_lib_owner_auth", "true");
+                const current = getStoredSession();
+                setStoredSession({
+                  ...current,
+                  role: "owner",
+                  librarySlug: slug,
+                  username: data.user?.username || current.username || "owner",
+                  fullName: data.user?.fullName || current.fullName || "Library Owner",
+                });
                 setIsOwnerAuthenticated(true);
               } else {
                 setOwnerError(data.error || "Incorrect owner passcode. Access denied.");

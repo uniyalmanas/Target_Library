@@ -25,6 +25,16 @@ function LoginContent() {
   const [loggingIn, setLoggingIn] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // Restore last selected login role if remembered
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedRole = localStorage.getItem("library_last_role");
+      if (savedRole === "owner" || savedRole === "staff") {
+        setRole(savedRole);
+      }
+    }
+  }, []);
+
   // Registered Libraries Directory Modal State
   const [showDirectoryModal, setShowDirectoryModal] = useState(false);
   const [directorySearch, setDirectorySearch] = useState("");
@@ -193,6 +203,7 @@ function LoginContent() {
       sessionStorage.setItem("target_lib_auth", "true");
       if (typeof window !== "undefined") {
         localStorage.setItem("library_last_slug", data.user.slug || cleanSlug);
+        localStorage.setItem("library_last_role", data.user.role === "owner" ? "owner" : "staff");
       }
 
       if (data.user.role === "staff") {
@@ -439,7 +450,12 @@ function LoginContent() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setRole("staff")}
+                  onClick={() => {
+                    setRole("staff");
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem("library_last_role", "staff");
+                    }
+                  }}
                   className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                     role === "staff"
                       ? "bg-rose-500/10 border-rose-500/40 text-text-main shadow-2xs"
@@ -458,7 +474,12 @@ function LoginContent() {
 
                 <button
                   type="button"
-                  onClick={() => setRole("owner")}
+                  onClick={() => {
+                    setRole("owner");
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem("library_last_role", "owner");
+                    }
+                  }}
                   className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                     role === "owner"
                       ? "bg-sky-500/10 border-sky-500/40 text-text-main shadow-2xs"

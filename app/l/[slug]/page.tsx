@@ -123,23 +123,24 @@ export default function TenantDeskPage({
   const [showPayEarlyModal, setShowPayEarlyModal] = useState<boolean>(false);
 
   useEffect(() => {
-    const session = getStoredSession();
-    const isStaffSession = session?.role === "staff" && !session?.isMaster;
-    if (isStaffSession) {
-      setIsOwner(false);
-      return;
-    }
-
     const isSuper = isSuperAdminAuthenticated();
     const isOwnerAuth = isOwnerAuthorizedForSlug(slug);
-    const ownerAuth = sessionStorage.getItem("target_lib_owner_auth") || localStorage.getItem("target_lib_owner_auth");
+    const ownerAuth =
+      typeof window !== "undefined" &&
+      (sessionStorage.getItem("target_lib_owner_auth") === "true" ||
+        localStorage.getItem("target_lib_owner_auth") === "true");
     const isDemo = isDemoSlug(slug);
-    const hasOwner = isSuper || session?.isMaster || isOwnerAuth || isDemo || (
+    const session = getStoredSession();
+    const hasOwner =
+      isSuper ||
+      session?.isMaster ||
+      isOwnerAuth ||
+      ownerAuth ||
+      isDemo ||
       session?.role === "owner" ||
-      session?.role === "superadmin" ||
-      ownerAuth === "true"
-    );
-    setIsOwner(hasOwner);
+      session?.role === "superadmin";
+
+    setIsOwner(Boolean(hasOwner));
   }, [slug]);
 
   // Load Library & Settings

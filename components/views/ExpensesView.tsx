@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { downloadCsv } from "@/lib/exportCsv";
-import { getStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
+import { getStoredSession, setStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
 import { isDemoSlug } from "@/lib/tenant";
 
 interface ExpenseItem {
@@ -106,11 +106,10 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
 
     const session = getStoredSession();
     const ownerAuth = sessionStorage.getItem("target_lib_owner_auth") || localStorage.getItem("target_lib_owner_auth");
-    const isStaff = session?.role === "staff" && !session?.isMaster;
-    const isOwnerRole = (session?.role === "owner" || session?.role === "superadmin" || session?.isMaster) && !isStaff;
+    const isOwnerRole = session?.role === "owner" || session?.role === "superadmin" || session?.isMaster;
     const isMatchingSlug = session?.librarySlug === slug || session?.role === "superadmin" || session?.isMaster;
 
-    if (!isStaff && ((isOwnerRole && isMatchingSlug) || ownerAuth === "true")) {
+    if (ownerAuth === "true" || (isOwnerRole && isMatchingSlug)) {
       setIsOwnerAuthenticated(true);
     } else {
       setIsOwnerAuthenticated(false);
@@ -143,6 +142,14 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
       if (res.ok) {
         sessionStorage.setItem("target_lib_owner_auth", "true");
         localStorage.setItem("target_lib_owner_auth", "true");
+        const current = getStoredSession();
+        setStoredSession({
+          ...current,
+          role: "owner",
+          librarySlug: slug,
+          username: data.user?.username || current.username || "owner",
+          fullName: data.user?.fullName || current.fullName || "Library Owner",
+        });
         setIsOwnerAuthenticated(true);
       } else {
         setOwnerPassError(data.error || "Incorrect owner passcode. Access denied.");
