@@ -99,6 +99,7 @@ export interface LibrarySettings {
   shifts_config: ShiftConfig[];
   has_sheet_enabled: boolean;
   sheet_price_monthly: number;
+  price_protection_enabled?: boolean;
   require_aadhar: boolean;
   allow_student_self_registration: boolean;
   updated_at: string;

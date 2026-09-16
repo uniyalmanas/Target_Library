@@ -54,12 +54,23 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
     if (presetAmount !== null) return presetAmount;
     return presetHasSheet ? 1200 : 900;
   });
+  const [priceProtectionEnabled, setPriceProtectionEnabled] = useState<boolean>(true);
+  const [previousReceiptInfo, setPreviousReceiptInfo] = useState<{
+    amount_paid: number;
+    shift_type?: string | null;
+    subscription_type?: string;
+    has_sheet?: boolean;
+    end_date?: string;
+  } | null>(null);
 
   // Fetch library shifts and pricing dynamically from settings
   useEffect(() => {
     fetch(`/api/libraries/${encodeURIComponent(slug)}/settings`)
       .then((r) => r.json())
       .then((data) => {
+        if (data.settings?.price_protection_enabled !== undefined) {
+          setPriceProtectionEnabled(Boolean(data.settings.price_protection_enabled));
+        }
         if (data.settings?.shifts_config && data.settings.shifts_config.length > 0) {
           setShiftsConfig(data.settings.shifts_config);
           const halfShifts = data.settings.shifts_config.filter((s: ShiftConfig) => s.id !== "full_day");
@@ -127,6 +138,7 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
   useEffect(() => {
     if (!existingStudentId) {
       setMemberPreview(null);
+      setPreviousReceiptInfo(null);
       return;
     }
     const delayDebounceFn = setTimeout(() => {
@@ -148,19 +160,40 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
             if (data.member.aadhar_no) {
               setAadharNo(data.member.aadhar_no);
             }
+
+            // Also query previous receipts for renewal price protection intelligence
+            fetch(`/api/receipts?student_id=${existingStudentId}&slug=${encodeURIComponent(slug)}`)
+              .then((r) => (r.ok ? r.json() : []))
+              .then((receipts) => {
+                if (Array.isArray(receipts) && receipts.length > 0) {
+                  const latest = receipts[0];
+                  setPreviousReceiptInfo({
+                    amount_paid: latest.amount_paid,
+                    shift_type: latest.shift_type,
+                    subscription_type: latest.subscription_type,
+                    has_sheet: latest.has_sheet,
+                    end_date: latest.end_date,
+                  });
+                } else {
+                  setPreviousReceiptInfo(null);
+                }
+              })
+              .catch(() => setPreviousReceiptInfo(null));
           } else {
             setMemberPreview(null);
+            setPreviousReceiptInfo(null);
           }
           setLoadingPreview(false);
         })
         .catch(() => {
           setMemberPreview(null);
+          setPreviousReceiptInfo(null);
           setLoadingPreview(false);
         });
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [existingStudentId]);
+  }, [existingStudentId, slug]);
 
   async function lookupSeatId(seat_number: string) {
     const res = await fetch(`/api/seats?slug=${encodeURIComponent(slug)}`);
@@ -604,6 +637,58 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
               className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-rose-600 dark:text-rose-400 placeholder-text-muted transition-all duration-200 outline-none font-semibold"
             />
             <p className="text-[10px] text-text-muted mt-1.5">Suggested amount auto-calculated &mdash; custom editable.</p>
+
+            {/* Renewal Pricing & Grandfathering Intelligence */}
+            {previousReceiptInfo && (
+              <div className={`mt-2.5 p-3 rounded-xl border text-xs space-y-2 animate-in fade-in ${
+                priceProtectionEnabled
+                  ? "bg-purple-500/10 border-purple-500/25 text-purple-700 dark:text-purple-300"
+                  : "bg-blue-500/10 border-blue-500/25 text-blue-700 dark:text-blue-300"
+              }`}>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="font-bold flex items-center gap-1.5 text-xs">
+                    <span>{priceProtectionEnabled ? "🛡️" : "ℹ️"}</span>
+                    <span>
+                      {priceProtectionEnabled ? "Renewal Price Protection Active" : "Renewal Pricing Notice"}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-background border border-panel-border text-foreground">
+                    Previous Pass: ₹{previousReceiptInfo.amount_paid} {previousReceiptInfo.has_sheet ? "(With Sheet)" : ""}
+                  </span>
+                </div>
+
+                <p className="text-[11px] leading-relaxed text-text-muted">
+                  {priceProtectionEnabled
+                    ? `This student previously paid ₹${previousReceiptInfo.amount_paid}. You can honor their loyalty rate or upgrade them to the updated standard rate (₹${getMonthlyBaseRate()}).`
+                    : `Student previously paid ₹${previousReceiptInfo.amount_paid}. Current standard shift rate is ₹${getMonthlyBaseRate()}.`}
+                </p>
+
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setAmount(previousReceiptInfo.amount_paid)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border flex items-center gap-1 ${
+                      amount === previousReceiptInfo.amount_paid
+                        ? "bg-purple-600 text-white border-purple-600 shadow-2xs"
+                        : "bg-background border-panel-border text-foreground hover:bg-purple-500/15"
+                    }`}
+                  >
+                    <span>✓</span> Keep Loyalty Rate: ₹{previousReceiptInfo.amount_paid}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAmount(getMonthlyBaseRate())}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border flex items-center gap-1 ${
+                      amount === getMonthlyBaseRate()
+                        ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                        : "bg-background border-panel-border text-foreground hover:bg-blue-500/15"
+                    }`}
+                  >
+                    Standard Rate: ₹{getMonthlyBaseRate()}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Payment Mode Selector */}

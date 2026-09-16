@@ -72,6 +72,20 @@ export default function LibraryOwnerSettingsPage({
   const [shifts, setShifts] = useState<ShiftConfig[]>([]);
   const [hasSheetEnabled, setHasSheetEnabled] = useState(true);
   const [sheetPriceMonthly, setSheetPriceMonthly] = useState(300);
+  const [priceProtectionEnabled, setPriceProtectionEnabled] = useState(true);
+  const [shiftEnrollmentCounts, setShiftEnrollmentCounts] = useState<Record<string, number>>({});
+  const [shiftStudents, setShiftStudents] = useState<Record<string, any[]>>({});
+  const [loadingShiftEnrollments, setLoadingShiftEnrollments] = useState(false);
+
+  // Shift Safety & Migration Modal State
+  const [shiftToMigrate, setShiftToMigrate] = useState<ShiftConfig | null>(null);
+  const [destinationShiftId, setDestinationShiftId] = useState<string>("");
+  const [migratingShift, setMigratingShift] = useState(false);
+  const [migrationError, setMigrationError] = useState<string | null>(null);
+
+  // WhatsApp Shift Broadcast Modal State
+  const [shiftToBroadcast, setShiftToBroadcast] = useState<ShiftConfig | null>(null);
+  const [copiedBroadcastText, setCopiedBroadcastText] = useState(false);
 
   // New Shift Modal/Form State
   const [showAddShift, setShowAddShift] = useState(false);
@@ -145,6 +159,7 @@ export default function LibraryOwnerSettingsPage({
         setShifts(sett.shifts_config || FALLBACK_SETTINGS.shifts_config);
         setHasSheetEnabled(sett.has_sheet_enabled ?? true);
         setSheetPriceMonthly(sett.sheet_price_monthly ?? 300);
+        setPriceProtectionEnabled(sett.price_protection_enabled ?? true);
       }
 
       // Fetch domain and subdomain configuration
@@ -168,9 +183,31 @@ export default function LibraryOwnerSettingsPage({
     }
   }, [slug]);
 
+  const loadShiftEnrollments = useCallback(async () => {
+    setLoadingShiftEnrollments(true);
+    try {
+      const res = await fetch(`/api/libraries/${slug}/shifts`);
+      if (res.ok) {
+        const data = await res.json();
+        setShiftEnrollmentCounts(data.counts || {});
+        setShiftStudents(data.studentsByShift || {});
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingShiftEnrollments(false);
+    }
+  }, [slug]);
+
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  useEffect(() => {
+    if (activeTab === "seats_shifts") {
+      loadShiftEnrollments();
+    }
+  }, [activeTab, loadShiftEnrollments]);
 
   // Restore saved seat matrix display preferences and check ?tab= query parameter
   useEffect(() => {
@@ -290,13 +327,55 @@ export default function LibraryOwnerSettingsPage({
     setShifts(updated);
   };
 
-  // Remove Shift
+  // Remove Shift with Active Enrollment Safety Guard
   const handleRemoveShift = (id: string) => {
     if (shifts.length <= 1) {
       alert("At least one shift must be configured.");
       return;
     }
-    setShifts(shifts.filter((s) => s.id !== id));
+    const count = shiftEnrollmentCounts[id] || 0;
+    const shift = shifts.find((s) => s.id === id);
+    if (!shift) return;
+
+    if (count > 0) {
+      // Active students enrolled: trigger safety migration modal!
+      setShiftToMigrate(shift);
+      const otherShifts = shifts.filter((s) => s.id !== id);
+      setDestinationShiftId(otherShifts[0]?.id || "");
+      setMigrationError(null);
+    } else {
+      // Clean delete
+      setShifts(shifts.filter((s) => s.id !== id));
+    }
+  };
+
+  const handleExecuteMigrationAndDelete = async () => {
+    if (!shiftToMigrate || !destinationShiftId) return;
+    setMigratingShift(true);
+    setMigrationError(null);
+    try {
+      const res = await fetch(`/api/libraries/${slug}/shifts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "migrate",
+          fromShiftId: shiftToMigrate.id,
+          toShiftId: destinationShiftId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Migration failed");
+
+      // Successfully migrated in DB -> remove from local state
+      setShifts(shifts.filter((s) => s.id !== shiftToMigrate.id));
+      setShiftToMigrate(null);
+      await loadShiftEnrollments();
+      alert(data.message || "Students migrated successfully.");
+    } catch (err: unknown) {
+      setMigrationError(err instanceof Error ? err.message : "Failed to migrate students");
+    } finally {
+      setMigratingShift(false);
+    }
   };
 
   // Add Custom Shift
@@ -411,6 +490,7 @@ export default function LibraryOwnerSettingsPage({
           shifts_config: shifts,
           has_sheet_enabled: hasSheetEnabled,
           sheet_price_monthly: Number(sheetPriceMonthly),
+          price_protection_enabled: priceProtectionEnabled,
         }),
       });
 
@@ -1206,23 +1286,42 @@ export default function LibraryOwnerSettingsPage({
                     className="p-4 rounded-2xl bg-background border border-panel-border space-y-3"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
                         <input
                           type="text"
                           value={shift.name}
                           onChange={(e) => handleShiftChange(idx, "name", e.target.value)}
                           className="font-bold text-sm bg-transparent border-b border-dashed border-panel-border focus:outline-none focus:border-rose-500 px-1 py-0.5"
                         />
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                          (shiftEnrollmentCounts[shift.id] || 0) > 0
+                            ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30"
+                            : "bg-neutral-500/10 text-text-muted border-panel-border"
+                        }`}>
+                          👥 {shiftEnrollmentCounts[shift.id] || 0} enrolled
+                        </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveShift(shift.id)}
-                        className="text-text-muted hover:text-rose-600 text-xs px-2 py-1 rounded transition"
-                        title="Remove Shift"
-                      >
-                        ✕ Remove
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {(shiftEnrollmentCounts[shift.id] || 0) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setShiftToBroadcast(shift)}
+                            className="text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-xs px-2.5 py-1 rounded-lg border border-emerald-500/30 transition flex items-center gap-1 cursor-pointer font-semibold"
+                            title="Send WhatsApp update notice to students in this shift"
+                          >
+                            📢 WhatsApp Notice
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveShift(shift.id)}
+                          className="text-text-muted hover:text-rose-600 text-xs px-2 py-1 rounded transition cursor-pointer"
+                          title="Remove Shift"
+                        >
+                          ✕ Remove
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -1397,6 +1496,31 @@ export default function LibraryOwnerSettingsPage({
                 <p className="text-[11px] text-amber-800/70 dark:text-amber-300/70">
                   When enabled, students onboarding at the door QR or front desk can opt into clean desk sheet protection.
                 </p>
+              </div>
+
+              {/* Renewal Price Protection (Grandfathering) Toggle */}
+              <div className="p-4 rounded-2xl bg-background border border-panel-border flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🛡️</span>
+                    <h4 className="text-sm font-bold text-foreground">Renewal Price Protection (Grandfathering)</h4>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                      Recommended
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-muted mt-1 leading-relaxed max-w-xl">
+                    When enabled, existing students renewing their passes keep their historical fee rate even if new shift prices have increased. Front desk staff can choose between their loyalty rate or the new standard rate with 1 click.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                  <input
+                    type="checkbox"
+                    checked={priceProtectionEnabled}
+                    onChange={(e) => setPriceProtectionEnabled(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+                </label>
               </div>
 
               {/* Shift Collision & Seat Color Guidelines Card */}
@@ -2718,6 +2842,203 @@ export default function LibraryOwnerSettingsPage({
         library={library}
         onSuccess={loadSettings}
       />
+
+      {/* Shift Migration & Safety Modal */}
+      {shiftToMigrate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-panel-bg border border-panel-border rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-xl shrink-0">
+                  ⚠️
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">
+                    Active Students Enrolled in Shift
+                  </h3>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Cannot directly delete <span className="font-semibold text-foreground">"{shiftToMigrate.name}"</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShiftToMigrate(null)}
+                className="text-text-muted hover:text-foreground text-sm p-1.5 rounded-lg hover:bg-neutral-500/10 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300 space-y-2">
+              <div className="font-bold flex items-center gap-2 text-sm">
+                <span>👥</span> {shiftEnrollmentCounts[shiftToMigrate.id] || 0} active student(s) currently occupy seats in this shift.
+              </div>
+              <p className="text-[11px] leading-relaxed text-text-muted">
+                To prevent student passes and seat records from becoming orphaned, select a replacement shift. All currently active passes in "{shiftToMigrate.name}" will be cleanly migrated to the new shift.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block">
+                Select Destination Shift for Enrolled Students *
+              </label>
+              <select
+                value={destinationShiftId}
+                onChange={(e) => setDestinationShiftId(e.target.value)}
+                className="w-full bg-background border border-panel-border rounded-xl px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:border-rose-500"
+              >
+                {shifts
+                  .filter((s) => s.id !== shiftToMigrate.id)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.start_time} - {s.end_time}) — ₹{s.base_price}/mo
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {migrationError && (
+              <p className="text-xs font-semibold text-rose-500 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl">
+                {migrationError}
+              </p>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShiftToMigrate(null)}
+                disabled={migratingShift}
+                className="px-4 py-2 rounded-xl border border-panel-border text-xs font-semibold text-text-muted hover:text-foreground transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteMigrationAndDelete}
+                disabled={migratingShift || !destinationShiftId}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {migratingShift ? "Migrating..." : `Migrate ${shiftEnrollmentCounts[shiftToMigrate.id] || 0} Students & Delete Shift`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp Shift Broadcast Modal */}
+      {shiftToBroadcast && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-panel-bg border border-panel-border rounded-3xl p-6 sm:p-8 w-full max-w-xl shadow-2xl space-y-5 max-h-[90vh] flex flex-col">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-xl shrink-0">
+                  📢
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">
+                    WhatsApp Notice — {shiftToBroadcast.name}
+                  </h3>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    {shiftEnrollmentCounts[shiftToBroadcast.id] || 0} active students in this shift
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShiftToBroadcast(null)}
+                className="text-text-muted hover:text-foreground text-sm p-1.5 rounded-lg hover:bg-neutral-500/10 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Announcement Message Preview */}
+            <div className="p-4 rounded-2xl bg-background border border-panel-border space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-text-muted uppercase text-[10px]">Announcement Template</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `*Notice from ${name || "LibraryOS"}*\n\nDear Student,\nPlease note that our schedule and fee structure for *${shiftToBroadcast.name}* (${shiftToBroadcast.start_time} - ${shiftToBroadcast.end_time}) has been updated.\n\n📌 Your active seat pass remains valid and unaffected until your renewal date.\nIf you have any questions, please contact the front desk.\nThank you!`;
+                    navigator.clipboard.writeText(text);
+                    setCopiedBroadcastText(true);
+                    setTimeout(() => setCopiedBroadcastText(false), 2500);
+                  }}
+                  className="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                >
+                  {copiedBroadcastText ? "✓ Copied to Clipboard" : "📋 Copy Announcement Text"}
+                </button>
+              </div>
+              <p className="text-xs text-text-main font-mono bg-card-bg p-3 rounded-xl border border-panel-border whitespace-pre-wrap">
+                {`*Notice from ${name || "LibraryOS"}*\n\nDear Student,\nPlease note that our schedule and fee structure for *${shiftToBroadcast.name}* (${shiftToBroadcast.start_time} - ${shiftToBroadcast.end_time}) has been updated.\n\n📌 Your active seat pass remains valid and unaffected until your renewal date.\nIf you have any questions, please contact the front desk.\nThank you!`}
+              </p>
+            </div>
+
+            {/* Student List */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[150px]">
+              <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider">
+                Active Enrolled Students ({shiftStudents[shiftToBroadcast.id]?.length || 0})
+              </div>
+              {(!shiftStudents[shiftToBroadcast.id] || shiftStudents[shiftToBroadcast.id].length === 0) ? (
+                <p className="text-xs text-text-muted py-4 text-center">No active students enrolled in this shift.</p>
+              ) : (
+                shiftStudents[shiftToBroadcast.id].map((student: any) => {
+                  const phone = (student.phone || "").replace(/[^0-9]/g, "").slice(-10);
+                  const waText = encodeURIComponent(
+                    `*Notice from ${name || "LibraryOS"}*\n\n` +
+                    `Dear ${student.name},\n` +
+                    `Please note that our schedule/fee structure for *${shiftToBroadcast.name}* (${shiftToBroadcast.start_time} - ${shiftToBroadcast.end_time}) has been updated.\n\n` +
+                    `📌 *Your Current Pass:* Seat #${student.seat_number}, valid until ${student.end_date}.\n` +
+                    `Your current subscription remains fully active and unaffected until your renewal date.\n\n` +
+                    `For any queries, please visit the front desk.\nThank you!`
+                  );
+                  const waUrl = phone ? `https://wa.me/91${phone}?text=${waText}` : null;
+
+                  return (
+                    <div
+                      key={student.receipt_no}
+                      className="p-3 rounded-xl bg-card-bg border border-panel-border flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div>
+                        <div className="font-bold text-foreground flex items-center gap-2">
+                          {student.name}
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-neutral-500/10 text-text-muted">
+                            Seat #{student.seat_number}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-text-muted mt-0.5">
+                          {student.phone || "No phone"} • Valid till: {student.end_date} • Paid ₹{student.amount_paid}
+                        </div>
+                      </div>
+                      {waUrl ? (
+                        <a
+                          href={waUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-semibold transition flex items-center gap-1 shrink-0 cursor-pointer"
+                        >
+                          💬 Send WhatsApp
+                        </a>
+                      ) : (
+                        <span className="text-[10px] text-text-muted italic">No phone</span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex items-center justify-end pt-2 border-t border-panel-border">
+              <button
+                type="button"
+                onClick={() => setShiftToBroadcast(null)}
+                className="px-5 py-2 rounded-xl bg-neutral-500/10 hover:bg-neutral-500/20 text-xs font-semibold text-text-main transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

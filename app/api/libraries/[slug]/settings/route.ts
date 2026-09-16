@@ -48,6 +48,7 @@ export async function PUT(
       shifts_config,
       has_sheet_enabled,
       sheet_price_monthly,
+      price_protection_enabled,
     } = body;
 
     // 1. Update library details if provided
@@ -83,6 +84,7 @@ export async function PUT(
     if (shifts_config !== undefined) settingsUpdates.shifts_config = shifts_config;
     if (has_sheet_enabled !== undefined) settingsUpdates.has_sheet_enabled = has_sheet_enabled;
     if (sheet_price_monthly !== undefined) settingsUpdates.sheet_price_monthly = Number(sheet_price_monthly);
+    if (price_protection_enabled !== undefined) settingsUpdates.price_protection_enabled = Boolean(price_protection_enabled);
 
     const { data: updatedSettings, error: setErr } = await supabase
       .from("library_settings")
