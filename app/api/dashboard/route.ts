@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug, getLibrarySettings } from "@/lib/tenant";
+import { getLibraryBySlug, getLibrarySettings, DEFAULT_SHIFTS } from "@/lib/tenant";
+import { ShiftConfig } from "@/lib/types";
 
 export async function GET(req: Request) {
   try {
@@ -9,22 +10,23 @@ export async function GET(req: Request) {
 
     let libraryId = "00000000-0000-0000-0000-000000000001";
     let configuredTotalSeats: number | null = null;
+    let librarySettings: any = null;
 
     if (slug) {
       try {
         const library = await getLibraryBySlug(slug);
         libraryId = library.id;
-        const settings = await getLibrarySettings(library.id);
-        if (settings?.total_seats) {
-          configuredTotalSeats = settings.total_seats;
+        librarySettings = await getLibrarySettings(library.id);
+        if (librarySettings?.total_seats) {
+          configuredTotalSeats = librarySettings.total_seats;
         }
       } catch {
         // ignore
       }
     } else {
-      const settings = await getLibrarySettings(libraryId);
-      if (settings?.total_seats) {
-        configuredTotalSeats = settings.total_seats;
+      librarySettings = await getLibrarySettings(libraryId);
+      if (librarySettings?.total_seats) {
+        configuredTotalSeats = librarySettings.total_seats;
       }
     }
 
@@ -171,38 +173,56 @@ export async function GET(req: Request) {
       }))
       .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
 
-    // 8. Shift Counts (Active occupancy per shift)
+    // 8. Dynamic Shift Counts (Active occupancy per shift)
+    const configuredShifts: ShiftConfig[] =
+      librarySettings?.shifts_config && librarySettings.shifts_config.length > 0
+        ? librarySettings.shifts_config
+        : DEFAULT_SHIFTS;
+
     let fullDayCount = 0;
-    let shift1Count = 0;
-    let shift2Count = 0;
-    let shift3Count = 0;
+    const dynamicCounts: Record<string, number> = {};
 
     for (const r of activeReceipts) {
       if (r.subscription_type === "full_day") {
         fullDayCount++;
       } else {
-        if (r.shift_type === "shift_1" || r.shift_type === "morning") {
-          shift1Count++;
-        } else if (r.shift_type === "shift_2" || r.shift_type === "evening") {
-          shift2Count++;
-        } else if (r.shift_type === "shift_3") {
-          shift3Count++;
-        }
+        const sid = r.shift_type || "other";
+        dynamicCounts[sid] = (dynamicCounts[sid] || 0) + 1;
+        if (sid === "morning") dynamicCounts["shift_1"] = (dynamicCounts["shift_1"] || 0) + 1;
+        if (sid === "evening") dynamicCounts["shift_2"] = (dynamicCounts["shift_2"] || 0) + 1;
       }
+    }
+
+    const shiftBreakdown: Array<{ id: string; name: string; count: number }> = [];
+    const fullDayShift = configuredShifts.find((s) => s.id === "full_day");
+    shiftBreakdown.push({
+      id: "full_day",
+      name: fullDayShift?.name || "Full Day Pass",
+      count: fullDayCount,
+    });
+
+    for (const s of configuredShifts.filter((s) => s.id !== "full_day")) {
+      const count = dynamicCounts[s.id] || 0;
+      shiftBreakdown.push({
+        id: s.id,
+        name: s.name,
+        count,
+      });
     }
 
     const shiftCounts = {
       full_day: fullDayCount,
-      shift_1: shift1Count,
-      shift_2: shift2Count,
-      shift_3: shift3Count,
+      shift_1: dynamicCounts["shift_1"] || 0,
+      shift_2: dynamicCounts["shift_2"] || 0,
+      shift_3: dynamicCounts["shift_3"] || 0,
+      ...dynamicCounts,
     };
 
     // 9. Hourly load profiles
     const hourlyOccupancy = [
-      { period: "Morning (6 AM - 2 PM)", count: fullDayCount + shift1Count },
-      { period: "Afternoon (2 PM - 4 PM)", count: fullDayCount + shift2Count },
-      { period: "Evening (4 PM - 12 AM)", count: fullDayCount + shift2Count + shift3Count },
+      { period: "Morning Hours (6 AM - 2 PM)", count: fullDayCount + (dynamicCounts["shift_1"] || 0) },
+      { period: "Afternoon Hours (2 PM - 4 PM)", count: fullDayCount + (dynamicCounts["shift_2"] || 0) },
+      { period: "Evening Hours (4 PM - 12 AM)", count: fullDayCount + (dynamicCounts["shift_2"] || 0) + (dynamicCounts["shift_3"] || 0) },
     ];
 
     return NextResponse.json({
@@ -217,6 +237,7 @@ export async function GET(req: Request) {
       revenueTrend,
       monthlyBreakdown,
       shiftCounts,
+      shiftBreakdown,
       hourlyOccupancy,
     });
   } catch (err: any) {

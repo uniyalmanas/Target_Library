@@ -7,6 +7,9 @@ import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 import { downloadCsv } from "@/lib/exportCsv";
 import { generateDueFeeWhatsAppMessage } from "@/lib/upi";
 import DynamicUpiModal from "@/lib/DynamicUpiModal";
+import { ShiftConfig } from "@/lib/types";
+import { getShiftDisplayLabel } from "@/lib/shifts";
+import { DEFAULT_SHIFTS } from "@/lib/tenant";
 
 interface DueCandidate {
   receipt_no: number;
@@ -65,7 +68,9 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
   const [shiftFilter, setShiftFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"overdue_desc" | "overdue_asc" | "seat" | "name">("overdue_desc");
 
-  // Fetch library details for dynamic branding and UPI configurations
+  const [shiftsConfig, setShiftsConfig] = useState<ShiftConfig[]>([]);
+
+  // Fetch library details for dynamic branding, shifts, and UPI configurations
   useEffect(() => {
     fetch(`/api/libraries/${encodeURIComponent(slug)}/settings`)
       .then((r) => r.json())
@@ -78,6 +83,9 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
             upi_name: d.library.upi_name || d.library.name || "Study Library",
           });
           setLibraryName(d.library.name || "");
+        }
+        if (d.settings?.shifts_config && d.settings.shifts_config.length > 0) {
+          setShiftsConfig(d.settings.shifts_config);
         }
       })
       .catch(() => {});
@@ -107,11 +115,11 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
   }, [slug]);
 
   const shiftLabel = (shift: string | null, subType: string) => {
-    if (subType === "full_day") return "Full Day (6am–12am)";
-    if (shift === "shift_1" || shift === "morning") return "Shift 1 (6am–2pm)";
-    if (shift === "shift_2" || shift === "evening") return "Shift 2 (2pm–12am)";
-    if (shift === "shift_3") return "Shift 3 (4pm–12am)";
-    return "Half Day";
+    return getShiftDisplayLabel(
+      shift,
+      subType,
+      shiftsConfig.length > 0 ? shiftsConfig : DEFAULT_SHIFTS
+    );
   };
 
   const handleVacate = async (candidate: DueCandidate) => {
@@ -202,10 +210,16 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
 
         // Shift Filter
         if (shiftFilter !== "all") {
-          if (shiftFilter === "full_day" && c.subscription_type !== "full_day") return false;
-          if (shiftFilter === "shift_1" && c.shift_type !== "shift_1" && c.shift_type !== "morning") return false;
-          if (shiftFilter === "shift_2" && c.shift_type !== "shift_2" && c.shift_type !== "evening") return false;
-          if (shiftFilter === "shift_3" && c.shift_type !== "shift_3") return false;
+          if (shiftFilter === "full_day") {
+            if (c.subscription_type !== "full_day") return false;
+          } else {
+            if (c.subscription_type === "full_day") return false;
+            const matches =
+              c.shift_type === shiftFilter ||
+              (shiftFilter === "shift_1" && c.shift_type === "morning") ||
+              (shiftFilter === "shift_2" && c.shift_type === "evening");
+            if (!matches) return false;
+          }
         }
 
         return true;
@@ -401,10 +415,20 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
             className="bg-background border border-panel-border rounded-xl px-3 py-1.5 text-xs text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
           >
             <option value="all">All Shifts</option>
-            <option value="full_day">Full Day (6am-12am)</option>
-            <option value="shift_1">Shift 1 (6am-2pm)</option>
-            <option value="shift_2">Shift 2 (2pm-12am)</option>
-            <option value="shift_3">Shift 3 (4pm-12am)</option>
+            {shiftsConfig.length > 0 ? (
+              shiftsConfig.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))
+            ) : (
+              <>
+                <option value="full_day">Full Day (6am-12am)</option>
+                <option value="shift_1">Shift 1 (6am-2pm)</option>
+                <option value="shift_2">Shift 2 (2pm-12am)</option>
+                <option value="shift_3">Shift 3 (4pm-12am)</option>
+              </>
+            )}
           </select>
 
           {/* Sort By */}

@@ -17,6 +17,7 @@ interface Stats {
   revenueTrend: { month: string; revenue: number }[];
   monthlyBreakdown: { month: string; total: number; count: number }[];
   shiftCounts: { full_day: number; shift_1: number; shift_2: number; shift_3: number };
+  shiftBreakdown?: { id: string; name: string; count: number }[];
   hourlyOccupancy: { period: string; count: number }[];
 }
 
@@ -275,12 +276,30 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
   const fillD = points.length > 0 ? `${pathD} L ${points[points.length - 1].x},${chartHeight - 10} L ${points[0].x},${chartHeight - 10} Z` : "";
 
   // Shift counts progress items
-  const shiftList = [
-    { name: "Full Day Pass", count: stats.shiftCounts?.full_day || 0, color: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" },
-    { name: "Shift 1 (6am - 2pm)", count: stats.shiftCounts?.shift_1 || 0, color: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
-    { name: "Shift 2 (2pm - 12am)", count: stats.shiftCounts?.shift_2 || 0, color: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
-    { name: "Shift 3 (4pm - 12am)", count: stats.shiftCounts?.shift_3 || 0, color: "bg-blue-500", text: "text-blue-600 dark:text-blue-400" },
+  const SHIFT_PALETTES = [
+    { color: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" },
+    { color: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
+    { color: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
+    { color: "bg-blue-500", text: "text-blue-600 dark:text-blue-400" },
+    { color: "bg-purple-500", text: "text-purple-600 dark:text-purple-400" },
+    { color: "bg-teal-500", text: "text-teal-600 dark:text-teal-400" },
+    { color: "bg-sky-500", text: "text-sky-600 dark:text-sky-400" },
   ];
+
+  const shiftList =
+    stats.shiftBreakdown && stats.shiftBreakdown.length > 0
+      ? stats.shiftBreakdown.map((s, idx) => ({
+          name: s.name,
+          count: s.count,
+          color: SHIFT_PALETTES[idx % SHIFT_PALETTES.length].color,
+          text: SHIFT_PALETTES[idx % SHIFT_PALETTES.length].text,
+        }))
+      : [
+          { name: "Full Day Pass", count: stats.shiftCounts?.full_day || 0, color: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" },
+          { name: "Shift 1", count: stats.shiftCounts?.shift_1 || 0, color: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
+          { name: "Shift 2", count: stats.shiftCounts?.shift_2 || 0, color: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
+          { name: "Shift 3", count: stats.shiftCounts?.shift_3 || 0, color: "bg-blue-500", text: "text-blue-600 dark:text-blue-400" },
+        ];
   const maxShiftCount = Math.max(...shiftList.map((s) => s.count), 1);
 
   // Hourly load Timeline variables

@@ -5,6 +5,9 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 import { downloadCsv } from "@/lib/exportCsv";
+import { ShiftConfig } from "@/lib/types";
+import { getShiftDisplayLabel } from "@/lib/shifts";
+import { DEFAULT_SHIFTS } from "@/lib/tenant";
 
 interface DailyPayment {
   receipt_no: number;
@@ -33,28 +36,26 @@ interface DailySummary {
   online_collected?: number;
   cash_count?: number;
   online_count?: number;
-  new_admissions_count: number;
-  renewals_count: number;
-  with_sheet_count: number;
-  shift_counts: {
-    full_day: number;
-    shift_1: number;
-    shift_2: number;
-    shift_3: number;
-    other: number;
-  };
+  new_admissions_count?: number;
+  renewals_count?: number;
+  with_sheet_count?: number;
+  full_day_count: number;
+  shift_1_count: number;
+  shift_2_count: number;
+  shift_3_count: number;
 }
 
 function getTodayIST(): string {
-  return new Intl.DateTimeFormat("en-CA", {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  });
+  return formatter.format(new Date());
 }
 
-export function DailyCollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
+export function CollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
   const searchParams = useSearchParams();
   const slug = tenantSlug || searchParams.get("slug") || "target-library";
 
@@ -65,19 +66,21 @@ export function DailyCollectionsContent({ tenantSlug }: { tenantSlug?: string })
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [payments, setPayments] = useState<DailyPayment[]>([]);
   const [libraryName, setLibraryName] = useState<string>("");
+  const [shiftsConfig, setShiftsConfig] = useState<ShiftConfig[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [editingReceipt, setEditingReceipt] = useState<EditableReceipt | null>(null);
 
-  // Fetch library details for dynamic branding
+  // Fetch library details for dynamic branding and shifts
   useEffect(() => {
-    if (slug && slug !== "target-library") {
-      fetch(`/api/libraries/${encodeURIComponent(slug)}/settings`)
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.library?.name) setLibraryName(d.library.name);
-        })
-        .catch(() => {});
-    }
+    fetch(`/api/libraries/${encodeURIComponent(slug)}/settings`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.library?.name) setLibraryName(d.library.name);
+        if (d.settings?.shifts_config && d.settings.shifts_config.length > 0) {
+          setShiftsConfig(d.settings.shifts_config);
+        }
+      })
+      .catch(() => {});
   }, [slug]);
 
   // Filters
@@ -161,10 +164,16 @@ export function DailyCollectionsContent({ tenantSlug }: { tenantSlug?: string })
 
       // Shift Filter
       if (shiftFilter !== "all") {
-        if (shiftFilter === "full_day" && p.subscription_type !== "full_day") return false;
-        if (shiftFilter === "shift_1" && p.shift_type !== "shift_1" && p.shift_type !== "morning") return false;
-        if (shiftFilter === "shift_2" && p.shift_type !== "shift_2" && p.shift_type !== "evening") return false;
-        if (shiftFilter === "shift_3" && p.shift_type !== "shift_3") return false;
+        if (shiftFilter === "full_day") {
+          if (p.subscription_type !== "full_day") return false;
+        } else {
+          if (p.subscription_type === "full_day") return false;
+          const matches =
+            p.shift_type === shiftFilter ||
+            (shiftFilter === "shift_1" && p.shift_type === "morning") ||
+            (shiftFilter === "shift_2" && p.shift_type === "evening");
+          if (!matches) return false;
+        }
       }
 
       // Payment Mode Filter
@@ -562,10 +571,20 @@ export function DailyCollectionsContent({ tenantSlug }: { tenantSlug?: string })
             className="bg-background border border-panel-border rounded-xl px-3 py-1.5 text-xs text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
           >
             <option value="all">All Shifts</option>
-            <option value="full_day">Full Day (6 AM - 12 AM)</option>
-            <option value="shift_1">Shift 1 (6 AM - 2 PM)</option>
-            <option value="shift_2">Shift 2 (2 PM - 12 AM)</option>
-            <option value="shift_3">Shift 3 (4 PM - 12 AM)</option>
+            {shiftsConfig.length > 0 ? (
+              shiftsConfig.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))
+            ) : (
+              <>
+                <option value="full_day">Full Day (6 AM - 12 AM)</option>
+                <option value="shift_1">Shift 1 (6 AM - 2 PM)</option>
+                <option value="shift_2">Shift 2 (2 PM - 12 AM)</option>
+                <option value="shift_3">Shift 3 (4 PM - 12 AM)</option>
+              </>
+            )}
           </select>
         </div>
       </div>
@@ -623,16 +642,11 @@ export function DailyCollectionsContent({ tenantSlug }: { tenantSlug?: string })
               </thead>
               <tbody className="divide-y divide-panel-border">
                 {filteredPayments.map((p) => {
-                  const shiftLabel =
-                    p.subscription_type === "full_day"
-                      ? "Full Day (6AM-12AM)"
-                      : p.shift_type === "shift_1" || p.shift_type === "morning"
-                      ? "Shift 1 (6AM-2PM)"
-                      : p.shift_type === "shift_2" || p.shift_type === "evening"
-                      ? "Shift 2 (2PM-12AM)"
-                      : p.shift_type === "shift_3"
-                      ? "Shift 3 (4PM-12AM)"
-                      : "Half Day";
+                  const shiftLabel = getShiftDisplayLabel(
+                    p.shift_type,
+                    p.subscription_type,
+                    shiftsConfig.length > 0 ? shiftsConfig : DEFAULT_SHIFTS
+                  );
 
                   const modeText = p.payment_mode === "online" ? "Online (UPI)" : "Cash";
                   const libDisplayName = libraryName || (slug !== "target-library" ? slug.replace(/-/g, " ").toUpperCase() : "The Target Library");
@@ -812,7 +826,7 @@ export function DailyCollectionsContent({ tenantSlug }: { tenantSlug?: string })
 export default function CollectionsView({ tenantSlug }: { tenantSlug?: string }) {
   return (
     <Suspense fallback={<div className="p-12 text-center text-xs text-text-muted">Loading collections ledger...</div>}>
-      <DailyCollectionsContent tenantSlug={tenantSlug} />
+      <CollectionsContent tenantSlug={tenantSlug} />
     </Suspense>
   );
 }
