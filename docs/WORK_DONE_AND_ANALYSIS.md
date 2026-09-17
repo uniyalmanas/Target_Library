@@ -92,6 +92,79 @@ This document serves as an exhaustive historical record and technical guide of a
 
 ---
 
+### 6. 🗑️ Expense Deletion & In-Memory Store Bug Fix
+* **Context & Problem:**
+  When a user tried to delete an expense in the Expenses ledger, it was removed from the screen momentarily but returned after a few seconds upon automated polling/refresh.
+* **Architecture & Implementation:**
+  * Fixed ID mismatch between local state and Supabase database records.
+  * Resolved in-memory demo mock store resets that were repopulating deleted demo items.
+  * Ensured DELETE calls await full transactional confirmation in Supabase and purge records before updating local state and recalculating the monthly net balance.
+
+---
+
+### 7. 📌 Persistent Library Workspace Code & Auto-Fill
+* **Context & Problem:**
+  Users had to manually search or type their workspace slug every time they navigated to the login screen.
+* **Architecture & Implementation:**
+  * Saved the selected library in `localStorage.setItem("library_last_slug", slug)` upon selection from the directory modal or manual login.
+  * On subsequent visits to `/login`, the workspace slug auto-loads and displays a persistent selected workspace chip with a 1-click `✕ Switch` option.
+
+---
+
+### 8. 👑 1-Step Smart Dual-Role Owner Authentication
+* **Context & Problem:**
+  Users had to enter their password twice because front desk staff mode was selected by default, rejecting owner passwords on the first attempt.
+* **Architecture & Implementation:**
+  * Updated `app/api/auth/login/route.ts` to automatically test credentials against the owner account first.
+  * If owner credentials match, the user is elevated to `role: "owner"` regardless of whether the Staff or Owner toggle was active on the frontend.
+  * Synchronized `target_lib_owner_auth` across `sessionStorage`, `localStorage`, and `getStoredSession()`.
+
+---
+
+### 9. 🔄 Active Shift Safeguards, Bulk Migration & Grandfathering Pricing
+* **Context & Problem:**
+  When shifts or pricing change, active students needed protection against orphaned records, seat clashes, and unexpected price increases.
+* **Architecture & Implementation:**
+  * Added live student counts (`👥 X enrolled`) on each shift card in Settings.
+  * Intercepted shift deletion with the **Shift Migration & Safety Modal** to reassign students safely before retiring shifts.
+  * Added **Renewal Price Protection (Grandfathering)** in `NewReceiptView.tsx` with 1-click rate selection chips (`[✓ Keep Loyalty Rate]` vs `[Standard Rate]`).
+  * Added **1-Click WhatsApp Shift Notice Broadcast** in Settings to notify all enrolled students of schedule changes.
+
+---
+
+### 10. ⚡ Universal Dynamic Multi-Shift Analytics, Reporting & Filter Architecture
+* **Context & Problem:**
+  Adding new custom shifts (e.g., Morning Shift for ₹600) and shifting other shift timings required dynamic seat clash detection and dynamic reporting filters.
+* **Architecture & Implementation:**
+  * Minute-interval collision mathematics in `lib/shifts.ts` (`max(start1, start2) < min(end1, end2)`).
+  * Non-overlapping shifts share the same physical desk seamlessly (**Yellow Seats** indicate complementary slot availability).
+  * Connected dynamic `shiftBreakdown` in `app/api/dashboard/route.ts` and `DashboardView.tsx`.
+  * Dynamic shift dropdown filters and custom shift labels via `getShiftDisplayLabel()` in `DueFeesView.tsx` and `CollectionsView.tsx`.
+
+---
+
+### 11. 👁️ Visible Password Toggles & 1-Step Login Case-Insensitivity
+* **Context & Problem:**
+  Users were typing passwords blindly, causing typo rejections, and strict case-matching rejected valid inputs like `targetowner2026`.
+* **Architecture & Implementation:**
+  * Implemented Show/Hide Password toggles (`👁️ Show` / `🙈 Hide`) across:
+    1. Login Page (`app/login/page.tsx`)
+    2. Expenses View Owner Unlock (`components/views/ExpensesView.tsx`)
+    3. Settings Page Owner Unlock & Passwords Tab (`app/l/[slug]/settings/page.tsx`)
+    4. Dashboard View Owner Unlock (`components/views/DashboardView.tsx`)
+    5. Edit Receipt Modal Passcode (`lib/EditReceiptModal.tsx`)
+  * Enhanced `app/api/auth/login/route.ts` with whitespace trimming, case-insensitive fallback matching, and automatic hash self-healing in `library_users`.
+  * Refreshed live database bcrypt hashes in Supabase for `target-library`.
+
+---
+
+### 12. 🏥 Healthcare Platform (ClinicOS) Conceptual Blueprint & Separation
+* **Context & Decision:**
+  * Architected a complete multi-tenant healthcare operating system (Doctors, Clinics with $N$ beds, In-house Pharmacy, PWA, WhatsApp Token Calling, and AI Onboarding) leveraging the core principles of the library platform.
+  * By user directive, the full architectural specification was saved for future reference and will be initiated in a separate dedicated folder/repository, maintaining 100% focus and code purity for `library-ms`.
+
+---
+
 ## 🏛️ System Architecture Overview
 
 ```mermaid
@@ -151,18 +224,29 @@ flowchart TD
 
 ---
 
+## 🏷️ Checkpoint Tags & Milestone Commit History
+
+| Tag / Commit | Milestone | Status |
+| :--- | :--- | :--- |
+| `checkpoint-owner-auth-stable` | Stable 1-step owner auth & session sync | Verified & Tagged |
+| `b049c0b` | Shift enrollment safeguards, bulk migration & price protection | Deployed Live |
+| `db8e758` | Dynamic multi-shift analytics, reporting & filters in Dashboard, Due Fees & Collections | Deployed Live |
+| `8919942` | Visible password toggles, robust trimming & case-insensitive 1-step owner login | Deployed Live |
+
+---
+
 ## 🧪 Verification & Build Status
 
 All features have been compiled, verified, and passed through TypeScript static analysis:
 ```bash
 npm run build
 # Result:
-# ✓ Compiled successfully in 9.7s
-# ✓ Finished TypeScript in 22.3s
-# ✓ Generating static pages using 15 workers (26/26) in 617ms
+# ✓ Compiled successfully in 13.3s
+# ✓ Finished TypeScript in 11.7s
+# ✓ Generating static pages using 15 workers (25/25) in 553ms
 ```
 
-* **Git Commit:** `5edfb63` (`feat(superadmin): add Change Logo feature for tenant libraries and SaaS platform branding`)
+* **Latest Git Commit:** `8919942` (`feat(auth): visible password toggles, robust cleanPassword trimming and case-insensitive fallback in login`)
 * **Remote Deployment:** Automatic Vercel build deployed to `https://library-ms-three.vercel.app`
 
 ---
