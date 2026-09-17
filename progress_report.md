@@ -81,9 +81,10 @@
 * Added Show/Hide (👁️ / 🙈) password toggles across all authentication inputs.
 * Enhanced login route with whitespace trimming, case-insensitivity, and auto-syncing hashes.
 
-### 👤 Step 12 — Healthcare SaaS Architectural Conceptualization
-* Evaluated clinic/nursing home operating system ($N$ beds, in-house pharmacy, PWA).
-* Formally separated codebases by user directive: `library-ms` remains 100% focused on libraries.
+### 👤 Step 13 — AuthGate Multi-Hook Race Condition Fix (1-Step Clean Login)
+* Diagnosed the root cause of the "must enter password twice" bounce: `AuthGate` in `RootLayout` had two uncoordinated `useEffect` hooks. On client navigation (`router.push`) into protected routes (`/l/[slug]`), the redirect effect ran with stale `isAuthenticated: false` state before the auth evaluation effect could update it, bouncing the user right back to `/login`.
+* Refactored `AuthGate.tsx` to evaluate authentication synchronously on initial render (`useState(() => checkClientAuth(pathname))`), consolidated verification into a single unified hook, and added cross-component `auth-changed` event listeners.
+* Updated `app/login/page.tsx` to set both `sessionStorage` and `localStorage` auth flags, and execute clean `window.location.href` navigation to cleanly initialize the protected workspace without router bounce.
 
 ---
 
@@ -91,7 +92,8 @@
 ```bash
 npm run build
 # Result: 0 errors
-# ✓ Compiled successfully in 13.3s
-# ✓ Finished TypeScript in 11.7s
-# ✓ Generating static pages (25/25) in 553ms
+# ✓ Compiled successfully in 18.6s
+# ✓ Finished TypeScript in 16.2s
+# ✓ Generating static pages (25/25) in 689ms
 ```
+
