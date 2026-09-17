@@ -22,6 +22,7 @@ function LoginContent() {
   // Credentials State
   const [role, setRole] = useState<"staff" | "owner">("staff");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -498,19 +499,39 @@ function LoginContent() {
               </div>
             </div>
 
-            {/* Passcode / Password */}
+            {/* Passcode / Password with Visible Toggle */}
             <div>
-              <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block mb-1.5">
-                Passcode / Password
-              </label>
-              <input
-                type="password"
-                required
-                placeholder="Enter password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-background border border-panel-border rounded-xl px-3.5 py-2.5 text-xs font-mono text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block">
+                  Passcode / Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer select-none"
+                >
+                  <span>{showPassword ? "🙈 Hide" : "👁️ Show"}</span>
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-background border border-panel-border rounded-xl pl-3.5 pr-10 py-2.5 text-xs font-mono text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main text-sm transition select-none cursor-pointer"
+                  title={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? "🙈" : "👁️"}
+                </button>
+              </div>
             </div>
 
             {/* Submit Button */}

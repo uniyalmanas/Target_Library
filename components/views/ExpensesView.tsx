@@ -82,6 +82,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
   const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState(false);
   const [checkingOwnerAuth, setCheckingOwnerAuth] = useState(true);
   const [ownerPassInput, setOwnerPassInput] = useState("");
+  const [showOwnerPass, setShowOwnerPass] = useState(false);
   const [ownerPassError, setOwnerPassError] = useState("");
   const [unlockingOwner, setUnlockingOwner] = useState(false);
 
@@ -402,20 +403,40 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
 
           <form onSubmit={handleUnlockOwner} className="space-y-4 text-left pt-1">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted block">
-                Owner Passcode
-              </label>
-              <input
-                type="password"
-                placeholder="Enter owner password"
-                value={ownerPassInput}
-                onChange={(e) => {
-                  setOwnerPassInput(e.target.value);
-                  setOwnerPassError("");
-                }}
-                className="w-full bg-background border border-panel-border rounded-xl px-3.5 py-2.5 text-xs text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
-                autoFocus
-              />
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted block">
+                  Owner Passcode
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowOwnerPass((prev) => !prev)}
+                  className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer select-none"
+                >
+                  <span>{showOwnerPass ? "🙈 Hide" : "👁️ Show"}</span>
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showOwnerPass ? "text" : "password"}
+                  placeholder="Enter owner password"
+                  value={ownerPassInput}
+                  onChange={(e) => {
+                    setOwnerPassInput(e.target.value);
+                    setOwnerPassError("");
+                  }}
+                  className="w-full bg-background border border-panel-border rounded-xl pl-3.5 pr-10 py-2.5 text-xs text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOwnerPass((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main text-sm transition select-none cursor-pointer"
+                  title={showOwnerPass ? "Hide password" : "Show password"}
+                  aria-label={showOwnerPass ? "Hide password" : "Show password"}
+                >
+                  {showOwnerPass ? "🙈" : "👁️"}
+                </button>
+              </div>
               {ownerPassError && (
                 <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{ownerPassError}</p>
               )}

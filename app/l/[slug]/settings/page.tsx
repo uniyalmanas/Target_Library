@@ -109,8 +109,11 @@ export default function LibraryOwnerSettingsPage({
   const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState(false);
   const [checkingOwnerAuth, setCheckingOwnerAuth] = useState(true);
   const [ownerPassInput, setOwnerPassInput] = useState("");
+  const [showOwnerPass, setShowOwnerPass] = useState(false);
   const [ownerPassError, setOwnerPassError] = useState("");
   const [unlockingOwner, setUnlockingOwner] = useState(false);
+  const [showNewStaffPass, setShowNewStaffPass] = useState(false);
+  const [showNewOwnerPass, setShowNewOwnerPass] = useState(false);
 
   // Password Management State
   const [newStaffPassword, setNewStaffPassword] = useState("");
@@ -704,20 +707,40 @@ export default function LibraryOwnerSettingsPage({
 
           <form onSubmit={handleUnlockOwner} className="space-y-4 text-left pt-1">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted block">
-                Owner Passcode
-              </label>
-              <input
-                type="password"
-                placeholder="Enter owner password"
-                value={ownerPassInput}
-                onChange={(e) => {
-                  setOwnerPassInput(e.target.value);
-                  setOwnerPassError("");
-                }}
-                className="w-full bg-background border border-panel-border rounded-xl px-3.5 py-2.5 text-xs text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
-                autoFocus
-              />
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted block">
+                  Owner Passcode
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowOwnerPass((prev) => !prev)}
+                  className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer select-none"
+                >
+                  <span>{showOwnerPass ? "🙈 Hide" : "👁️ Show"}</span>
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showOwnerPass ? "text" : "password"}
+                  placeholder="Enter owner password"
+                  value={ownerPassInput}
+                  onChange={(e) => {
+                    setOwnerPassInput(e.target.value);
+                    setOwnerPassError("");
+                  }}
+                  className="w-full bg-background border border-panel-border rounded-xl pl-3.5 pr-10 py-2.5 text-xs text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOwnerPass((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main text-sm transition select-none cursor-pointer"
+                  title={showOwnerPass ? "Hide password" : "Show password"}
+                  aria-label={showOwnerPass ? "Hide password" : "Show password"}
+                >
+                  {showOwnerPass ? "🙈" : "👁️"}
+                </button>
+              </div>
               {ownerPassError && (
                 <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{ownerPassError}</p>
               )}
@@ -2193,17 +2216,37 @@ export default function LibraryOwnerSettingsPage({
 
                   <form onSubmit={handleUpdateStaffPassword} className="space-y-3.5">
                     <div>
-                      <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block mb-1">
-                        New Staff Passcode
-                      </label>
-                      <input
-                        type="password"
-                        placeholder="e.g. 1234 or staff2026"
-                        value={newStaffPassword}
-                        onChange={(e) => setNewStaffPassword(e.target.value)}
-                        required
-                        className="w-full bg-background border border-panel-border rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
-                      />
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block">
+                          New Staff Passcode
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowNewStaffPass((prev) => !prev)}
+                          className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer select-none"
+                        >
+                          <span>{showNewStaffPass ? "🙈 Hide" : "👁️ Show"}</span>
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showNewStaffPass ? "text" : "password"}
+                          placeholder="e.g. 1234 or staff2026"
+                          value={newStaffPassword}
+                          onChange={(e) => setNewStaffPassword(e.target.value)}
+                          required
+                          className="w-full bg-background border border-panel-border rounded-xl pl-3 pr-10 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewStaffPass((prev) => !prev)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main text-sm transition select-none cursor-pointer"
+                          title={showNewStaffPass ? "Hide password" : "Show password"}
+                          aria-label={showNewStaffPass ? "Hide password" : "Show password"}
+                        >
+                          {showNewStaffPass ? "🙈" : "👁️"}
+                        </button>
+                      </div>
                     </div>
 
                     <div>
@@ -2211,12 +2254,12 @@ export default function LibraryOwnerSettingsPage({
                         Confirm Staff Passcode
                       </label>
                       <input
-                        type="password"
+                        type={showNewStaffPass ? "text" : "password"}
                         placeholder="Re-enter passcode"
                         value={confirmStaffPassword}
                         onChange={(e) => setConfirmStaffPassword(e.target.value)}
                         required
-                        className="w-full bg-background border border-panel-border rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
+                        className="w-full bg-background border border-panel-border rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
                       />
                     </div>
 
@@ -2273,17 +2316,37 @@ export default function LibraryOwnerSettingsPage({
 
                   <form onSubmit={handleUpdateOwnerPassword} className="space-y-3.5">
                     <div>
-                      <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block mb-1">
-                        New Owner Password
-                      </label>
-                      <input
-                        type="password"
-                        placeholder="Enter secure master password"
-                        value={newOwnerPassword}
-                        onChange={(e) => setNewOwnerPassword(e.target.value)}
-                        required
-                        className="w-full bg-background border border-panel-border rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-sky-500"
-                      />
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block">
+                          New Owner Password
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowNewOwnerPass((prev) => !prev)}
+                          className="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer select-none"
+                        >
+                          <span>{showNewOwnerPass ? "🙈 Hide" : "👁️ Show"}</span>
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showNewOwnerPass ? "text" : "password"}
+                          placeholder="Enter secure master password"
+                          value={newOwnerPassword}
+                          onChange={(e) => setNewOwnerPassword(e.target.value)}
+                          required
+                          className="w-full bg-background border border-panel-border rounded-xl pl-3 pr-10 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewOwnerPass((prev) => !prev)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main text-sm transition select-none cursor-pointer"
+                          title={showNewOwnerPass ? "Hide password" : "Show password"}
+                          aria-label={showNewOwnerPass ? "Hide password" : "Show password"}
+                        >
+                          {showNewOwnerPass ? "🙈" : "👁️"}
+                        </button>
+                      </div>
                     </div>
 
                     {ownerPassSuccess && (

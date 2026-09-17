@@ -72,6 +72,7 @@ export default function EditReceiptModal({
     );
   });
   const [passcode, setPasscode] = useState("");
+  const [showPasscode, setShowPasscode] = useState(false);
   const [passcodeError, setPasscodeError] = useState("");
 
   // Edit form state
@@ -322,18 +323,38 @@ export default function EditReceiptModal({
               Only the Library Owner is authorized to modify student plans, edit fees, or cancel subscriptions.
             </p>
 
-            <div className="max-w-xs mx-auto">
-              <input
-                type="password"
-                placeholder="Enter Owner Passcode"
-                value={passcode}
-                onChange={(e) => {
-                  setPasscode(e.target.value);
-                  setPasscodeError("");
-                }}
-                className="w-full text-center px-4 py-2.5 bg-background border border-panel-border rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-rose-500"
-                autoFocus
-              />
+            <div className="max-w-xs mx-auto space-y-1.5">
+              <div className="flex items-center justify-end mb-1">
+                <button
+                  type="button"
+                  onClick={() => setShowPasscode((prev) => !prev)}
+                  className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer select-none"
+                >
+                  <span>{showPasscode ? "🙈 Hide" : "👁️ Show"}</span>
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPasscode ? "text" : "password"}
+                  placeholder="Enter Owner Passcode"
+                  value={passcode}
+                  onChange={(e) => {
+                    setPasscode(e.target.value);
+                    setPasscodeError("");
+                  }}
+                  className="w-full text-center px-4 py-2.5 bg-background border border-panel-border rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-rose-500 pr-10"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasscode((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main text-sm transition select-none cursor-pointer"
+                  title={showPasscode ? "Hide password" : "Show password"}
+                  aria-label={showPasscode ? "Hide password" : "Show password"}
+                >
+                  {showPasscode ? "🙈" : "👁️"}
+                </button>
+              </div>
               {passcodeError && (
                 <p className="text-rose-600 dark:text-rose-400 text-xs font-semibold mt-1.5">
                   {passcodeError}

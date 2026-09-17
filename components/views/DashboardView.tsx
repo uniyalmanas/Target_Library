@@ -34,6 +34,7 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
 
   // Owner Authentication States
   const [ownerPassword, setOwnerPassword] = useState("");
+  const [showOwnerPassword, setShowOwnerPassword] = useState(false);
   const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState(false);
   const [ownerError, setOwnerError] = useState("");
   const [checkingOwner, setCheckingOwner] = useState(true);
@@ -146,20 +147,40 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
           </div>
           
           <div className="space-y-1.5">
-            <label className="block text-[10px] font-extrabold uppercase tracking-wider text-text-muted">
-              Owner Password
-            </label>
-            <input
-              type="password"
-              value={ownerPassword}
-              onChange={(e) => {
-                setOwnerPassword(e.target.value);
-                setOwnerError("");
-              }}
-              placeholder="••••••••"
-              required
-              className="w-full bg-background border border-panel-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-rose-500 transition-all font-mono"
-            />
+            <div className="flex items-center justify-between">
+              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-text-muted">
+                Owner Password
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowOwnerPassword((prev) => !prev)}
+                className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer select-none"
+              >
+                <span>{showOwnerPassword ? "🙈 Hide" : "👁️ Show"}</span>
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                type={showOwnerPassword ? "text" : "password"}
+                value={ownerPassword}
+                onChange={(e) => {
+                  setOwnerPassword(e.target.value);
+                  setOwnerError("");
+                }}
+                placeholder="••••••••"
+                required
+                className="w-full bg-background border border-panel-border rounded-lg pl-3 pr-10 py-2 text-sm text-foreground focus:outline-none focus:border-rose-500 transition-all font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowOwnerPassword((prev) => !prev)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main text-sm transition select-none cursor-pointer"
+                title={showOwnerPassword ? "Hide password" : "Show password"}
+                aria-label={showOwnerPassword ? "Hide password" : "Show password"}
+              >
+                {showOwnerPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
           </div>
 
           {ownerError && (
