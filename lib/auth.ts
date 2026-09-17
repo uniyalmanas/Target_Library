@@ -59,6 +59,13 @@ export function clearStoredSession(): void {
   sessionStorage.removeItem(ADMIN_OVERRIDE_KEY);
   localStorage.removeItem(OWNER_AUTH_KEY);
   sessionStorage.removeItem(OWNER_AUTH_KEY);
+  localStorage.removeItem("target_lib_auth");
+  sessionStorage.removeItem("target_lib_auth");
+  try {
+    window.dispatchEvent(new Event("auth-changed"));
+  } catch {
+    // ignore
+  }
 }
 
 /**
@@ -139,6 +146,10 @@ export function impersonateTenantOwner(slug: string, libraryName?: string, libra
   if (typeof window === "undefined") return;
   try {
     setSuperAdminMasterSession(true);
+    sessionStorage.setItem("target_lib_auth", "true");
+    localStorage.setItem("target_lib_auth", "true");
+    localStorage.setItem("library_last_slug", slug);
+    localStorage.setItem("library_last_role", "owner");
     setStoredSession({
       role: "owner",
       libraryId: libraryId || "",
@@ -147,6 +158,7 @@ export function impersonateTenantOwner(slug: string, libraryName?: string, libra
       fullName: `SuperAdmin (${libraryName || slug})`,
       isMaster: true,
     });
+    window.dispatchEvent(new Event("auth-changed"));
   } catch (e) {
     console.error("Failed to impersonate tenant owner", e);
   }

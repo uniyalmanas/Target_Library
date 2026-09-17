@@ -1,19 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getStoredSession } from "@/lib/auth";
 
 // Secure Admin Passcode, defaults to Target2026 if not set in .env.local
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "Target2026";
 
-export default function AuthGate({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname() || "";
-  const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [checking, setChecking] = useState(true);
-
-  const isPublicPath =
+function isPathPublic(pathname: string): boolean {
+  return (
     pathname === "/" ||
     pathname === "/login" ||
     pathname === "/signup" ||
@@ -23,54 +18,113 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     pathname.endsWith("/student") ||
     pathname.endsWith("/join") ||
     pathname.endsWith("/terms") ||
-    pathname.startsWith("/superadmin");
+    pathname.startsWith("/superadmin")
+  );
+}
 
-  useEffect(() => {
-    const authStatus = sessionStorage.getItem("target_lib_auth");
-    const stored = getStoredSession();
+function checkClientAuth(pathname: string): boolean {
+  if (isPathPublic(pathname)) return true;
+  if (typeof window === "undefined") return false;
 
-    let pathSlug: string | null = null;
-    if (pathname.startsWith("/l/")) {
-      const parts = pathname.split("/");
-      if (parts[2]) pathSlug = decodeURIComponent(parts[2]);
-    }
-    const currentSearch = typeof window !== "undefined" ? window.location.search : "";
-    const querySlug = new URLSearchParams(currentSearch).get("slug");
-    const requiredSlug = pathSlug || querySlug;
+  const authStatus =
+    sessionStorage.getItem("target_lib_auth") ||
+    localStorage.getItem("target_lib_auth");
+  const stored = getStoredSession();
 
-    const hasValidAuth = authStatus === "true" || authStatus === ADMIN_PASSWORD;
-    const isSuperAdmin = stored?.role === "superadmin";
-    const isMatchingTenant = !requiredSlug || isSuperAdmin || stored?.librarySlug === requiredSlug;
+  let pathSlug: string | null = null;
+  if (pathname.startsWith("/l/")) {
+    const parts = pathname.split("/");
+    if (parts[2]) pathSlug = decodeURIComponent(parts[2]).toLowerCase();
+  }
+  const currentSearch = typeof window !== "undefined" ? window.location.search : "";
+  const querySlug = new URLSearchParams(currentSearch).get("slug")?.toLowerCase();
+  const requiredSlug = pathSlug || querySlug;
 
-    if (hasValidAuth && isMatchingTenant && (isSuperAdmin || stored?.librarySlug)) {
+  const hasValidAuth =
+    authStatus === "true" ||
+    authStatus === ADMIN_PASSWORD ||
+    sessionStorage.getItem("target_lib_owner_auth") === "true" ||
+    localStorage.getItem("target_lib_owner_auth") === "true";
+
+  if (!hasValidAuth) return false;
+
+  const isSuperAdmin = stored?.role === "superadmin" || stored?.isMaster;
+  if (isSuperAdmin) return true;
+
+  const storedSlug = (stored?.librarySlug || localStorage.getItem("library_last_slug") || "").toLowerCase();
+
+  // If there's no specific slug required by this URL, or no stored slug yet, or slugs match
+  if (!requiredSlug || !storedSlug || storedSlug === requiredSlug) {
+    return true;
+  }
+
+  return false;
+}
+
+export default function AuthGate({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname() || "";
+  const router = useRouter();
+
+  // Initialize state synchronously based on current storage & path to prevent race conditions
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => checkClientAuth(pathname));
+  const [checking, setChecking] = useState<boolean>(() => !checkClientAuth(pathname));
+
+  const verifyAndRedirect = useCallback(() => {
+    if (isPathPublic(pathname)) {
       setIsAuthenticated(true);
+      setChecking(false);
+      return;
+    }
+
+    const valid = checkClientAuth(pathname);
+    if (valid) {
+      setIsAuthenticated(true);
+      setChecking(false);
     } else {
       setIsAuthenticated(false);
+      setChecking(false);
+
+      // Compute redirect destination
+      let pathSlug: string | null = null;
+      if (pathname.startsWith("/l/")) {
+        const parts = pathname.split("/");
+        if (parts[2]) pathSlug = decodeURIComponent(parts[2]);
+      }
+      const currentSearch = typeof window !== "undefined" ? window.location.search : "";
+      const slugFromUrl = new URLSearchParams(currentSearch).get("slug");
+      const stored = typeof window !== "undefined" ? getStoredSession() : null;
+      const storedSlug = typeof window !== "undefined" ? localStorage.getItem("library_last_slug") : null;
+      const effectiveSlug = pathSlug || slugFromUrl || stored?.librarySlug || storedSlug;
+      const target = effectiveSlug ? `/login?slug=${encodeURIComponent(effectiveSlug)}` : "/login";
+
+      router.replace(target);
     }
-    setChecking(false);
-  }, [pathname]);
+  }, [pathname, router]);
 
   useEffect(() => {
-    if (!checking) {
-      if (!isAuthenticated && !isPublicPath) {
-        let pathSlug: string | null = null;
-        if (pathname.startsWith("/l/")) {
-          const parts = pathname.split("/");
-          if (parts[2]) pathSlug = decodeURIComponent(parts[2]);
-        }
-        const currentSearch = typeof window !== "undefined" ? window.location.search : "";
-        const slugFromUrl = new URLSearchParams(currentSearch).get("slug");
-        const stored = typeof window !== "undefined" ? getStoredSession() : null;
-        const storedSlug = typeof window !== "undefined" ? localStorage.getItem("library_last_slug") : null;
-        const effectiveSlug = pathSlug || slugFromUrl || stored?.librarySlug || storedSlug;
-        const target = effectiveSlug ? `/login?slug=${encodeURIComponent(effectiveSlug)}` : "/login";
-        router.replace(target);
+    verifyAndRedirect();
+  }, [verifyAndRedirect]);
+
+  // Listen to cross-component auth updates
+  useEffect(() => {
+    const handleAuthEvent = () => {
+      const valid = checkClientAuth(pathname);
+      if (valid) {
+        setIsAuthenticated(true);
+        setChecking(false);
       }
-    }
-  }, [checking, isAuthenticated, isPublicPath, pathname, router]);
+    };
+
+    window.addEventListener("auth-changed", handleAuthEvent);
+    window.addEventListener("storage", handleAuthEvent);
+    return () => {
+      window.removeEventListener("auth-changed", handleAuthEvent);
+      window.removeEventListener("storage", handleAuthEvent);
+    };
+  }, [pathname]);
 
   // Loading state while checking session validity
-  if (checking) {
+  if (checking && !isPathPublic(pathname)) {
     return (
       <div className="flex items-center justify-center min-h-[50vh] text-xs text-text-muted">
         Verifying librarian credentials session...
@@ -78,7 +132,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated && !isPublicPath) {
+  if (!isAuthenticated && !isPathPublic(pathname)) {
     return null;
   }
 

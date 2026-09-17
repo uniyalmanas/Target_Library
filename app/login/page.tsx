@@ -201,9 +201,12 @@ function LoginContent() {
         isMaster: Boolean(data.user.isMaster),
       });
 
+      const targetSlug = (data.user.slug || cleanSlug).toLowerCase().trim();
+
       sessionStorage.setItem("target_lib_auth", "true");
       if (typeof window !== "undefined") {
-        localStorage.setItem("library_last_slug", data.user.slug || cleanSlug);
+        localStorage.setItem("target_lib_auth", "true");
+        localStorage.setItem("library_last_slug", targetSlug);
         localStorage.setItem("library_last_role", data.user.role === "owner" ? "owner" : "staff");
       }
 
@@ -227,10 +230,14 @@ function LoginContent() {
         localStorage.removeItem("target_lib_owner_auth");
       }
 
-      router.push(`/l/${cleanSlug}`);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("auth-changed"));
+        window.location.href = `/l/${targetSlug}`;
+      } else {
+        router.push(`/l/${targetSlug}`);
+      }
     } catch (err: unknown) {
       setAuthError(err instanceof Error ? err.message : "Authentication failed");
-    } finally {
       setLoggingIn(false);
     }
   };
