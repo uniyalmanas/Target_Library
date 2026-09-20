@@ -784,3 +784,73 @@ Building on the successful mental model from LibraryOS:
 | **Overdue / Hold**| `bg-rose-50 text-rose-950 border-rose-500` | Rent unpaid past grace period (5th of the month). |
 | **Maintenance** | `bg-neutral-100 text-neutral-600 border-neutral-300` | Deep cleaning, painting, or broken furniture. |
 
+---
+
+## 16. Post-Registration Daily Operational Workflows (The Real-World PG Lifecycle)
+
+To ensure ColiveOS is as battle-tested and daily-usable as LibraryOS, it includes the **5 indispensable daily lifecycle features** that property owners and tenants use every single week:
+
+### 16.1 Bed Transfer & Sharing Upgrade Engine
+- **The Real-World Scenario:** A tenant in Room 102 (3-sharing at ₹7,500) wants to shift to Room 301 (2-sharing at ₹9,500) mid-month.
+- **The Automated Flow:**
+  1. Staff opens Resident Drawer ➡️ clicks **"Transfer Bed"**.
+  2. Selects available target bed: `Room 301 - Bed B`.
+  3. **Proration Engine:** The system calculates:
+     $$\text{Adjustment} = \left(\frac{\text{New Rent} - \text{Old Rent}}{30}\right) \times \text{Remaining Days in Month}$$
+  4. Automatically adds the adjustment to their 1st-of-month invoice.
+  5. Old bed instantly becomes **VACANT (🟢)**, and new bed becomes **OCCUPIED (🔵)**.
+
+### 16.2 Move-Out & Security Deposit Settlement Calculator
+- **The Real-World Scenario:** Avoiding the #1 fight in Indian PGs: deposit refund disputes upon vacating.
+- **The Automated Settlement Ledger:**
+  ```text
+  ┌────────────────────────────────────────────────────────┐
+  │         OFFICIAL SECURITY DEPOSIT SETTLEMENT           │
+  ├────────────────────────────────────────────────────────┤
+  │ Original Security Deposit Held:             ₹ 18,000   │
+  │ Less: Pending Rent Dues:                   - ₹  1,200   │
+  │ Less: Unpaid Electricity (28 Units @ ₹10): - ₹    280   │
+  │ Less: Room Damage / Painting Deduction:     - ₹  1,500   │
+  │ Less: Notice Period Shortfall (if any):     - ₹      0   │
+  ├────────────────────────────────────────────────────────┤
+  │ NET REFUND PAYABLE TO RESIDENT:             ₹ 15,020   │
+  └────────────────────────────────────────────────────────┘
+  ```
+- **Instant Actions:**
+  - Owner clicks **"Pay via UPI"** (opens PhonePe/GPay pre-filled with tenant's VPA and exact amount `₹15,020`).
+  - Generates a PDF settlement receipt sent to the tenant's WhatsApp.
+  - Releases the bed to `CLEANING / MAINTENANCE (⚪)` for 24 hours, then `VACANT (🟢)`.
+
+### 16.3 Guest / Day-Pass Visitor Stays (PG "Floating Students" Engine)
+- **The Real-World Scenario:** A tenant's friend stays for 3 days over the weekend, or a candidate in town for an interview needs a 2-day temporary stay.
+- **The Flow:**
+  - Staff selects **"Add Guest Stay"** from the desk navbar.
+  - Inputs guest name, phone, Aadhaar photo, host resident room number, and number of nights (e.g. 3 nights @ ₹500/night = ₹1,500).
+  - Cash or UPI is immediately recorded in the **Daily Cash Ledger**.
+  - **Zero Matrix Collision:** Does not tamper with permanent bed allocations or generate recurring monthly invoices.
+
+### 16.4 Automated HRA Tax Exemption Generator (Corporate IT Favorite)
+- **The Real-World Scenario:** Between January and March, every IT employee in Hyderabad/Bangalore requests 12 months of rent receipts for tax saving.
+- **The Flow:**
+  - Resident opens their PWA portal (`/pg/[slug]/resident`) ➡️ clicks **"Download HRA Package"**.
+  - Selects Financial Year (e.g., `FY 2026-2027`).
+  - System automatically bundles all 12 monthly rent receipts with:
+    - Landlord's verified PAN number.
+    - Full address of the PG property.
+    - Month-by-month rent breakdown + digital stamp.
+  - Saves the PG owner 10+ hours of manual paper signing every tax season.
+
+### 16.5 Staff / Receptionist Access Guard (Master PIN Protection)
+- **The Real-World Scenario:** PG owners frequently employ watchmen or counter boys who manage desk check-ins but must be prevented from skimming cash or tampering with pricing.
+- **Role Permissions:**
+  | Action | Caretaker / Watchman | Property Owner (Master PIN) |
+  | :--- | :---: | :---: |
+  | View Room & Bed Matrix | ✅ Allowed | ✅ Allowed |
+  | Log Room Electricity Meter | ✅ Allowed | ✅ Allowed |
+  | Mark Rent as Received | ✅ Allowed | ✅ Allowed |
+  | Edit Historical Invoices | ❌ Blocked | ✅ Allowed |
+  | Change Base Rent or Unit Rate | ❌ Blocked | ✅ Allowed |
+  | Process Deposit Refund | ❌ Blocked | ✅ Allowed |
+  | View Total PG Bank Balance | ❌ Blocked | ✅ Allowed |
+
+
