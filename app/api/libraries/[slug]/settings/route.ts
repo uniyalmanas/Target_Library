@@ -88,11 +88,10 @@ export async function PUT(
     if (shifts_config !== undefined && Array.isArray(shifts_config)) {
       settingsUpdates.shifts_config = sortShiftsChronologically(shifts_config);
     }
-    if (has_sheet_enabled !== undefined) settingsUpdates.has_sheet_enabled = has_sheet_enabled;
+    if (has_sheet_enabled !== undefined) settingsUpdates.has_sheet_enabled = Boolean(has_sheet_enabled);
     if (sheet_price_monthly !== undefined) settingsUpdates.sheet_price_monthly = Number(sheet_price_monthly);
-    if (price_protection_enabled !== undefined) settingsUpdates.price_protection_enabled = Boolean(price_protection_enabled);
 
-    const { data: updatedSettings, error: setErr } = await supabase
+    let { data: updatedSettings, error: setErr } = await supabase
       .from("library_settings")
       .update(settingsUpdates)
       .eq("library_id", library.id)
@@ -100,25 +99,40 @@ export async function PUT(
       .single();
 
     if (setErr) {
-      // If row doesn't exist, attempt insert; if table doesn't exist, safely return payload
-      try {
-        await supabase.from("library_settings").insert({
+      console.warn("Update library_settings failed, attempting fallback/insert:", setErr.message);
+      // If row didn't exist yet, insert it
+      const { data: inserted, error: insErr } = await supabase
+        .from("library_settings")
+        .insert({
           ...FALLBACK_SETTINGS,
           ...settingsUpdates,
           library_id: library.id,
-        });
-      } catch {
-        // Table not created yet
+        })
+        .select()
+        .single();
+
+      if (inserted) {
+        updatedSettings = inserted;
+        setErr = null;
+      } else {
+        console.error("Failed to persist library_settings to DB:", insErr?.message || setErr.message);
       }
+    }
+
+    const finalSettings = updatedSettings || {
+      ...FALLBACK_SETTINGS,
+      ...settingsUpdates,
+    };
+
+    // Attach virtual/client properties
+    if (price_protection_enabled !== undefined) {
+      finalSettings.price_protection_enabled = Boolean(price_protection_enabled);
     }
 
     return NextResponse.json({
       success: true,
       library: updatedLib,
-      settings: updatedSettings || {
-        ...FALLBACK_SETTINGS,
-        ...settingsUpdates,
-      },
+      settings: finalSettings,
     });
   } catch (err: unknown) {
     // If database tables are not migrated yet, return success with fallback so development/demo works

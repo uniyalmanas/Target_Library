@@ -350,18 +350,17 @@ export default function LibraryOwnerSettingsPage({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
-          phone,
-          city,
-          address,
+          name: name || library.name,
+          phone: phone || library.phone,
+          city: city || library.city,
+          address: address || library.address,
           logo_url: logoUrl.trim() || null,
-          upi_id: upiId,
-          upi_name: upiName,
+          upi_id: upiId || library.upi_id,
+          upi_name: upiName || library.upi_name,
           total_seats: Number(totalSeats),
           shifts_config: sortedShifts,
           has_sheet_enabled: hasSheetEnabled,
           sheet_price_monthly: Number(sheetPriceMonthly),
-          price_protection_enabled: priceProtectionEnabled,
         }),
       });
 
@@ -375,9 +374,10 @@ export default function LibraryOwnerSettingsPage({
       if (data.settings?.shifts_config) {
         const finalSorted = sortShiftsChronologically(data.settings.shifts_config);
         setShifts(finalSorted);
-        setSettings({ ...data.settings, shifts_config: finalSorted });
+        setSettings((prev) => ({ ...prev, ...data.settings, shifts_config: finalSorted }));
       } else {
         setShifts(sortedShifts);
+        setSettings((prev) => ({ ...prev, shifts_config: sortedShifts }));
       }
 
       setSaveSuccess(true);
@@ -622,18 +622,17 @@ export default function LibraryOwnerSettingsPage({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
-          phone,
-          city,
-          address,
+          name: name || library.name,
+          phone: phone || library.phone,
+          city: city || library.city,
+          address: address || library.address,
           logo_url: logoUrl.trim() || null,
-          upi_id: upiId,
-          upi_name: upiName,
+          upi_id: upiId || library.upi_id,
+          upi_name: upiName || library.upi_name,
           total_seats: Number(totalSeats),
-          shifts_config: shifts,
+          shifts_config: sortShiftsChronologically(shifts),
           has_sheet_enabled: hasSheetEnabled,
           sheet_price_monthly: Number(sheetPriceMonthly),
-          price_protection_enabled: priceProtectionEnabled,
         }),
       });
 
@@ -645,9 +644,10 @@ export default function LibraryOwnerSettingsPage({
         setLogoUrl(data.library.logo_url || "");
       }
       if (data.settings) {
-        setSettings(data.settings);
+        const sorted = sortShiftsChronologically(data.settings.shifts_config || shifts);
+        setSettings((prev) => ({ ...prev, ...data.settings, shifts_config: sorted }));
         if (data.settings.shifts_config) {
-          setShifts(data.settings.shifts_config);
+          setShifts(sorted);
         }
       }
 
