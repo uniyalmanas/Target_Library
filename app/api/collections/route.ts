@@ -140,12 +140,11 @@ export async function GET(req: Request) {
     let renewalsCount = 0;
     let withSheetCount = 0;
 
-    const shiftCounts = {
+    const shiftCounts: Record<string, number> = {
       full_day: 0,
       shift_1: 0,
       shift_2: 0,
       shift_3: 0,
-      other: 0,
     };
 
     const formattedList = safeReceipts.map((r) => {
@@ -158,6 +157,10 @@ export async function GET(req: Request) {
         onlineCount++;
       } else {
         cashCollected += amount;
+      }
+      if (mode === "online") {
+        // onlineCount handled above
+      } else {
         cashCount++;
       }
 
@@ -173,15 +176,12 @@ export async function GET(req: Request) {
       }
 
       if (r.subscription_type === "full_day") {
-        shiftCounts.full_day++;
-      } else if (r.shift_type === "shift_1" || r.shift_type === "morning") {
-        shiftCounts.shift_1++;
-      } else if (r.shift_type === "shift_2" || r.shift_type === "evening") {
-        shiftCounts.shift_2++;
-      } else if (r.shift_type === "shift_3") {
-        shiftCounts.shift_3++;
+        shiftCounts.full_day = (shiftCounts.full_day || 0) + 1;
       } else {
-        shiftCounts.other++;
+        const sid = r.shift_type || "unassigned";
+        shiftCounts[sid] = (shiftCounts[sid] || 0) + 1;
+        if (sid === "morning") shiftCounts.shift_1 = (shiftCounts.shift_1 || 0) + 1;
+        if (sid === "evening") shiftCounts.shift_2 = (shiftCounts.shift_2 || 0) + 1;
       }
 
       // Format payment time in IST

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import LibraryLogo from "@/lib/LibraryLogo";
+import { getShiftDisplayLabel } from "@/lib/shifts";
+import { DEFAULT_SHIFTS } from "@/lib/tenant";
 
 interface StudentPassData {
   success: boolean;
@@ -319,7 +321,11 @@ function StudentPortalContent({ slug }: { slug: string }) {
                   Plan & Shift
                 </div>
                 <div className="text-sm font-bold text-white mt-0.5">
-                  {data.latestReceipt?.shift_type || (data.activeSeat?.type === "fixed" ? "Full Day" : "Half Day")}
+                  {getShiftDisplayLabel(
+                    data.latestReceipt?.shift_type,
+                    (data.latestReceipt as any)?.subscription_type || (data.latestReceipt?.shift_type ? "half_day" : "full_day"),
+                    (data as any)?.settings?.shifts_config || DEFAULT_SHIFTS
+                  )}
                 </div>
                 <div className="text-[10px] text-neutral-400">
                   {data.member.has_sheet ? "Bed Sheet: Included" : "Standard Seat"}

@@ -217,7 +217,7 @@ export function CollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
       p.student_phone ? `="${p.student_phone}"` : "",
       p.seat_number,
       p.subscription_type === "full_day" ? "Full Day" : "Half Day",
-      p.shift_type || "Standard",
+      getShiftDisplayLabel(p.shift_type, p.subscription_type, shiftsConfig.length > 0 ? shiftsConfig : DEFAULT_SHIFTS),
       p.has_sheet ? "Yes" : "No",
       p.is_new_admission ? "New Admission" : "Renewal",
       p.payment_mode === "online" ? "Online (UPI Soundbox)" : "Cash",

@@ -39,7 +39,14 @@ export default function StudentEntranceQRJoinPage({
         if (res.ok) {
           const data = await res.json();
           if (data.library) setLibrary(data.library);
-          if (data.settings) setSettings(data.settings);
+          if (data.settings) {
+            setSettings(data.settings);
+            const sorted = sortShiftsChronologically(data.settings.shifts_config || []);
+            const halfShifts = sorted.filter((s) => s.id !== "full_day");
+            if (halfShifts.length > 0) {
+              setSelectedShiftId((prev) => halfShifts.some((s) => s.id === prev) ? prev : halfShifts[0].id);
+            }
+          }
         }
       } catch {
         // Fallback already pre-set
@@ -56,7 +63,7 @@ export default function StudentEntranceQRJoinPage({
   const calculatedAmount = hasSheet ? currentShift.sheet_price : currentShift.base_price;
 
   // Dynamic UPI URL
-  const upiId = library.upi_id || "targetlibrary@upi";
+  const upiId = library.upi_id || "";
   const upiName = encodeURIComponent(library.upi_name || library.name);
   const upiNote = encodeURIComponent(`Admission_${studentName.replace(/\s+/g, "_") || "Student"}`);
   const upiDeepLink = `upi://pay?pa=${upiId}&pn=${upiName}&am=${calculatedAmount}&cu=INR&tn=${upiNote}`;
@@ -288,7 +295,7 @@ export default function StudentEntranceQRJoinPage({
                     : "border-panel-border bg-background text-text-muted"
                 }`}
               >
-                Full Day (6AM - 12AM)
+                {shifts.find((s) => s.id === "full_day")?.name || "Full Day Pass"}
               </button>
             </div>
 

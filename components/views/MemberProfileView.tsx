@@ -3,6 +3,8 @@
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { getShiftDisplayLabel, sortShiftsChronologically } from "@/lib/shifts";
+import { DEFAULT_SHIFTS } from "@/lib/tenant";
 
 export function MemberProfileContent({
   tenantSlug,
@@ -16,7 +18,7 @@ export function MemberProfileContent({
   const id = memberId || (params?.id as string);
   const slugFromQuery = searchParams.get("slug");
 
-  const [data, setData] = useState<{ member: any; receipts: any[]; library?: any } | null>(null);
+  const [data, setData] = useState<{ member: any; receipts: any[]; library?: any; settings?: any } | null>(null);
   const [vacating, setVacating] = useState(false);
 
   useEffect(() => {
@@ -30,27 +32,25 @@ export function MemberProfileContent({
   if (!data) return <p className="text-neutral-400 text-center py-10">Loading member profile...</p>;
   if (!data.member) return <p className="text-rose-400 text-center py-10">Member not found.</p>;
 
-  const { member, receipts, library } = data;
+  const { member, receipts, library, settings } = data;
   const slug = tenantSlug || slugFromQuery || library?.slug || "target-library";
-  const libraryDisplayName = library?.name || (slug !== "target-library" ? slug.replace(/-/g, " ").toUpperCase() : "The Target Library");
+  const libraryDisplayName = library?.name || (library?.slug ? library.slug.replace(/-/g, " ").toUpperCase() : "Library Workspace");
+
+  const shiftsConfig = settings?.shifts_config
+    ? sortShiftsChronologically(settings.shifts_config)
+    : DEFAULT_SHIFTS;
 
   const today = new Date().toISOString().split("T")[0];
   const activeReceipt = receipts.find((r) => r.end_date >= today);
 
-  const shiftLabel = (shift: string | null) =>
-    shift === "shift_1" || shift === "morning"
-      ? "Shift 1 (6am–2pm)"
-      : shift === "shift_2" || shift === "evening"
-        ? "Shift 2 (2pm–12am)"
-        : shift === "shift_3"
-          ? "Shift 3 (4pm–12am)"
-          : "Full day";
+  const shiftLabel = (shift: string | null, subType?: string | null) =>
+    getShiftDisplayLabel(shift, subType, shiftsConfig);
 
   const phone = member.phone;
   let activeWaUrl = "";
   if (activeReceipt && phone) {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const text = `${libraryDisplayName}\nReceipt No: ${activeReceipt.receipt_no}\nName: ${member.name}\nSeat No: ${activeReceipt.seats?.seat_number}\nType: ${shiftLabel(activeReceipt.shift_type)}\nAmount Paid: Rs ${activeReceipt.amount_paid}\nValid till: ${activeReceipt.end_date}\nDigital Pass & Invoice: ${origin}/receipts/${activeReceipt.receipt_no}`;
+    const text = `${libraryDisplayName}\nReceipt No: ${activeReceipt.receipt_no}\nName: ${member.name}\nSeat No: ${activeReceipt.seats?.seat_number}\nType: ${shiftLabel(activeReceipt.shift_type, activeReceipt.subscription_type)}\nAmount Paid: Rs ${activeReceipt.amount_paid}\nValid till: ${activeReceipt.end_date}\nDigital Pass & Invoice: ${origin}/receipts/${activeReceipt.receipt_no}`;
     const digits = phone.replace(/\D/g, "");
     const withCountryCode = digits.length === 10 ? `91${digits}` : digits;
     activeWaUrl = `https://wa.me/${withCountryCode}?text=${encodeURIComponent(text)}`;
@@ -193,7 +193,7 @@ export function MemberProfileContent({
               Active Subscription
             </div>
             <p className="text-foreground text-base font-semibold">
-              Seat {activeReceipt.seats?.seat_number} &middot; {shiftLabel(activeReceipt.shift_type)}
+              Seat {activeReceipt.seats?.seat_number} &middot; {shiftLabel(activeReceipt.shift_type, activeReceipt.subscription_type)}
               {activeReceipt.has_sheet ? " (with sheet)" : ""}
             </p>
             <p className="text-xs text-text-muted mt-1">Valid until {activeReceipt.end_date}</p>
@@ -244,7 +244,7 @@ export function MemberProfileContent({
                   Receipt #{r.receipt_no} &bull; Seat {r.seats?.seat_number}
                 </p>
                 <p className="text-xs text-text-muted mt-1">
-                  Type: {shiftLabel(r.shift_type)} {r.has_sheet && "(with sheet/desk space)"} &bull; Valid: {r.start_date} &rarr; {r.end_date}
+                  Type: {shiftLabel(r.shift_type, r.subscription_type)} {r.has_sheet && "(with sheet/desk space)"} &bull; Valid: {r.start_date} &rarr; {r.end_date}
                 </p>
               </div>
               <div className="text-right flex flex-col items-end">

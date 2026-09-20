@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getLibraryBySlug } from "@/lib/tenant";
+import { getLibraryBySlug, getLibrarySettings } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +107,13 @@ export async function GET(
       status = "pending_verification";
     }
 
+    let librarySettings = null;
+    try {
+      librarySettings = await getLibrarySettings(library.id);
+    } catch {
+      // fallback
+    }
+
     return NextResponse.json({
       success: true,
       library: {
@@ -118,6 +125,7 @@ export async function GET(
         address: library.address,
         logo_url: library.logo_url,
       },
+      settings: librarySettings,
       member: member
         ? {
             student_id: member.student_id,

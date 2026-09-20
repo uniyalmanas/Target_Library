@@ -59,33 +59,23 @@ export function resolveShift(shiftId: string | null | undefined, shiftsConfig: S
   if (!shiftId) return null;
   const cleanId = shiftId.toLowerCase().trim();
 
-  // 1. Exact match in config
+  // 1. Exact match in config by ID
   const found = shiftsConfig.find((s) => s.id.toLowerCase() === cleanId);
   if (found) return found;
 
-  // 2. Legacy aliases
+  // 2. Match in config by name
+  const foundByName = shiftsConfig.find((s) => s.name.toLowerCase() === cleanId || s.name.toLowerCase().startsWith(cleanId));
+  if (foundByName) return foundByName;
+
+  // 3. Legacy aliases
   if (cleanId === "morning") {
-    return shiftsConfig.find((s) => s.id === "shift_1") || {
-      id: "morning",
-      name: "Shift 1 (6 AM - 2 PM)",
-      start_time: "06:00",
-      end_time: "14:00",
-      base_price: 600,
-      sheet_price: 900,
-    };
+    return shiftsConfig.find((s) => s.id === "shift_1") || shiftsConfig.find((s) => s.id !== "full_day") || DEFAULT_SHIFTS[1];
   }
   if (cleanId === "evening") {
-    return shiftsConfig.find((s) => s.id === "shift_2") || {
-      id: "evening",
-      name: "Shift 2 (2 PM - 12 AM)",
-      start_time: "14:00",
-      end_time: "00:00",
-      base_price: 600,
-      sheet_price: 900,
-    };
+    return shiftsConfig.find((s) => s.id === "shift_2") || shiftsConfig.find((s) => s.id !== "full_day" && s.id !== "shift_1") || DEFAULT_SHIFTS[2];
   }
 
-  // 3. Fallback defaults
+  // 4. Fallback defaults
   const fallback = DEFAULT_SHIFTS.find((s) => s.id.toLowerCase() === cleanId);
   if (fallback) return fallback;
 

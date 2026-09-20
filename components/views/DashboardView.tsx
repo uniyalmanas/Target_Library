@@ -338,7 +338,7 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
 
   // Hourly load Timeline variables
   const occupancyList = stats.hourlyOccupancy || [];
-  const maxOccupancyCount = stats.totalSeats || 297;
+  const maxOccupancyCount = stats.totalSeats || 50;
 
   return (
     <div className="w-full max-w-[96vw] 2xl:max-w-[1750px] mx-auto px-4 md:px-8 py-6 space-y-8">

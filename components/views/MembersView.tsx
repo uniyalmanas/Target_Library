@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { getStoredSession } from "@/lib/auth";
 import { downloadCsv } from "@/lib/exportCsv";
+import { ShiftConfig } from "@/lib/types";
+import { getShiftDisplayLabel, sortShiftsChronologically } from "@/lib/shifts";
+import { DEFAULT_SHIFTS } from "@/lib/tenant";
 
 export function MembersContent({ tenantSlug }: { tenantSlug?: string }) {
   const searchParams = useSearchParams();
@@ -14,9 +17,19 @@ export function MembersContent({ tenantSlug }: { tenantSlug?: string }) {
   const [results, setResults] = useState<any[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [shiftsConfig, setShiftsConfig] = useState<ShiftConfig[]>(DEFAULT_SHIFTS);
 
-  // Auto-load recent members for this library
+  // Auto-load recent members & settings for this library
   useEffect(() => {
+    fetch(`/api/libraries/${encodeURIComponent(slug)}/settings`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.settings?.shifts_config && d.settings.shifts_config.length > 0) {
+          setShiftsConfig(sortShiftsChronologically(d.settings.shifts_config));
+        }
+      })
+      .catch(() => {});
+
     async function loadInitial() {
       setLoading(true);
       try {
@@ -87,7 +100,9 @@ export function MembersContent({ tenantSlug }: { tenantSlug?: string }) {
           ? "Full Day"
           : "Half Day"
         : "N/A";
-      const shift = activeReceipt?.shift_type || "N/A";
+      const shift = activeReceipt
+        ? getShiftDisplayLabel(activeReceipt.shift_type, activeReceipt.subscription_type, shiftsConfig)
+        : "N/A";
       const start = activeReceipt?.start_date || "N/A";
       const end = activeReceipt?.end_date || "N/A";
 

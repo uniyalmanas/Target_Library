@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, getLibrarySettings, DEFAULT_SHIFTS } from "@/lib/tenant";
 import { ShiftConfig } from "@/lib/types";
+import { getShiftNameWithTiming, sortShiftsChronologically } from "@/lib/shifts";
 
 export async function GET(req: Request) {
   try {
@@ -174,10 +175,11 @@ export async function GET(req: Request) {
       .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
 
     // 8. Dynamic Shift Counts (Active occupancy per shift)
-    const configuredShifts: ShiftConfig[] =
+    const rawShifts: ShiftConfig[] =
       librarySettings?.shifts_config && librarySettings.shifts_config.length > 0
         ? librarySettings.shifts_config
         : DEFAULT_SHIFTS;
+    const configuredShifts: ShiftConfig[] = sortShiftsChronologically(rawShifts);
 
     let fullDayCount = 0;
     const dynamicCounts: Record<string, number> = {};
@@ -197,7 +199,7 @@ export async function GET(req: Request) {
     const fullDayShift = configuredShifts.find((s) => s.id === "full_day");
     shiftBreakdown.push({
       id: "full_day",
-      name: fullDayShift?.name || "Full Day Pass",
+      name: fullDayShift ? getShiftNameWithTiming(fullDayShift) : "Full Day Pass",
       count: fullDayCount,
     });
 
@@ -205,7 +207,7 @@ export async function GET(req: Request) {
       const count = dynamicCounts[s.id] || 0;
       shiftBreakdown.push({
         id: s.id,
-        name: s.name,
+        name: getShiftNameWithTiming(s),
         count,
       });
     }
@@ -218,12 +220,15 @@ export async function GET(req: Request) {
       ...dynamicCounts,
     };
 
-    // 9. Hourly load profiles
-    const hourlyOccupancy = [
-      { period: "Morning Hours (6 AM - 2 PM)", count: fullDayCount + (dynamicCounts["shift_1"] || 0) },
-      { period: "Afternoon Hours (2 PM - 4 PM)", count: fullDayCount + (dynamicCounts["shift_2"] || 0) },
-      { period: "Evening Hours (4 PM - 12 AM)", count: fullDayCount + (dynamicCounts["shift_2"] || 0) + (dynamicCounts["shift_3"] || 0) },
-    ];
+    // 9. Hourly load profiles - dynamically generated from the library's configured shifts
+    const nonFullDayShifts = configuredShifts.filter((s) => s.id !== "full_day");
+    const hourlyOccupancy =
+      nonFullDayShifts.length > 0
+        ? nonFullDayShifts.map((s) => ({
+            period: getShiftNameWithTiming(s),
+            count: fullDayCount + (dynamicCounts[s.id] || 0),
+          }))
+        : [{ period: "Full Day Access", count: fullDayCount }];
 
     return NextResponse.json({
       totalSeats: totalSeats ?? 0,

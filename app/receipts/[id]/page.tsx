@@ -7,6 +7,9 @@ import { supabase } from "@/lib/supabase";
 import EditReceiptModal from "@/lib/EditReceiptModal";
 import LibraryLogo from "@/lib/LibraryLogo";
 import { generateUpiIntentUrl, generateUpiQrCodeUrl } from "@/lib/upi";
+import { ShiftConfig } from "@/lib/types";
+import { DEFAULT_SHIFTS } from "@/lib/tenant";
+import { getShiftDisplayLabel, sortShiftsChronologically } from "@/lib/shifts";
 
 function ReceiptDetails() {
   const params = useParams();
@@ -21,6 +24,7 @@ function ReceiptDetails() {
     upi_id?: string | null;
     upi_name?: string | null;
   } | null>(null);
+  const [shiftsConfig, setShiftsConfig] = useState<ShiftConfig[]>(DEFAULT_SHIFTS);
   const [showUpiQr, setShowUpiQr] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -82,6 +86,15 @@ function ReceiptDetails() {
           if (libData) {
             setLibrary(libData);
           }
+
+          const { data: settsData } = await supabase
+            .from("library_settings")
+            .select("shifts_config")
+            .eq("library_id", receipt.library_id)
+            .maybeSingle();
+          if (settsData?.shifts_config && Array.isArray(settsData.shifts_config)) {
+            setShiftsConfig(sortShiftsChronologically(settsData.shifts_config));
+          }
         }
       }
       setLoading(false);
@@ -104,21 +117,16 @@ function ReceiptDetails() {
     );
   }
 
-  const libName = library?.name?.toUpperCase() || "THE TARGET LIBRARY";
-  const libCity = library?.city ? `${library.city}, Uttarakhand` : "Dehradun, Uttarakhand";
+  const libName = library?.name?.toUpperCase() || (library?.slug ? library.slug.replace(/-/g, " ").toUpperCase() : "LIBRARY DESK");
+  const libCity = library?.city ? library.city : "";
   const libSlug = library?.slug || null;
   const backHref = libSlug ? `/l/${libSlug}` : "/";
 
-  const shiftLabel =
-    data.subscription_type === "full_day"
-      ? "Full day (6am–12am)"
-      : `Half day (${
-          data.shift_type === "shift_1" || data.shift_type === "morning"
-            ? "Shift 1 (6am–2pm)"
-            : data.shift_type === "shift_2" || data.shift_type === "evening"
-              ? "Shift 2 (2pm–12am)"
-              : "Shift 3 (4pm–12am)"
-        })`;
+  const shiftLabel = getShiftDisplayLabel(
+    data.shift_type,
+    data.subscription_type,
+    shiftsConfig
+  );
 
   const handlePrint = () => {
     window.print();

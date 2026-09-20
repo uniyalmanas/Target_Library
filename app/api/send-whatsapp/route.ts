@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { generateDueFeeWhatsAppMessage } from "@/lib/upi";
-import { getLibraryBySlug, DEFAULT_LIBRARY_ID } from "@/lib/tenant";
+import { getLibraryBySlug, getLibrarySettings, DEFAULT_LIBRARY_ID, DEFAULT_SHIFTS } from "@/lib/tenant";
+import { getShiftDisplayLabel } from "@/lib/shifts";
 
 // POST /api/send-whatsapp
 // Body: { receipt_no: number, type?: "receipt" | "due_reminder", slug?: string }
@@ -64,10 +65,12 @@ export async function POST(req: Request) {
     }
 
     // Resolve library branding and UPI configurations
-    let libraryName = "The Target Library";
-    let upiId = "targetlibrary@upi";
-    let upiName = "The Target Library";
+    let libraryName = "Library Desk";
+    let upiId = "";
+    let upiName = "";
+    let shiftsConfig = DEFAULT_SHIFTS;
 
+    const targetLibId = (receipt as any).library_id;
     if (slug) {
       try {
         const lib = await getLibraryBySlug(slug);
@@ -76,26 +79,39 @@ export async function POST(req: Request) {
           upiId = lib.upi_id || upiId;
           upiName = lib.upi_name || lib.name || upiName;
         }
+        const setts = await getLibrarySettings(lib.id);
+        if (setts?.shifts_config && setts.shifts_config.length > 0) {
+          shiftsConfig = setts.shifts_config;
+        }
       } catch {
         // fallback
       }
-    } else if ((receipt as any).library_id) {
-      const { data: libData } = await supabase
-        .from("libraries")
-        .select("name, upi_id, upi_name")
-        .eq("id", (receipt as any).library_id)
-        .maybeSingle();
-      if (libData) {
-        libraryName = libData.name || libraryName;
-        upiId = libData.upi_id || upiId;
-        upiName = libData.upi_name || libData.name || upiName;
+    } else if (targetLibId) {
+      try {
+        const { data: libData } = await supabase
+          .from("libraries")
+          .select("name, upi_id, upi_name")
+          .eq("id", targetLibId)
+          .maybeSingle();
+        if (libData) {
+          libraryName = libData.name || libraryName;
+          upiId = libData.upi_id || upiId;
+          upiName = libData.upi_name || libData.name || upiName;
+        }
+        const setts = await getLibrarySettings(targetLibId);
+        if (setts?.shifts_config && setts.shifts_config.length > 0) {
+          shiftsConfig = setts.shifts_config;
+        }
+      } catch {
+        // fallback
       }
     }
 
-    const shiftLabel =
-      receipt.subscription_type === "full_day"
-        ? "Full day (6am–12am)"
-        : `Half day (${receipt.shift_type === "morning" || receipt.shift_type === "shift_1" ? "6am–2pm" : "2pm–12am"})`;
+    const shiftLabel = getShiftDisplayLabel(
+      receipt.shift_type,
+      receipt.subscription_type,
+      shiftsConfig
+    );
 
     const paymentLabel = receipt.payment_mode === "online" ? "Online (UPI)" : "Cash";
 

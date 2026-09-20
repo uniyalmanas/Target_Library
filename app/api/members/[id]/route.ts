@@ -28,6 +28,7 @@ export async function GET(
   }
 
   let library = null;
+  let settings = null;
   if (member?.library_id) {
     const { data: lib } = await supabase
       .from("libraries")
@@ -35,7 +36,14 @@ export async function GET(
       .eq("id", member.library_id)
       .maybeSingle();
     library = lib;
+
+    const { data: sett } = await supabase
+      .from("library_settings")
+      .select("shifts_config")
+      .eq("library_id", member.library_id)
+      .maybeSingle();
+    settings = sett;
   }
 
-  return NextResponse.json({ member, receipts, library });
+  return NextResponse.json({ member, receipts, library, settings });
 }
