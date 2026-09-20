@@ -452,3 +452,335 @@ Walk directly into PGs along the Gowlidoddy / Financial District road:
 By taking the proven architecture of **LibraryOS** (real-time matrix, entrance QR, WhatsApp dues, sub-second PWA offline resilience) and porting it to **ColiveOS**, you create a scalable, defensible, high-margin B2B SaaS business. 
 
 You avoid the catastrophic real-estate capex of Stanza Living while empowering hundreds of local PG owners to operate like modern, tech-enabled enterprise co-living chains.
+
+---
+
+## 11. Production Next.js App Router File Directory Map
+
+```text
+colive-os/
+├── app/
+│   ├── (auth)/
+│   │   ├── login/page.tsx                    # Phone OTP & Owner / Staff login
+│   │   └── signup/page.tsx                   # 14-Day Free Trial PG Registration
+│   ├── pg/
+│   │   └── [slug]/
+│   │       ├── layout.tsx                    # Navigation Shell, PWA prompts & Role Barrier
+│   │       ├── page.tsx                      # 🌟 Core Room & Bed Matrix Desk View
+│   │       ├── checkin/page.tsx              # Entrance QR Self-Onboarding & KYC Capture
+│   │       ├── meters/page.tsx               # 1-Tap Room Electricity Sub-Meter Batch Logger
+│   │       ├── invoices/page.tsx             # Monthly Rent & Utility Collection Ledger
+│   │       ├── tickets/page.tsx              # Maintenance SLA Kanban Board (Wi-Fi, Plumbing)
+│   │       ├── kitchen/page.tsx              # 4 PM Headcount Display for Head Cook
+│   │       ├── residents/
+│   │       │   ├── page.tsx                  # Resident Directory & Police Verification Exporter
+│   │       │   └── [id]/page.tsx             # Detailed Resident Profile, Deposit & Ledger
+│   │       ├── resident/
+│   │       │   └── page.tsx                  # 📱 Resident Self-Service Portal (PWA View)
+│   │       └── settings/page.tsx             # Floors, Sharing Rents, Unit Rates & UPI ID
+│   ├── superadmin/
+│   │   ├── page.tsx                          # Platform Overview (All PGs, Subscriptions)
+│   │   └── tenants/page.tsx                  # Tenant Provisioning & Plan Manager
+│   ├── api/
+│   │   ├── pg/
+│   │   │   └── [slug]/
+│   │   │       ├── rooms/route.ts            # GET: Matrix rooms & beds; POST: Add room
+│   │   │       ├── checkin/route.ts          # POST: Submit tenant KYC & selfie
+│   │   │       ├── meters/route.ts           # GET/POST: Bulk log meters & trigger splits
+│   │   │       ├── invoices/
+│   │   │       │   ├── route.ts              # GET: Ledger; POST: Generate 1st-of-month bills
+│   │   │       │   └── [id]/pay/route.ts     # PATCH: Mark rent paid (Cash/UPI)
+│   │   │       ├── tickets/
+│   │   │       │   ├── route.ts              # GET: Kanban tickets; POST: Resident issue report
+│   │   │       │   └── [id]/route.ts         # PATCH: Assign handyman or upload resolution photo
+│   │   │       ├── meals/route.ts            # GET: Today's cook count; POST: Resident opt-in/out
+│   │   │       └── police-pdf/route.ts       # GET: Stream Cyberabad/Local Police Form C PDF
+│   │   └── webhooks/
+│   │       └── whatsapp/route.ts             # Meta Cloud API Webhook for Inbound Confirmations
+│   ├── layout.tsx                            # Root Layout, PWA Meta Tags, Theme Provider
+│   └── page.tsx                              # B2B Marketing Landing Page ("Stanza-in-a-Box")
+├── components/
+│   ├── matrix/
+│   │   ├── FloorTabs.tsx                     # Floor 1, Floor 2, Floor 3 selector
+│   │   ├── RoomCard.tsx                      # Room container showing sharing badges & meter
+│   │   ├── BedTile.tsx                       # Interactive bed pill (Green/Red/Orange/Purple)
+│   │   └── BedDetailModal.tsx                # Resident drawer (Contact, rent, vacating date)
+│   ├── meters/
+│   │   ├── MeterEntryRow.tsx                 # Previous reading vs current input + instant delta
+│   │   └── SplitPreviewModal.tsx             # Visual breakdown of roommate charges
+│   ├── resident/
+│   │   ├── MealOptInToggle.tsx               # Instant toggle for Breakfast/Lunch/Dinner
+│   │   ├── RentPayCard.tsx                   # UPI Intent trigger & breakdown card
+│   │   └── TicketRaiseSheet.tsx              # Camera photo capture + category picker
+│   └── shared/
+│       ├── HeaderNavbar.tsx                  # PG brand logo, switch property, network badge
+│       └── PWAOfflineNotice.tsx              # 0ms cache indicator & reconnect banner
+├── lib/
+│   ├── supabase/
+│   │   ├── client.ts                         # Client-side Supabase helper
+│   │   ├── server.ts                         # Server-side Supabase SSR client
+│   │   └── admin.ts                          # Service role client for privileged operations
+│   ├── meters.ts                             # Sub-meter math & proration split functions
+│   ├── whatsapp.ts                           # Dynamic WhatsApp Cloud API template sender
+│   ├── upi.ts                                # UPI deep link generator (GPay/PhonePe/Paytm)
+│   ├── policePdf.ts                          # PDFKit / React-PDF Form C template compiler
+│   └── types.ts                              # Complete TypeScript interfaces for ColiveOS
+└── public/
+    ├── sw.js                                 # Service Worker for 0ms PWA offline resilience
+    └── manifest.webmanifest                  # App installation manifest
+```
+
+---
+
+## 12. Complete REST API Contracts (Request & Response JSON)
+
+### 12.1 Get Room & Bed Matrix
+- **Endpoint:** `GET /api/pg/{slug}/rooms`
+- **Response (200 OK):**
+```json
+{
+  "property": {
+    "id": "prop_883a",
+    "name": "Sri Sai Luxury Coliving",
+    "slug": "sri-sai-gachibowli",
+    "electricity_unit_rate": 10.0
+  },
+  "floors": [
+    {
+      "floor_number": 1,
+      "rooms": [
+        {
+          "id": "room_101",
+          "room_number": "101",
+          "sharing_type": "double",
+          "has_ac": true,
+          "base_rent_per_bed": 9500,
+          "last_meter_reading": 3412.5,
+          "beds": [
+            {
+              "id": "bed_101_A",
+              "bed_code": "A",
+              "status": "occupied",
+              "resident": {
+                "id": "res_992",
+                "full_name": "Rahul Verma",
+                "phone": "+919876543210",
+                "monthly_rent": 9500,
+                "has_pending_dues": false,
+                "notice_given": false
+              }
+            },
+            {
+              "id": "bed_101_B",
+              "bed_code": "B",
+              "status": "vacant",
+              "resident": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### 12.2 Bulk Log Sub-Meters & Calculate Split
+- **Endpoint:** `POST /api/pg/{slug}/meters`
+- **Request Body:**
+```json
+{
+  "reading_date": "2026-10-01",
+  "readings": [
+    {
+      "room_id": "room_101",
+      "current_reading": 3522.5
+    },
+    {
+      "room_id": "room_102",
+      "current_reading": 4180.0
+    }
+  ]
+}
+```
+- **Response (200 OK):**
+```json
+{
+  "success": true,
+  "processed_rooms": 2,
+  "results": [
+    {
+      "room_number": "101",
+      "previous_reading": 3412.5,
+      "current_reading": 3522.5,
+      "units_consumed": 110.0,
+      "unit_rate": 10.0,
+      "total_bill": 1100.0,
+      "split_count": 2,
+      "per_resident_charge": 550.0,
+      "updated_invoices": 2
+    }
+  ]
+}
+```
+
+---
+
+### 12.3 Submit Tenant Check-In & KYC (Entrance QR)
+- **Endpoint:** `POST /api/pg/{slug}/checkin`
+- **Request Body:**
+```json
+{
+  "full_name": "Amit Sharma",
+  "phone": "9876501234",
+  "email": "amit.sharma@microsoft.com",
+  "emergency_contact": "9811122233",
+  "aadhaar_number": "XXXX-XXXX-8821",
+  "aadhaar_front_base64": "data:image/jpeg;base64,...",
+  "aadhaar_back_base64": "data:image/jpeg;base64,...",
+  "selfie_base64": "data:image/jpeg;base64,...",
+  "company_college_name": "Microsoft Hyderabad",
+  "preferred_sharing": "double",
+  "move_in_date": "2026-10-05"
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "checkin_id": "chk_88291",
+  "status": "pending_bed_allocation",
+  "message": "Application received! The warden will allocate your bed."
+}
+```
+
+---
+
+### 12.4 Fetch Head Cook Daily Headcount
+- **Endpoint:** `GET /api/pg/{slug}/meals?date=2026-10-01`
+- **Response (200 OK):**
+```json
+{
+  "date": "2026-10-01",
+  "total_active_residents": 94,
+  "summary": {
+    "breakfast": { "eating": 72, "skipped": 22 },
+    "lunch": { "eating": 48, "tiffin_packed": 26, "skipped": 20 },
+    "dinner": { "eating": 81, "skipped": 13 }
+  }
+}
+```
+
+---
+
+## 13. Aadhaar KYC Privacy & Signed Storage Architecture
+
+Under the **Indian Digital Personal Data Protection (DPDP) Act 2023**, storing citizen Aadhaar cards unprotected carries heavy penalties. ColiveOS implements strict zero-leakage security:
+
+```mermaid
+flowchart LR
+    TenantPhone["Tenant Phone Camera"] -->|1. Client-Side 80% WebP Compression| MemoryBuffer["In-Memory Buffer"]
+    MemoryBuffer -->|2. Multipart Upload via SSL| APIRoute["/api/pg/checkin"]
+    APIRoute -->|3. Mask all but last 4 digits| DB[("Supabase DB (Masked Aadhaar)")]
+    APIRoute -->|4. Encrypted Upload (AES-256)| S3[("Private S3 / Supabase Bucket: 'tenant-kyc'")]
+    
+    WardenUI["Warden Inspection Desk"] -->|5. Request KYC View| AuthCheck["Is Property Owner Auth?"]
+    AuthCheck -->|6. Generate Signed URL (15-Min TTL)| WardenUI
+```
+
+1. **Private Storage Bucket (`tenant-kyc`):** Public access is strictly forbidden (`public: false`). Direct URL access yields `403 Forbidden`.
+2. **Pre-Signed Ephemeral URLs:** When the PG owner clicks "View Aadhaar", the backend generates an AWS S3 / Supabase signed URL valid for **900 seconds (15 minutes)** only.
+3. **Aadhaar Masking at Rest:** Full 12-digit Aadhaar numbers are never stored in plain text. The database stores `XXXX-XXXX-1234`.
+
+---
+
+## 14. Dynamic UPI Deep-Links & WhatsApp Webhook Payloads
+
+### 14.1 Dynamic UPI Intent URI Generator
+In India, the National Payments Corporation of India (NPCI) allows instant app switching directly into GPay, PhonePe, or Paytm via universal intent URIs:
+
+```typescript
+export function generateUpiPaymentUrl(params: {
+  vpa: string;         // PG owner UPI ID (e.g., 'srisaipg@icici')
+  payeeName: string;   // PG Name (e.g., 'Sri Sai Coliving')
+  amount: number;      // Total rent + meter bill
+  invoiceNo: string;   // Reference invoice number
+  roomNumber: string;  // Room reference
+}): string {
+  const note = `Rent for Room ${params.roomNumber} - Inv ${params.invoiceNo}`;
+  const query = new URLSearchParams({
+    pa: params.vpa,
+    pn: params.payeeName,
+    am: params.amount.toFixed(2),
+    cu: "INR",
+    tn: note,
+    tr: params.invoiceNo,
+  });
+  return `upi://pay?${query.toString()}`;
+}
+```
+
+### 14.2 WhatsApp Automated Invoicing Template (Meta Cloud API)
+```json
+{
+  "messaging_product": "whatsapp",
+  "to": "919876543210",
+  "type": "template",
+  "template": {
+    "name": "monthly_rent_submeter_bill_v1",
+    "language": { "code": "en" },
+    "components": [
+      {
+        "type": "body",
+        "parameters": [
+          { "type": "text", "text": "Rahul Verma" },
+          { "type": "text", "text": "Sri Sai Luxury Coliving" },
+          { "type": "text", "text": "Room 201 (Bed A)" },
+          { "type": "text", "text": "October 2026" },
+          { "type": "text", "text": "9,500" },
+          { "type": "text", "text": "45 Units (₹450)" },
+          { "type": "text", "text": "9,950" }
+        ]
+      },
+      {
+        "type": "button",
+        "sub_type": "url",
+        "index": "0",
+        "parameters": [
+          { "type": "text", "text": "inv_oct_201a" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 15. Frontend UI Component Tree & Design Tokens
+
+### 15.1 Component Tree
+```text
+<DeskLayout>
+  ├── <HeaderNavbar> (PG Logo, Branch Switcher, NetStatusPill)
+  ├── <PWAOfflineNotice> (Amber Offline Alert / Green Restored Sync)
+  ├── <FloorTabBar> (Floor 1, Floor 2, Floor 3, Terrace)
+  └── <RoomGrid>
+        └── <RoomCard> (Room No, Sharing Type Badge, Meter Quick Status)
+              ├── <BedTile bed="A" status="occupied" dues="paid" />
+              ├── <BedTile bed="B" status="under_notice" daysLeft="12" />
+              └── <BedTile bed="C" status="vacant" />
+```
+
+### 15.2 Status Color Token Matrix
+Building on the successful mental model from LibraryOS:
+
+| Bed State | Visual Badge & Border (Tailwind CSS) | Meaning for Staff |
+| :--- | :--- | :--- |
+| **Vacant** | `bg-emerald-50 text-emerald-800 border-emerald-500` | Free immediately. Available for walk-in allotment. |
+| **Occupied (Paid)** | `bg-blue-50 text-blue-900 border-blue-400` | Tenant active, 0 outstanding dues. |
+| **Under Notice** | `bg-amber-50 text-amber-900 border-amber-500` | Tenant leaving within 30 days. Pre-bookable! |
+| **Overdue / Hold**| `bg-rose-50 text-rose-950 border-rose-500` | Rent unpaid past grace period (5th of the month). |
+| **Maintenance** | `bg-neutral-100 text-neutral-600 border-neutral-300` | Deep cleaning, painting, or broken furniture. |
+
