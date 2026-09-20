@@ -1,7 +1,8 @@
-"use client";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getStoredSession, setStoredSession, isSuperAdminAuthenticated } from "@/lib/auth";
+import { ShiftConfig } from "@/lib/types";
+import { DEFAULT_SHIFTS } from "@/lib/tenant";
+import { sortShiftsChronologically, getShiftNameWithTiming, resolveShift } from "@/lib/shifts";
 
 export interface EditableReceipt {
   receipt_no: number;
@@ -25,18 +26,9 @@ interface EditReceiptModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (updatedReceipt?: any) => void;
+  shiftsConfig?: ShiftConfig[];
+  slug?: string;
 }
-
-const PRICING: Record<string, any> = {
-  full_day: { base: 900, with_sheet: 1200 },
-  half_day: {
-    shift_1: { base: 600, with_sheet: 900 },
-    morning: { base: 600, with_sheet: 900 },
-    shift_2: { base: 600, with_sheet: 900 },
-    evening: { base: 600, with_sheet: 900 },
-    shift_3: { base: 500, with_sheet: 800 },
-  },
-};
 
 const OWNER_PASSWORD = process.env.NEXT_PUBLIC_OWNER_PASSWORD || "TargetOwner2026";
 
@@ -61,6 +53,8 @@ export default function EditReceiptModal({
   isOpen,
   onClose,
   onSuccess,
+  shiftsConfig,
+  slug,
 }: EditReceiptModalProps) {
   // Auth state
   const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState(() => {
@@ -74,6 +68,28 @@ export default function EditReceiptModal({
   const [passcode, setPasscode] = useState("");
   const [showPasscode, setShowPasscode] = useState(false);
   const [passcodeError, setPasscodeError] = useState("");
+
+  // Dynamic Shift Configurations
+  const [effectiveShifts, setEffectiveShifts] = useState<ShiftConfig[]>(() => {
+    return sortShiftsChronologically(shiftsConfig && shiftsConfig.length > 0 ? shiftsConfig : DEFAULT_SHIFTS);
+  });
+
+  useEffect(() => {
+    if (shiftsConfig && shiftsConfig.length > 0) {
+      setEffectiveShifts(sortShiftsChronologically(shiftsConfig));
+    } else {
+      const session = getStoredSession();
+      const targetSlug = slug || session?.librarySlug || "target-library";
+      fetch(`/api/libraries/${targetSlug}/settings`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.settings?.shifts_config && data.settings.shifts_config.length > 0) {
+            setEffectiveShifts(sortShiftsChronologically(data.settings.shifts_config));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [shiftsConfig, slug]);
 
   // Edit form state
   const [name, setName] = useState(receipt.student_name || "");
@@ -124,12 +140,12 @@ export default function EditReceiptModal({
 
     try {
       const session = getStoredSession();
-      const slug = session?.librarySlug || "target-library";
+      const targetSlug = slug || session?.librarySlug || "target-library";
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          slug,
+          slug: targetSlug,
           role: "owner",
           password: clean,
         }),
@@ -141,7 +157,7 @@ export default function EditReceiptModal({
         setStoredSession({
           ...session,
           role: "owner",
-          librarySlug: data.user?.slug || slug,
+          librarySlug: data.user?.slug || targetSlug,
           username: data.user?.username || session.username || "owner",
           fullName: data.user?.fullName || session.fullName || "Library Owner",
         });
@@ -158,10 +174,15 @@ export default function EditReceiptModal({
   // Helper to compute standard rate
   const getStandardRate = (subType = subscriptionType, sType = shiftType, sheet = hasSheet) => {
     if (subType === "full_day") {
-      return PRICING.full_day[sheet ? "with_sheet" : "base"];
+      const full = effectiveShifts.find((s) => s.id === "full_day");
+      if (full) return sheet ? full.sheet_price : full.base_price;
+      return sheet ? 1200 : 900;
     } else {
-      const p = PRICING.half_day[sType] || PRICING.half_day.shift_1;
-      return p[sheet ? "with_sheet" : "base"];
+      const resolved = resolveShift(sType, effectiveShifts);
+      if (resolved) return sheet ? resolved.sheet_price : resolved.base_price;
+      const firstHalf = effectiveShifts.find((s) => s.id !== "full_day");
+      if (firstHalf) return sheet ? firstHalf.sheet_price : firstHalf.base_price;
+      return sheet ? 900 : 600;
     }
   };
 
@@ -464,7 +485,12 @@ export default function EditReceiptModal({
                     onChange={() => handlePlanChange("full_day")}
                     className="accent-rose-600"
                   />
-                  Full Day (6am – 12am)
+                  <span>
+                    {(() => {
+                      const full = effectiveShifts.find((s) => s.id === "full_day");
+                      return full ? getShiftNameWithTiming(full) : "Full Day (6 AM - 12 AM)";
+                    })()}
+                  </span>
                 </label>
                 <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
                   <input
@@ -474,46 +500,48 @@ export default function EditReceiptModal({
                     onChange={() => handlePlanChange("half_day")}
                     className="accent-rose-600"
                   />
-                  Half Day
+                  <span>Half Day / Shifted</span>
                 </label>
               </div>
 
               {subscriptionType === "half_day" && (
-                <div className="pt-2 border-t border-panel-border/50">
-                  <label className="block text-[10px] text-text-muted font-bold mb-1.5">
-                    Select Shift
+                <div className="pt-2.5 border-t border-panel-border/50 space-y-2">
+                  <label className="block text-[10px] text-text-muted font-bold">
+                    Select Shift Window
                   </label>
-                  <div className="flex gap-3 flex-wrap text-xs">
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="editShift"
-                        checked={shiftType === "shift_1" || shiftType === "morning"}
-                        onChange={() => handlePlanChange("half_day", "shift_1")}
-                        className="accent-rose-600"
-                      />
-                      Shift 1 (6am–2pm)
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="editShift"
-                        checked={shiftType === "shift_2" || shiftType === "evening"}
-                        onChange={() => handlePlanChange("half_day", "shift_2")}
-                        className="accent-rose-600"
-                      />
-                      Shift 2 (2pm–12am)
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="editShift"
-                        checked={shiftType === "shift_3"}
-                        onChange={() => handlePlanChange("half_day", "shift_3")}
-                        className="accent-rose-600"
-                      />
-                      Shift 3 (4pm–12am)
-                    </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    {effectiveShifts
+                      .filter((s) => s.id !== "full_day")
+                      .map((s) => {
+                        const isSelected =
+                          shiftType === s.id ||
+                          (s.id === "shift_1" && shiftType === "morning") ||
+                          (s.id === "shift_2" && shiftType === "evening");
+                        return (
+                          <label
+                            key={s.id}
+                            className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition ${
+                              isSelected
+                                ? "border-rose-500 bg-rose-500/10 font-bold text-rose-700 dark:text-rose-300 shadow-xs"
+                                : "border-panel-border bg-background hover:bg-neutral-500/5 text-text-main"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="editShift"
+                              checked={isSelected}
+                              onChange={() => handlePlanChange("half_day", s.id)}
+                              className="accent-rose-600 shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <div className="truncate text-xs font-semibold">{getShiftNameWithTiming(s)}</div>
+                              <div className="text-[10px] text-text-muted">
+                                ₹{hasSheet ? s.sheet_price : s.base_price}/mo
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
                   </div>
                 </div>
               )}

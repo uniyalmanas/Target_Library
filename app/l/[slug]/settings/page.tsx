@@ -7,8 +7,9 @@ import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, DEMO_LIBRARY, DEMO_SETTINGS
 import LibraryLogo from "@/lib/LibraryLogo";
 import TenantAccessBarrier from "@/lib/TenantAccessBarrier";
 import { getStoredSession, setStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
-import { doShiftsClash } from "@/lib/shifts";
+import { doShiftsClash, sortShiftsChronologically, formatShiftTiming, getShiftNameWithTiming } from "@/lib/shifts";
 import SubscriptionPaymentModal from "@/lib/SubscriptionPaymentModal";
+import * as XLSX from "xlsx";
 
 export const PRESET_EMBLEMS = [
   { id: "academy", label: "Academy Crest", icon: "🏛️", gradient: ["#8B5CF6", "#6D28D9"] },
@@ -82,6 +83,7 @@ export default function LibraryOwnerSettingsPage({
   const [destinationShiftId, setDestinationShiftId] = useState<string>("");
   const [migratingShift, setMigratingShift] = useState(false);
   const [migrationError, setMigrationError] = useState<string | null>(null);
+  const [downloadedShiftIds, setDownloadedShiftIds] = useState<Set<string>>(new Set());
 
   // WhatsApp Shift Broadcast Modal State
   const [shiftToBroadcast, setShiftToBroadcast] = useState<ShiftConfig | null>(null);
@@ -163,7 +165,7 @@ export default function LibraryOwnerSettingsPage({
         setCustomInitials((lib.name || slug).replace(/^the\s+/i, "").slice(0, 2).toUpperCase());
 
         setTotalSeats(sett.total_seats || 297);
-        setShifts(sett.shifts_config || FALLBACK_SETTINGS.shifts_config);
+        setShifts(sortShiftsChronologically(sett.shifts_config || FALLBACK_SETTINGS.shifts_config));
         setHasSheetEnabled(sett.has_sheet_enabled ?? true);
         setSheetPriceMonthly(sett.sheet_price_monthly ?? 300);
         setPriceProtectionEnabled(sett.price_protection_enabled ?? true);
@@ -340,6 +342,9 @@ export default function LibraryOwnerSettingsPage({
     setSaveSuccess(false);
     setErrorMessage(null);
 
+    // Auto-sort chronologically based on shift timings
+    const sortedShifts = sortShiftsChronologically(updatedShifts);
+
     try {
       const res = await fetch(`/api/libraries/${slug}/settings`, {
         method: "PUT",
@@ -353,7 +358,7 @@ export default function LibraryOwnerSettingsPage({
           upi_id: upiId,
           upi_name: upiName,
           total_seats: Number(totalSeats),
-          shifts_config: updatedShifts,
+          shifts_config: sortedShifts,
           has_sheet_enabled: hasSheetEnabled,
           sheet_price_monthly: Number(sheetPriceMonthly),
           price_protection_enabled: priceProtectionEnabled,
@@ -368,10 +373,11 @@ export default function LibraryOwnerSettingsPage({
         setLogoUrl(data.library.logo_url || "");
       }
       if (data.settings?.shifts_config) {
-        setShifts(data.settings.shifts_config);
-        setSettings(data.settings);
+        const finalSorted = sortShiftsChronologically(data.settings.shifts_config);
+        setShifts(finalSorted);
+        setSettings({ ...data.settings, shifts_config: finalSorted });
       } else {
-        setShifts(updatedShifts);
+        setShifts(sortedShifts);
       }
 
       setSaveSuccess(true);
@@ -400,6 +406,36 @@ export default function LibraryOwnerSettingsPage({
     setSavingShiftId(null);
   };
 
+  // Export enrolled students of a specific shift into Excel (.xlsx)
+  const handleDownloadShiftStudents = (shift: ShiftConfig) => {
+    const students = shiftStudents[shift.id] || [];
+    if (students.length === 0) {
+      alert(`No active students currently enrolled in "${shift.name}".`);
+      return;
+    }
+
+    const rows = students.map((s, index) => ({
+      "S.No": index + 1,
+      "Student Name": s.name || "N/A",
+      "Phone Number": s.phone || "N/A",
+      "Seat Number": s.seat_number || "N/A",
+      "Receipt Number": s.receipt_no || "N/A",
+      "Shift Name": shift.name,
+      "Shift Timings": `${shift.start_time} - ${shift.end_time}`,
+      "Subscription Plan": s.subscription_type === "full_day" ? "Full Day" : "Half Day",
+      "Amount Paid (₹)": s.amount_paid || 0,
+      "Start Date": s.start_date || "N/A",
+      "Valid Until": s.end_date || "N/A",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    const safeShiftName = shift.name.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 25);
+    XLSX.utils.book_append_sheet(wb, ws, "Enrolled Students");
+    XLSX.writeFile(wb, `${slug}_${safeShiftName}_Students.xlsx`);
+    setDownloadedShiftIds((prev) => new Set(prev).add(shift.id));
+  };
+
   // Remove Shift with Active Enrollment Safety Guard & Auto-Persistence
   const handleRemoveShift = async (id: string) => {
     if (shifts.length <= 1) {
@@ -417,6 +453,9 @@ export default function LibraryOwnerSettingsPage({
       setDestinationShiftId(otherShifts[0]?.id || "");
       setMigrationError(null);
     } else {
+      if (!confirm(`Are you sure you want to remove shift "${shift.name}"? This action cannot be undone.`)) {
+        return;
+      }
       // Clean delete with immediate backend persistence
       const nextShifts = shifts.filter((s) => s.id !== id);
       await persistShifts(nextShifts);
@@ -425,6 +464,18 @@ export default function LibraryOwnerSettingsPage({
 
   const handleExecuteMigrationAndDelete = async () => {
     if (!shiftToMigrate || !destinationShiftId) return;
+
+    // Prompt user to download student records before deleting if not done already
+    if (!downloadedShiftIds.has(shiftToMigrate.id)) {
+      const wantsDownload = confirm(
+        `📥 Download Enrolled Students Backup:\n\nYou haven't downloaded the student data backup for "${shiftToMigrate.name}".\n\nWould you like to download the Excel backup file before deleting this shift?\n\n• Click OK to download the Excel file now.\n• Click CANCEL to proceed directly with student migration & shift deletion.`
+      );
+      if (wantsDownload) {
+        handleDownloadShiftStudents(shiftToMigrate);
+        return;
+      }
+    }
+
     setMigratingShift(true);
     setMigrationError(null);
     try {
@@ -1467,14 +1518,24 @@ export default function LibraryOwnerSettingsPage({
                             </button>
                           )}
                           {(shiftEnrollmentCounts[shift.id] || 0) > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setShiftToBroadcast(shift)}
-                              className="text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-xs px-2.5 py-1 rounded-lg border border-emerald-500/30 transition flex items-center gap-1 cursor-pointer font-semibold"
-                              title="Send WhatsApp update notice to students in this shift"
-                            >
-                              📢 WhatsApp Notice
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadShiftStudents(shift)}
+                                className="text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 text-xs px-2.5 py-1 rounded-lg border border-sky-500/30 transition flex items-center gap-1 cursor-pointer font-semibold"
+                                title="Download enrolled students Excel file (.xlsx)"
+                              >
+                                📥 Student Data
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setShiftToBroadcast(shift)}
+                                className="text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-xs px-2.5 py-1 rounded-lg border border-emerald-500/30 transition flex items-center gap-1 cursor-pointer font-semibold"
+                                title="Send WhatsApp update notice to students in this shift"
+                              >
+                                📢 WhatsApp Notice
+                              </button>
+                            </>
                           )}
                           <button
                             type="button"
@@ -3137,9 +3198,37 @@ export default function LibraryOwnerSettingsPage({
               </p>
             </div>
 
+            {/* Step 1: Mandatory / Recommended Student Data Backup */}
+            <div className="p-4 rounded-2xl bg-sky-500/10 border border-sky-500/25 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="font-bold text-xs text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
+                  <span>📥</span> Step 1: Download Student Records Backup
+                </div>
+                {downloadedShiftIds.has(shiftToMigrate.id) ? (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold">
+                    ✓ Downloaded
+                  </span>
+                ) : (
+                  <span className="text-[10px] bg-sky-500/20 text-sky-700 dark:text-sky-300 px-2 py-0.5 rounded-full font-bold">
+                    Recommended First
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-text-muted leading-relaxed">
+                Before deleting or migrating <span className="font-semibold text-foreground">"{shiftToMigrate.name}"</span>, download the complete Excel sheet containing all {shiftEnrollmentCounts[shiftToMigrate.id] || 0} enrolled student records (Name, Phone, Seat #, Expiry, Amount Paid).
+              </p>
+              <button
+                type="button"
+                onClick={() => handleDownloadShiftStudents(shiftToMigrate)}
+                className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs transition cursor-pointer flex items-center justify-center gap-2 shadow-xs"
+              >
+                <span>📥</span> {downloadedShiftIds.has(shiftToMigrate.id) ? "Download Student Records Again (.xlsx)" : "Download Enrolled Students (.xlsx)"}
+              </button>
+            </div>
+
             <div className="space-y-2">
               <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block">
-                Select Destination Shift for Enrolled Students *
+                Step 2: Select Destination Shift for Enrolled Students *
               </label>
               <select
                 value={destinationShiftId}

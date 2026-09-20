@@ -6,7 +6,7 @@ import Link from "next/link";
 import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 import { downloadCsv } from "@/lib/exportCsv";
 import { ShiftConfig } from "@/lib/types";
-import { getShiftDisplayLabel } from "@/lib/shifts";
+import { getShiftDisplayLabel, sortShiftsChronologically, getShiftNameWithTiming } from "@/lib/shifts";
 import { DEFAULT_SHIFTS } from "@/lib/tenant";
 
 interface DailyPayment {
@@ -77,7 +77,7 @@ export function CollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
       .then((d) => {
         if (d.library?.name) setLibraryName(d.library.name);
         if (d.settings?.shifts_config && d.settings.shifts_config.length > 0) {
-          setShiftsConfig(d.settings.shifts_config);
+          setShiftsConfig(sortShiftsChronologically(d.settings.shifts_config));
         }
       })
       .catch(() => {});
@@ -574,7 +574,7 @@ export function CollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
             {shiftsConfig.length > 0 ? (
               shiftsConfig.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name}
+                  {getShiftNameWithTiming(s)}
                 </option>
               ))
             ) : (
@@ -817,6 +817,8 @@ export function CollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
           isOpen={!!editingReceipt}
           onClose={() => setEditingReceipt(null)}
           onSuccess={() => fetchCollections(selectedDate, true)}
+          shiftsConfig={shiftsConfig}
+          slug={slug}
         />
       )}
     </div>

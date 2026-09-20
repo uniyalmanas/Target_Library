@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, getLibrarySettings, isDemoSlug, DEFAULT_SHIFTS } from "@/lib/tenant";
 import { getDemoSeats } from "@/lib/demoData";
-import { computeSeatStatus } from "@/lib/shifts";
+import { computeSeatStatus, sortShiftsChronologically } from "@/lib/shifts";
 
 // Returns seats, each annotated with whether it's currently occupied
 // (an active receipt with end_date >= today) and by whom.
@@ -32,7 +32,7 @@ export async function GET(req: Request) {
         totalSeatsLimit = librarySettings.total_seats;
       }
     }
-    const shiftsConfig = librarySettings?.shifts_config || DEFAULT_SHIFTS;
+    const shiftsConfig = sortShiftsChronologically(librarySettings?.shifts_config || DEFAULT_SHIFTS);
 
     const { data: seatsData, error: seatsError } = await supabase
       .from("seats")

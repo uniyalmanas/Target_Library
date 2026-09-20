@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Library, LibrarySettings, ShiftConfig } from "@/lib/types";
 import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS } from "@/lib/tenant";
 import LibraryLogo from "@/lib/LibraryLogo";
+import { sortShiftsChronologically } from "@/lib/shifts";
 
 export default function StudentEntranceQRJoinPage({
   params,
@@ -50,7 +51,7 @@ export default function StudentEntranceQRJoinPage({
   }, [slug]);
 
   // Compute Active Amount
-  const shifts: ShiftConfig[] = settings.shifts_config || FALLBACK_SETTINGS.shifts_config;
+  const shifts: ShiftConfig[] = sortShiftsChronologically(settings.shifts_config || FALLBACK_SETTINGS.shifts_config);
   const currentShift = shifts.find((s) => s.id === (selectedPlanType === "full_day" ? "full_day" : selectedShiftId)) || shifts[0];
   const calculatedAmount = hasSheet ? currentShift.sheet_price : currentShift.base_price;
 

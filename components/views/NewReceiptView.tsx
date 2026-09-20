@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ShiftConfig } from "@/lib/types";
 import { DEFAULT_SHIFTS } from "@/lib/tenant";
-import { getShiftDisplayLabel } from "@/lib/shifts";
+import { getShiftDisplayLabel, sortShiftsChronologically, getShiftNameWithTiming } from "@/lib/shifts";
 
 function computeEndDate(startStr: string, days: number): string {
   if (!startStr) return "";
@@ -72,8 +72,9 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
           setPriceProtectionEnabled(Boolean(data.settings.price_protection_enabled));
         }
         if (data.settings?.shifts_config && data.settings.shifts_config.length > 0) {
-          setShiftsConfig(data.settings.shifts_config);
-          const halfShifts = data.settings.shifts_config.filter((s: ShiftConfig) => s.id !== "full_day");
+          const sortedShifts = sortShiftsChronologically(data.settings.shifts_config);
+          setShiftsConfig(sortedShifts);
+          const halfShifts = sortedShifts.filter((s: ShiftConfig) => s.id !== "full_day");
           if (halfShifts.length > 0 && !presetShiftType) {
             setShiftType((prev) => (halfShifts.some((s: ShiftConfig) => s.id === prev) ? prev : halfShifts[0].id));
           }
@@ -467,7 +468,12 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
                 onChange={(e) => setSubscriptionType(e.target.value as any)}
                 className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 outline-none"
               >
-                <option value="full_day">Full Day (6:00 AM - 12:00 AM)</option>
+                <option value="full_day">
+                  {(() => {
+                    const full = shiftsConfig.find((s) => s.id === "full_day");
+                    return full ? getShiftNameWithTiming(full) : "Full Day (6:00 AM - 12:00 AM)";
+                  })()}
+                </option>
                 <option value="half_day">Half Day / Shifted</option>
               </select>
             </div>
@@ -484,7 +490,7 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
                     .filter((s) => s.id !== "full_day")
                     .map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name} (₹{s.base_price}/mo)
+                        {getShiftNameWithTiming(s)} — ₹{s.base_price}/mo
                       </option>
                     ))}
                 </select>

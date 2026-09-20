@@ -11,7 +11,7 @@ import TenantAccessBarrier from "@/lib/TenantAccessBarrier";
 import { getStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
 import DynamicUpiModal from "@/lib/DynamicUpiModal";
 import { generateDueFeeWhatsAppMessage } from "@/lib/upi";
-import { getAvailableShiftsForSeat, getShiftDisplayLabel } from "@/lib/shifts";
+import { getAvailableShiftsForSeat, getShiftDisplayLabel, sortShiftsChronologically, getShiftNameWithTiming, formatShiftTiming } from "@/lib/shifts";
 import SubscriptionPaymentModal from "@/lib/SubscriptionPaymentModal";
 
 interface MemberData {
@@ -1254,9 +1254,11 @@ export default function TenantDeskPage({
                   {/* If seat has room for another non-overlapping shift */}
                   {(() => {
                     const activeOnly = selected.receipts.filter((r) => !r.is_overdue);
-                    const available = getAvailableShiftsForSeat(
-                      activeOnly,
-                      settings.shifts_config || DEFAULT_SHIFTS
+                    const available = sortShiftsChronologically(
+                      getAvailableShiftsForSeat(
+                        activeOnly,
+                        settings.shifts_config || DEFAULT_SHIFTS
+                      )
                     );
                     if (available.length === 0) return null;
 
@@ -1272,7 +1274,7 @@ export default function TenantDeskPage({
                               href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=${av.id}`}
                               className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] px-3.5 py-1.5 rounded-xl font-bold transition shadow-sm cursor-pointer"
                             >
-                              + {av.name} (₹{av.base_price})
+                              + {getShiftNameWithTiming(av)} • ₹{av.base_price}
                             </Link>
                           ))}
                         </div>
@@ -1286,16 +1288,20 @@ export default function TenantDeskPage({
                     This seat is completely unoccupied for all shifts.
                   </p>
                   <div className="flex flex-col gap-2">
-                    {settings.shifts_config?.find((s) => s.id === "full_day") && (
-                      <Link
-                        href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=full_day`}
-                        className="block text-center bg-rose-600 hover:bg-rose-500 text-white text-xs py-2 rounded-xl font-bold shadow-md shadow-rose-600/20 transition hover:-translate-y-0.5 cursor-pointer"
-                      >
-                        Assign Full Day (₹{settings.shifts_config.find((s) => s.id === "full_day")?.base_price} / ₹{settings.shifts_config.find((s) => s.id === "full_day")?.sheet_price})
-                      </Link>
-                    )}
+                    {(() => {
+                      const fullShift = (settings.shifts_config || DEFAULT_SHIFTS).find((s) => s.id === "full_day");
+                      if (!fullShift) return null;
+                      return (
+                        <Link
+                          href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=full_day`}
+                          className="block text-center bg-rose-600 hover:bg-rose-500 text-white text-xs py-2 rounded-xl font-bold shadow-md shadow-rose-600/20 transition hover:-translate-y-0.5 cursor-pointer"
+                        >
+                          Assign {getShiftNameWithTiming(fullShift)} (₹{fullShift.base_price} / ₹{fullShift.sheet_price} with sheet)
+                        </Link>
+                      );
+                    })()}
                     <div className="flex flex-wrap gap-2">
-                      {(settings.shifts_config || DEFAULT_SHIFTS)
+                      {sortShiftsChronologically(settings.shifts_config || DEFAULT_SHIFTS)
                         .filter((s) => s.id !== "full_day")
                         .map((s) => (
                           <Link
@@ -1303,7 +1309,8 @@ export default function TenantDeskPage({
                             href={`/l/${slug}/new-receipt?seat_number=${selected.seat_number}&subscription_type=half_day&shift_type=${s.id}`}
                             className="flex-1 min-w-[130px] text-center bg-card-bg border border-panel-border hover:border-emerald-500 hover:bg-emerald-500/10 text-text-main text-[11px] py-2 px-2.5 rounded-xl font-bold shadow-xs transition hover:-translate-y-0.5 cursor-pointer"
                           >
-                            {s.name} (₹{s.base_price})
+                            <div>{getShiftNameWithTiming(s)}</div>
+                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">₹{s.base_price}/mo</div>
                           </Link>
                         ))}
                     </div>
@@ -1335,6 +1342,8 @@ export default function TenantDeskPage({
             setEditingReceipt(null);
             fetchSeats();
           }}
+          shiftsConfig={settings.shifts_config || DEFAULT_SHIFTS}
+          slug={slug}
         />
       )}
 

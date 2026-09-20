@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, getLibrarySettings, FALLBACK_SETTINGS, getLibraryAccessStatus } from "@/lib/tenant";
+import { sortShiftsChronologically } from "@/lib/shifts";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,9 @@ export async function GET(
     const { slug } = await params;
     const library = await getLibraryBySlug(slug);
     const settings = await getLibrarySettings(library.id);
+    if (settings?.shifts_config) {
+      settings.shifts_config = sortShiftsChronologically(settings.shifts_config);
+    }
     const access = getLibraryAccessStatus(library);
 
     return NextResponse.json({
@@ -81,7 +85,9 @@ export async function PUT(
       updated_at: new Date().toISOString(),
     };
     if (total_seats !== undefined) settingsUpdates.total_seats = Number(total_seats);
-    if (shifts_config !== undefined) settingsUpdates.shifts_config = shifts_config;
+    if (shifts_config !== undefined && Array.isArray(shifts_config)) {
+      settingsUpdates.shifts_config = sortShiftsChronologically(shifts_config);
+    }
     if (has_sheet_enabled !== undefined) settingsUpdates.has_sheet_enabled = has_sheet_enabled;
     if (sheet_price_monthly !== undefined) settingsUpdates.sheet_price_monthly = Number(sheet_price_monthly);
     if (price_protection_enabled !== undefined) settingsUpdates.price_protection_enabled = Boolean(price_protection_enabled);

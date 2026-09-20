@@ -8,7 +8,7 @@ import { downloadCsv } from "@/lib/exportCsv";
 import { generateDueFeeWhatsAppMessage } from "@/lib/upi";
 import DynamicUpiModal from "@/lib/DynamicUpiModal";
 import { ShiftConfig } from "@/lib/types";
-import { getShiftDisplayLabel } from "@/lib/shifts";
+import { getShiftDisplayLabel, sortShiftsChronologically, getShiftNameWithTiming } from "@/lib/shifts";
 import { DEFAULT_SHIFTS } from "@/lib/tenant";
 
 interface DueCandidate {
@@ -85,7 +85,7 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
           setLibraryName(d.library.name || "");
         }
         if (d.settings?.shifts_config && d.settings.shifts_config.length > 0) {
-          setShiftsConfig(d.settings.shifts_config);
+          setShiftsConfig(sortShiftsChronologically(d.settings.shifts_config));
         }
       })
       .catch(() => {});
@@ -418,7 +418,7 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
             {shiftsConfig.length > 0 ? (
               shiftsConfig.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name}
+                  {getShiftNameWithTiming(s)}
                 </option>
               ))
             ) : (
@@ -642,6 +642,8 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
             fetchDueFees(true);
             setEditingReceipt(null);
           }}
+          shiftsConfig={shiftsConfig}
+          slug={slug}
         />
       )}
 

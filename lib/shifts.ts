@@ -256,6 +256,98 @@ export function computeSeatStatus(
 }
 
 /**
+ * Converts 24-hour "HH:mm" to 12-hour format (e.g. "06:00" -> "6 AM", "14:30" -> "2:30 PM").
+ */
+export function formatTime12Hour(timeStr?: string | null): string {
+  if (!timeStr) return "";
+  const clean = timeStr.trim();
+  const parts = clean.split(":");
+  let h = parseInt(parts[0] || "0", 10);
+  const m = parseInt(parts[1] || "0", 10);
+  if (isNaN(h)) return clean;
+  const ampm = h >= 12 && h < 24 ? "PM" : "AM";
+  if (h === 0 || h === 24) {
+    h = 12;
+  } else if (h > 12) {
+    h -= 12;
+  }
+  const minStr = m > 0 ? `:${m.toString().padStart(2, "0")}` : "";
+  return `${h}${minStr} ${ampm}`;
+}
+
+/**
+ * Formats a shift's start and end times into a friendly string (e.g. "6 AM - 10 AM").
+ */
+export function formatShiftTiming(shift?: ShiftConfig | null): string {
+  if (!shift) return "";
+  if (!shift.start_time && !shift.end_time) return "";
+  const start = formatTime12Hour(shift.start_time);
+  const end = formatTime12Hour(shift.end_time);
+  if (!start && !end) return "";
+  if (start && end) return `${start} - ${end}`;
+  return start || end;
+}
+
+/**
+ * Checks if a shift name already contains explicit time indications.
+ */
+export function hasTimingInName(name?: string | null): boolean {
+  if (!name) return false;
+  return (
+    /\b(am|pm)\b/i.test(name) ||
+    /\d{1,2}:\d{2}/.test(name) ||
+    /\d{1,2}\s*-\s*\d{1,2}/.test(name) ||
+    /\d{1,2}\s*to\s*\d{1,2}/i.test(name)
+  );
+}
+
+/**
+ * Returns the shift name accompanied by its timing if not already present in the name.
+ */
+export function getShiftNameWithTiming(shift?: ShiftConfig | null): string {
+  if (!shift) return "";
+  if (!shift.name) return "";
+  if (hasTimingInName(shift.name)) return shift.name;
+  const timing = formatShiftTiming(shift);
+  return timing ? `${shift.name} (${timing})` : shift.name;
+}
+
+/**
+ * Chronologically sorts shifts:
+ * 1. Full Day shifts remain pinned at the top.
+ * 2. Ascending order by start_time (in minutes from midnight).
+ * 3. Secondary ascending order by end_time.
+ * 4. Alphabetical tie-breaker on shift name.
+ */
+export function sortShiftsChronologically(shifts: ShiftConfig[] = []): ShiftConfig[] {
+  return [...shifts].sort((a, b) => {
+    const isFullDayA = a.id === "full_day" || a.name.toLowerCase().includes("full day");
+    const isFullDayB = b.id === "full_day" || b.name.toLowerCase().includes("full day");
+
+    // Full Day shifts stay pinned at the top
+    if (isFullDayA && !isFullDayB) return -1;
+    if (isFullDayB && !isFullDayA) return 1;
+
+    // Primary sort: ascending start_time
+    const startA = parseTimeToMinutes(a.start_time, false);
+    const startB = parseTimeToMinutes(b.start_time, false);
+    if (startA !== startB) {
+      return startA - startB;
+    }
+
+    // Secondary sort: ascending end_time
+    const endA = parseTimeToMinutes(a.end_time, true);
+    const endB = parseTimeToMinutes(b.end_time, true);
+    if (endA !== endB) {
+      return endA - endB;
+    }
+
+    // Tertiary sort: alphabetically by name
+    return (a.name || "").localeCompare(b.name || "");
+  });
+}
+
+/**
  * Returns human-readable shift name and timing based on shiftsConfig.
  */
 export function getShiftDisplayLabel(
@@ -265,14 +357,17 @@ export function getShiftDisplayLabel(
 ): string {
   if (subType === "full_day") {
     const full = shiftsConfig.find((s) => s.id === "full_day");
-    return full?.name || "Full Day (6 AM - 12 AM)";
+    if (full) {
+      return getShiftNameWithTiming(full);
+    }
+    return "Full Day (6 AM - 12 AM)";
   }
 
   if (!shiftId) return "Half Day";
 
   const resolved = resolveShift(shiftId, shiftsConfig);
   if (resolved) {
-    return resolved.name;
+    return getShiftNameWithTiming(resolved);
   }
 
   return shiftId;
