@@ -81,10 +81,13 @@
 * Added Show/Hide (👁️ / 🙈) password toggles across all authentication inputs.
 * Enhanced login route with whitespace trimming, case-insensitivity, and auto-syncing hashes.
 
-### 👤 Step 13 — AuthGate Multi-Hook Race Condition Fix (1-Step Clean Login)
-* Diagnosed the root cause of the "must enter password twice" bounce: `AuthGate` in `RootLayout` had two uncoordinated `useEffect` hooks. On client navigation (`router.push`) into protected routes (`/l/[slug]`), the redirect effect ran with stale `isAuthenticated: false` state before the auth evaluation effect could update it, bouncing the user right back to `/login`.
-* Refactored `AuthGate.tsx` to evaluate authentication synchronously on initial render (`useState(() => checkClientAuth(pathname))`), consolidated verification into a single unified hook, and added cross-component `auth-changed` event listeners.
-* Updated `app/login/page.tsx` to set both `sessionStorage` and `localStorage` auth flags, and execute clean `window.location.href` navigation to cleanly initialize the protected workspace without router bounce.
+### 👤 Step 14 — Custom Shift Addition & Immediate Auto-Persistence
+* Diagnosed why adding a new shift (e.g. "New Morning Shift - 6 to 10 AM") in `/l/target-library/settings` did not persist:
+  1. `handleAddShift` only appended the new shift to in-memory React state (`setShifts`) and closed the modal without saving to the backend. If the owner didn't scroll to the very bottom to find the separate "Save Shifts & Capacity" button, the shift was lost upon refresh/navigation.
+  2. Implemented `persistShifts()` to immediately auto-save new shifts to `/api/libraries/[slug]/settings` upon clicking "Confirm & Save Shift", with loading spinners and error handling.
+  3. Made shift deletion auto-persist immediately so deleted shifts do not reappear.
+  4. Identified that PostgreSQL `receipts` table had a legacy constraint `receipts_shift_type_check` that rejected custom shift bookings (`code 23514`). Created `supabase/fix_custom_shifts.sql` to drop the check constraint and widen `shift_type` to `VARCHAR(100)`.
+  5. Updated `components/views/DashboardView.tsx` to dynamically render custom shift labels via `getShiftDisplayLabel()` instead of hardcoded strings.
 
 ---
 
@@ -92,8 +95,9 @@
 ```bash
 npm run build
 # Result: 0 errors
-# ✓ Compiled successfully in 18.6s
-# ✓ Finished TypeScript in 16.2s
-# ✓ Generating static pages (25/25) in 689ms
+# ✓ Compiled successfully in 6.8s
+# ✓ Finished TypeScript in 7.7s
+# ✓ Generating static pages (25/25) in 505ms
 ```
+
 

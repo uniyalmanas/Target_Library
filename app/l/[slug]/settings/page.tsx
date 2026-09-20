@@ -94,6 +94,8 @@ export default function LibraryOwnerSettingsPage({
   const [newShiftEnd, setNewShiftEnd] = useState("14:00");
   const [newShiftBasePrice, setNewShiftBasePrice] = useState<number>(600);
   const [newShiftSheetPrice, setNewShiftSheetPrice] = useState<number>(900);
+  const [addingShift, setAddingShift] = useState(false);
+  const [addShiftError, setAddShiftError] = useState<string | null>(null);
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<"branding" | "seats_shifts" | "matrix_layout" | "upi_soundbox" | "passwords" | "general" | "poster" | "domains" | "backup" | "billing">("branding");
@@ -330,8 +332,63 @@ export default function LibraryOwnerSettingsPage({
     setShifts(updated);
   };
 
-  // Remove Shift with Active Enrollment Safety Guard
-  const handleRemoveShift = (id: string) => {
+  // Persist shifts directly to backend and sync state
+  const persistShifts = async (updatedShifts: ShiftConfig[]) => {
+    setSaving(true);
+    setSaveSuccess(false);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch(`/api/libraries/${slug}/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          phone,
+          city,
+          address,
+          logo_url: logoUrl.trim() || null,
+          upi_id: upiId,
+          upi_name: upiName,
+          total_seats: Number(totalSeats),
+          shifts_config: updatedShifts,
+          has_sheet_enabled: hasSheetEnabled,
+          sheet_price_monthly: Number(sheetPriceMonthly),
+          price_protection_enabled: priceProtectionEnabled,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update shifts configuration");
+
+      if (data.library) {
+        setLibrary(data.library);
+        setLogoUrl(data.library.logo_url || "");
+      }
+      if (data.settings?.shifts_config) {
+        setShifts(data.settings.shifts_config);
+        setSettings(data.settings);
+      } else {
+        setShifts(updatedShifts);
+      }
+
+      setSaveSuccess(true);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("library-settings-updated"));
+      }
+      setTimeout(() => setSaveSuccess(false), 4000);
+      return true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error saving shifts";
+      setErrorMessage(msg);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Remove Shift with Active Enrollment Safety Guard & Auto-Persistence
+  const handleRemoveShift = async (id: string) => {
     if (shifts.length <= 1) {
       alert("At least one shift must be configured.");
       return;
@@ -347,8 +404,9 @@ export default function LibraryOwnerSettingsPage({
       setDestinationShiftId(otherShifts[0]?.id || "");
       setMigrationError(null);
     } else {
-      // Clean delete
-      setShifts(shifts.filter((s) => s.id !== id));
+      // Clean delete with immediate backend persistence
+      const nextShifts = shifts.filter((s) => s.id !== id);
+      await persistShifts(nextShifts);
     }
   };
 
@@ -369,8 +427,9 @@ export default function LibraryOwnerSettingsPage({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Migration failed");
 
-      // Successfully migrated in DB -> remove from local state
-      setShifts(shifts.filter((s) => s.id !== shiftToMigrate.id));
+      // Successfully migrated in DB -> remove from settings & persist
+      const nextShifts = shifts.filter((s) => s.id !== shiftToMigrate.id);
+      await persistShifts(nextShifts);
       setShiftToMigrate(null);
       await loadShiftEnrollments();
       alert(data.message || "Students migrated successfully.");
@@ -381,12 +440,22 @@ export default function LibraryOwnerSettingsPage({
     }
   };
 
-  // Add Custom Shift
-  const handleAddShift = (e: React.FormEvent) => {
+  // Add Custom Shift with Immediate Persistence
+  const handleAddShift = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newShiftName.trim()) return;
 
-    const newId = `shift_${Date.now()}`;
+    setAddingShift(true);
+    setAddShiftError(null);
+
+    // Clean, readable and URL-safe ID under 20 chars for database safety
+    const cleanSlug = newShiftName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "")
+      .slice(0, 8);
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const newId = `s_${cleanSlug || "custom"}_${randomSuffix}`.slice(0, 19);
+
     const newShift: ShiftConfig = {
       id: newId,
       name: newShiftName.trim(),
@@ -396,9 +465,16 @@ export default function LibraryOwnerSettingsPage({
       sheet_price: Number(newShiftSheetPrice),
     };
 
-    setShifts([...shifts, newShift]);
-    setNewShiftName("");
-    setShowAddShift(false);
+    const nextShifts = [...shifts, newShift];
+
+    const ok = await persistShifts(nextShifts);
+    if (ok) {
+      setNewShiftName("");
+      setShowAddShift(false);
+    } else {
+      setAddShiftError("Could not save new shift to server. Please try again.");
+    }
+    setAddingShift(false);
   };
 
   // Handle Logo Upload via HTML5 Canvas Compression
@@ -503,6 +579,12 @@ export default function LibraryOwnerSettingsPage({
       if (data.library) {
         setLibrary(data.library);
         setLogoUrl(data.library.logo_url || "");
+      }
+      if (data.settings) {
+        setSettings(data.settings);
+        if (data.settings.shifts_config) {
+          setShifts(data.settings.shifts_config);
+        }
       }
 
       setSaveSuccess(true);
@@ -1468,19 +1550,34 @@ export default function LibraryOwnerSettingsPage({
                     </div>
                   </div>
 
+                  {addShiftError && (
+                    <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-semibold">
+                      ⚠️ {addShiftError}
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-end gap-2 pt-1">
                     <button
                       type="button"
                       onClick={() => setShowAddShift(false)}
-                      className="px-3 py-1.5 rounded-xl border border-panel-border text-xs font-semibold hover:bg-neutral-500/10 cursor-pointer"
+                      disabled={addingShift}
+                      className="px-3 py-1.5 rounded-xl border border-panel-border text-xs font-semibold hover:bg-neutral-500/10 cursor-pointer disabled:opacity-50"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer"
+                      disabled={addingShift}
+                      className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
                     >
-                      Confirm Add Shift
+                      {addingShift ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Saving Shift...</span>
+                        </>
+                      ) : (
+                        <>Confirm &amp; Save Shift</>
+                      )}
                     </button>
                   </div>
                 </form>

@@ -4,6 +4,9 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { getStoredSession, setStoredSession, isSuperAdminAuthenticated, isOwnerAuthorizedForSlug } from "@/lib/auth";
+import { getShiftDisplayLabel } from "@/lib/shifts";
+import { DEFAULT_SHIFTS } from "@/lib/tenant";
+import { ShiftConfig } from "@/lib/types";
 
 interface Stats {
   totalSeats: number;
@@ -26,6 +29,7 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
   const slug = tenantSlug || searchParams.get("slug") || getStoredSession()?.librarySlug || "target-library";
 
   const [stats, setStats] = useState<Stats | null>(null);
+  const [shiftsConfig, setShiftsConfig] = useState<ShiftConfig[]>(DEFAULT_SHIFTS);
   const [seats, setSeats] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"free" | "partial" | "full" | "double">("free");
   const [activeDashboardTab, setActiveDashboardTab] = useState<"overview" | "logs">("overview");
@@ -64,6 +68,15 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
       })
         .then((r) => r.json())
         .then(setStats);
+
+      fetch(`/api/libraries/${encodeURIComponent(slug)}/settings`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.settings?.shifts_config) {
+            setShiftsConfig(data.settings.shifts_config);
+          }
+        })
+        .catch(() => {});
 
       fetch(`/api/seats?slug=${encodeURIComponent(slug)}`)
         .then((r) => r.json())
@@ -657,7 +670,7 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                           </p>
                         </div>
                         <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-950 dark:bg-amber-500/15 dark:text-amber-400 border border-amber-400 dark:border-amber-500/25 px-2.5 py-1 rounded-full tracking-wider">
-                          {r.shift_type === "shift_1" || r.shift_type === "morning" ? "Shift 1" : r.shift_type === "shift_2" || r.shift_type === "evening" ? "Shift 2" : "Shift 3"}
+                          {getShiftDisplayLabel(r.shift_type, r.subscription_type, shiftsConfig)}
                         </span>
                       </Link>
                     );
@@ -710,11 +723,7 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                             </div>
                             <div className="flex justify-between items-center mt-1.5 text-[10px]">
                               <span className="text-purple-700 dark:text-purple-400 font-bold uppercase">
-                                {r.shift_type === "shift_1" || r.shift_type === "morning"
-                                  ? "Shift 1 (6AM–2PM)"
-                                  : r.shift_type === "shift_2" || r.shift_type === "evening"
-                                    ? "Shift 2 (2PM–12AM)"
-                                    : "Shift 3 (4PM–12AM)"}
+                                {getShiftDisplayLabel(r.shift_type, r.subscription_type, shiftsConfig)}
                               </span>
                               <span className="text-text-muted">
                                 Exp: {r.end_date}

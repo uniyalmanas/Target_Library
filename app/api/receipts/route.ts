@@ -375,6 +375,11 @@ export async function POST(req: Request) {
   }
 
   if (receiptError) {
+    if (receiptError.code === "23514" && (receiptError.message?.includes("receipts_shift_type_check") || receiptError.message?.includes("shift_type"))) {
+      return NextResponse.json({
+        error: "Custom shift detected: Please run the 1-click SQL in Supabase SQL Editor to allow custom shifts: ALTER TABLE receipts DROP CONSTRAINT IF EXISTS receipts_shift_type_check; ALTER TABLE receipts ALTER COLUMN shift_type TYPE VARCHAR(100);"
+      }, { status: 500 });
+    }
     return NextResponse.json({ error: receiptError.message }, { status: 500 });
   }
 
