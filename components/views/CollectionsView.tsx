@@ -60,15 +60,46 @@ export function CollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
   const slug = tenantSlug || searchParams.get("slug") || "target-library";
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayIST());
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(`libraryos_cached_collections_${slug}_${getTodayIST()}`);
+        if (cached) return false;
+      } catch {}
+    }
+    return true;
+  });
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [lastUpdated, setLastUpdated] = useState<string>("");
-  const [summary, setSummary] = useState<DailySummary | null>(null);
-  const [payments, setPayments] = useState<DailyPayment[]>([]);
+  const [summary, setSummary] = useState<DailySummary | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(`libraryos_cached_collections_${slug}_${getTodayIST()}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.summary) return parsed.summary;
+        }
+      } catch {}
+    }
+    return null;
+  });
+  const [payments, setPayments] = useState<DailyPayment[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(`libraryos_cached_collections_${slug}_${getTodayIST()}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed?.payments)) return parsed.payments;
+        }
+      } catch {}
+    }
+    return [];
+  });
   const [libraryName, setLibraryName] = useState<string>("");
   const [shiftsConfig, setShiftsConfig] = useState<ShiftConfig[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [editingReceipt, setEditingReceipt] = useState<EditableReceipt | null>(null);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
 
   // Fetch library details for dynamic branding and shifts
   useEffect(() => {
@@ -82,6 +113,28 @@ export function CollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
       })
       .catch(() => {});
   }, [slug]);
+
+  // Online / offline listeners
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIsOnline(navigator.onLine);
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      fetchCollections(selectedDate, true);
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [selectedDate, slug]);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -115,8 +168,29 @@ export function CollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
           hour12: true,
         }).format(new Date())
       );
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(`libraryos_cached_collections_${slug}_${date}`, JSON.stringify(data));
+        } catch {}
+      }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error fetching data");
+      let restoredFromCache = false;
+      if (typeof window !== "undefined") {
+        try {
+          const cached = localStorage.getItem(`libraryos_cached_collections_${slug}_${date}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.summary) {
+              setSummary(parsed.summary);
+              setPayments(parsed.payments || []);
+              restoredFromCache = true;
+            }
+          }
+        } catch {}
+      }
+      if (!restoredFromCache) {
+        setError(err instanceof Error ? err.message : "Error fetching data");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -290,6 +364,12 @@ export function CollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
               <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1.5 animate-pulse">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                 LIVE TODAY
+              </span>
+            )}
+            {!isOnline && (
+              <span className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1.5">
+                <span>📡</span>
+                OFFLINE CACHE
               </span>
             )}
           </div>

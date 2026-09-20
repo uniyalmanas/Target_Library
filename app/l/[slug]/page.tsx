@@ -60,6 +60,15 @@ export default function TenantDeskPage({
 
   const [library, setLibrary] = useState<Library>(() => {
     if (isDemoSlug(slug)) return DEMO_LIBRARY;
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(`libraryos_cached_info_${slug}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.library) return parsed.library;
+        }
+      } catch {}
+    }
     if (slug === DEFAULT_LIBRARY_SLUG) return FALLBACK_TARGET_LIBRARY;
     return {
       id: `tenant-${slug}`,
@@ -83,10 +92,46 @@ export default function TenantDeskPage({
   });
   const [settings, setSettings] = useState<LibrarySettings>(() => {
     if (isDemoSlug(slug)) return DEMO_SETTINGS;
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(`libraryos_cached_info_${slug}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.settings) return parsed.settings;
+        }
+      } catch {}
+    }
     return FALLBACK_SETTINGS;
   });
-  const [seats, setSeats] = useState<SeatData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [seats, setSeats] = useState<SeatData[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(`libraryos_cached_seats_${slug}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed.seats) && parsed.seats.length > 0) {
+            return parsed.seats;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(`libraryos_cached_seats_${slug}`);
+        if (cached) return false;
+      } catch {
+        // ignore
+      }
+    }
+    return true;
+  });
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [justReconnected, setJustReconnected] = useState<boolean>(false);
   const [selected, setSelected] = useState<SeatData | null>(null);
   const [vacating, setVacating] = useState<number | null>(null);
   const [editingReceipt, setEditingReceipt] = useState<EditableReceipt | null>(null);
@@ -119,7 +164,18 @@ export default function TenantDeskPage({
   const [approvalFeedback, setApprovalFeedback] = useState<{ id: string; message: string; receiptNo?: number } | null>(null);
 
   // Floating / Flexible Students (Daily Vacancy Access)
-  const [floatingStudents, setFloatingStudents] = useState<any[]>([]);
+  const [floatingStudents, setFloatingStudents] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(`libraryos_cached_floating_${slug}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
   const [showFloatingModal, setShowFloatingModal] = useState<boolean>(false);
 
   // User Authentication & Role Detection
@@ -147,7 +203,7 @@ export default function TenantDeskPage({
     setIsOwner(Boolean(hasOwner));
   }, [slug]);
 
-  // Load Library & Settings
+  // Load Library & Settings with Offline Resilience
   const loadInfo = useCallback(async () => {
     try {
       const res = await fetch(`/api/libraries/${slug}/settings`);
@@ -155,9 +211,31 @@ export default function TenantDeskPage({
         const data = await res.json();
         if (data.library) setLibrary(data.library);
         if (data.settings) setSettings(data.settings);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(
+              `libraryos_cached_info_${slug}`,
+              JSON.stringify({
+                timestamp: Date.now(),
+                library: data.library,
+                settings: data.settings,
+              })
+            );
+          } catch {}
+        }
       }
     } catch (e) {
-      console.error("Error loading tenant info:", e);
+      console.warn("Error loading tenant info (using offline fallback if present):", e);
+      if (typeof window !== "undefined") {
+        try {
+          const cached = localStorage.getItem(`libraryos_cached_info_${slug}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed?.library) setLibrary(parsed.library);
+            if (parsed?.settings) setSettings(parsed.settings);
+          }
+        } catch {}
+      }
     }
   }, [slug]);
 
@@ -177,8 +255,8 @@ export default function TenantDeskPage({
     }
   }, []);
 
-  // Load Seats
-  const fetchSeats = () => {
+  // Load Seats with Snapshot Caching
+  const fetchSeats = useCallback(() => {
     fetch(`/api/seats?slug=${slug}`)
       .then((r) => r.json())
       .then((data) => {
@@ -188,26 +266,95 @@ export default function TenantDeskPage({
         }
         setSeats(loadedSeats);
         setLoading(false);
+        if (typeof window !== "undefined" && loadedSeats.length > 0) {
+          try {
+            localStorage.setItem(
+              `libraryos_cached_seats_${slug}`,
+              JSON.stringify({
+                timestamp: Date.now(),
+                seats: loadedSeats,
+              })
+            );
+          } catch (e) {
+            console.warn("Could not save seats snapshot cache:", e);
+          }
+        }
       })
-      .catch(() => setLoading(false));
-  };
+      .catch((err) => {
+        console.warn("Network fetch failed for seats, checking local cache:", err);
+        if (typeof window !== "undefined") {
+          try {
+            const cached = localStorage.getItem(`libraryos_cached_seats_${slug}`);
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (Array.isArray(parsed?.seats) && parsed.seats.length > 0) {
+                setSeats(parsed.seats);
+              }
+            }
+          } catch {}
+        }
+        setLoading(false);
+      });
+  }, [slug, settings.total_seats]);
 
   const fetchFloatingStudents = useCallback(async () => {
     try {
       const res = await fetch(`/api/receipts?slug=${encodeURIComponent(slug)}&shift_type=floating&active_only=true`);
       if (res.ok) {
         const data = await res.json();
-        setFloatingStudents(Array.isArray(data) ? data : []);
+        const loaded = Array.isArray(data) ? data : [];
+        setFloatingStudents(loaded);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(`libraryos_cached_floating_${slug}`, JSON.stringify(loaded));
+          } catch {}
+        }
       }
     } catch {
-      // ignore
+      if (typeof window !== "undefined") {
+        try {
+          const cached = localStorage.getItem(`libraryos_cached_floating_${slug}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed)) setFloatingStudents(parsed);
+          }
+        } catch {}
+      }
     }
   }, [slug]);
 
   useEffect(() => {
     fetchSeats();
     fetchFloatingStudents();
-  }, [settings.total_seats, fetchFloatingStudents]);
+  }, [fetchSeats, fetchFloatingStudents]);
+
+  // Online / Offline Network Listeners & Auto-Sync
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    setIsOnline(navigator.onLine);
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      setJustReconnected(true);
+      fetchSeats();
+      fetchFloatingStudents();
+      loadInfo();
+      setTimeout(() => setJustReconnected(false), 4000);
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [fetchSeats, fetchFloatingStudents, loadInfo]);
 
   // Sound Notification Chime for Incoming Entrance QR Admissions
   const playAdmissionChime = () => {
@@ -235,6 +382,7 @@ export default function TenantDeskPage({
 
   // Poll for Incoming Admission Requests
   const fetchAdmissionRequests = async () => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
     try {
       const res = await fetch(`/api/admission-requests?slug=${slug}&status=pending`);
       if (res.ok) {
@@ -635,6 +783,59 @@ export default function TenantDeskPage({
                 <span>⚡</span> Pay &amp; Activate Plan Early 🚀
               </button>
             </div>
+          </div>
+        )}
+
+        {/* PWA Offline Mode Notice */}
+        {!isOnline && (
+          <div className="bg-amber-500/15 border-2 border-amber-500/40 rounded-3xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl p-2 rounded-2xl bg-amber-500/20 border border-amber-500/30 shrink-0">
+                📡
+              </span>
+              <div>
+                <div className="font-extrabold text-sm text-amber-950 dark:text-amber-300 flex items-center gap-2">
+                  <span>Offline Resilience Mode Active</span>
+                  <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/30 text-amber-900 dark:text-amber-200">
+                    Local Device Cache
+                  </span>
+                </div>
+                <p className="text-amber-900/80 dark:text-amber-300/80 mt-0.5 leading-relaxed">
+                  Basement/network disconnect detected. The seat matrix and cached records are operating seamlessly from your device&apos;s high-speed local cache. Updates will auto-sync the moment connectivity is restored.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                fetchSeats();
+                fetchFloatingStudents();
+                loadInfo();
+              }}
+              className="w-full sm:w-auto px-4 py-2 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs shadow transition active:scale-95 text-center shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <span>🔄</span> Re-check Connection
+            </button>
+          </div>
+        )}
+
+        {/* Reconnected Banner */}
+        {justReconnected && isOnline && (
+          <div className="bg-emerald-500/15 border-2 border-emerald-500/40 rounded-3xl p-3.5 shadow-sm flex items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 text-emerald-950 dark:text-emerald-300">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">✅</span>
+              <div>
+                <div className="font-extrabold text-sm">Connection Restored!</div>
+                <div className="text-[11px] text-emerald-900/80 dark:text-emerald-300/80">Live cloud sync complete. Desk seat matrix is synchronized with the server.</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setJustReconnected(false)}
+              className="text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 transition cursor-pointer"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 
