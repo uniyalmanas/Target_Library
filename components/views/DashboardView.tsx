@@ -275,23 +275,31 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
     },
   ];
 
-  // Group seats by occupancy type
+  // Group seats by occupancy type strictly matching color definitions:
+  // - GREEN: Free seats (0 occupants)
+  // - RED: Full Day (1 person allocating the shift for all day and for a fixed duration of time)
+  // - ORANGE: Partially filled (1+ shifts occupied, yet another shift can still be accommodated)
+  // - PURPLE: Completely occupied by multiple shifts and more shifts cannot be added
   const freeSeatsList = seats.filter((s) => !s.occupied);
   
-  const partialSeatsList = seats.filter(
-    (s) => s.occupied && s.receipts?.length === 1 && s.receipts[0].subscription_type === "half_day"
+  const fullSeatsList = seats.filter(
+    (s) =>
+      s.occupied &&
+      (s.status === "full_day" || s.receipts?.some((r: any) => r.subscription_type === "full_day"))
   );
 
   const doubleShiftSeatsList = seats.filter(
     (s) =>
       s.occupied &&
-      (s.is_double_shift || s.status === "double_shift" || (s.receipts?.length >= 2 && !s.receipts.some((r: any) => r.subscription_type === "full_day")))
+      !fullSeatsList.includes(s) &&
+      (s.is_double_shift || s.status === "double_shift" || s.can_accommodate_another === false)
   );
 
-  const fullSeatsList = seats.filter(
+  const partialSeatsList = seats.filter(
     (s) =>
       s.occupied &&
-      s.receipts?.some((r: any) => r.subscription_type === "full_day")
+      !fullSeatsList.includes(s) &&
+      !doubleShiftSeatsList.includes(s)
   );
 
   // SVG Area Chart Calculations (Rolling 6-month trends)
@@ -589,27 +597,7 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                   : "bg-card-bg border border-panel-border text-text-muted hover:text-foreground"
               }`}
             >
-              🟢 Available ({freeSeatsList.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("partial")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === "partial"
-                  ? "bg-amber-600 text-white shadow-xs"
-                  : "bg-card-bg border border-panel-border text-text-muted hover:text-foreground"
-              }`}
-            >
-              🟡 Partial Shift ({partialSeatsList.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("double")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === "double"
-                  ? "bg-purple-600 text-white shadow-xs"
-                  : "bg-card-bg border border-panel-border text-text-muted hover:text-foreground"
-              }`}
-            >
-              🟣 2 Shifts ({doubleShiftSeatsList.length})
+              🟢 Free ({freeSeatsList.length})
             </button>
             <button
               onClick={() => setActiveTab("full")}
@@ -619,7 +607,27 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                   : "bg-card-bg border border-panel-border text-text-muted hover:text-foreground"
               }`}
             >
-              🔴 Full-Day ({fullSeatsList.length})
+              🔴 Full Day ({fullSeatsList.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("partial")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === "partial"
+                  ? "bg-orange-600 text-white shadow-xs"
+                  : "bg-card-bg border border-panel-border text-text-muted hover:text-foreground"
+              }`}
+            >
+              🟠 Partially Filled ({partialSeatsList.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("double")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === "double"
+                  ? "bg-purple-600 text-white shadow-xs"
+                  : "bg-card-bg border border-panel-border text-text-muted hover:text-foreground"
+              }`}
+            >
+              🟣 Multiple Shifts (Full) ({doubleShiftSeatsList.length})
             </button>
           </div>
         </div>
@@ -650,7 +658,9 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
 
             {activeTab === "partial" && (
               <div className="space-y-4">
-                <p className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Partially Blocked Seats (Only 1 Shift Occupied)</p>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-orange-600 dark:text-orange-400">
+                  🟠 Partially Filled Seats (Another shift can be filled)
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 max-h-[350px] overflow-y-auto p-1">
                   {partialSeatsList.map((s) => {
                     const r = s.receipts[0];
@@ -658,7 +668,7 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                       <Link
                         key={s.seat_id}
                         href={`/l/${encodeURIComponent(slug)}/members/${r.student_id}`}
-                        className="bg-amber-50/50 hover:bg-amber-100/60 dark:bg-card-bg dark:hover:bg-neutral-800/60 border border-amber-300 dark:border-panel-border p-4 rounded-2xl flex justify-between items-center transition-all hover:-translate-y-0.5 shadow-2xs group cursor-pointer"
+                        className="bg-orange-50/50 hover:bg-orange-100/60 dark:bg-card-bg dark:hover:bg-neutral-800/60 border border-orange-300 dark:border-panel-border p-4 rounded-2xl flex justify-between items-center transition-all hover:-translate-y-0.5 shadow-2xs group cursor-pointer"
                       >
                         <div className="space-y-1">
                           <p className="text-xs text-text-muted">Seat number</p>
@@ -666,17 +676,17 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                             <span className="text-sm">🪑</span> {s.seat_number}
                           </p>
                           <p className="text-[11px] text-text-details font-medium mt-1">
-                            Occupant: <span className="font-semibold text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{r.member?.name}</span>
+                            Occupant: <span className="font-semibold text-foreground group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">{r.member?.name}</span>
                           </p>
                         </div>
-                        <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-950 dark:bg-amber-500/15 dark:text-amber-400 border border-amber-400 dark:border-amber-500/25 px-2.5 py-1 rounded-full tracking-wider">
+                        <span className="text-[9px] font-black uppercase bg-orange-100 text-orange-950 dark:bg-orange-500/15 dark:text-orange-400 border border-orange-400 dark:border-orange-500/25 px-2.5 py-1 rounded-full tracking-wider">
                           {getShiftDisplayLabel(r.shift_type, r.subscription_type, shiftsConfig)}
                         </span>
                       </Link>
                     );
                   })}
                   {partialSeatsList.length === 0 && (
-                    <p className="text-xs text-text-muted py-4 col-span-full">No half-day seats currently booked.</p>
+                    <p className="text-xs text-text-muted py-4 col-span-full">No partially filled seats currently booked.</p>
                   )}
                 </div>
               </div>
@@ -686,7 +696,7 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <p className="text-[10px] uppercase font-extrabold tracking-wider text-purple-600 dark:text-purple-400">
-                    Double Shifted Seats (Shared by 2 Shift Students)
+                    🟣 Multiple Shifts Occupied (Completely Full — No More Shifts Can Be Added)
                   </p>
                   <span className="text-xs text-text-muted">
                     Total: <strong className="text-foreground">{doubleShiftSeatsList.length}</strong> seats
@@ -703,7 +713,7 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
                           <span className="text-sm">🪑</span> Seat {s.seat_number}
                         </p>
                         <span className="text-[9px] font-black uppercase bg-purple-100 text-purple-950 dark:bg-purple-500/15 dark:text-purple-300 border border-purple-400 dark:border-purple-500/25 px-2.5 py-1 rounded-full tracking-wider flex items-center gap-1">
-                          <span>👥</span> 2 Shifts
+                          <span>🟣</span> Multiple Shifts (Full)
                         </span>
                       </div>
                       <div className="space-y-2">

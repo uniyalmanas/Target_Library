@@ -193,11 +193,11 @@ export default function SaaSMarketingLandingPage() {
               <span className="px-2 py-0.5 rounded-lg bg-rose-100 text-rose-950 font-bold border border-rose-400 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/20">
                 🔴 Full Day
               </span>
-              <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-950 font-bold border border-amber-400 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20">
-                🟡 Half Day
+              <span className="px-2 py-0.5 rounded-lg bg-orange-100 text-orange-950 font-bold border border-orange-400 dark:bg-orange-500/15 dark:text-orange-400 dark:border-orange-500/20">
+                🟠 Partially Filled
               </span>
               <span className="px-2 py-0.5 rounded-lg bg-purple-100 text-purple-950 font-bold border border-purple-400 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/20">
-                🟣 2x Shift Split
+                🟣 Multiple Shifts (Full)
               </span>
               <span className="px-2 py-0.5 rounded-lg bg-blue-100 text-blue-950 font-bold border border-blue-400 dark:bg-blue-500/15 dark:text-blue-400 dark:border-blue-500/20">
                 🔵 Due Fee
@@ -211,14 +211,14 @@ export default function SaaSMarketingLandingPage() {
               let color = "bg-emerald-100 text-emerald-950 border-2 border-emerald-400 hover:bg-emerald-200 hover:border-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border dark:border-emerald-500/20 dark:hover:bg-emerald-500/20 dark:hover:border-emerald-500/40";
               let label = "Free";
               if (s.status === "full_day") {
-                color = "bg-rose-100 text-rose-950 border-2 border-rose-400 hover:bg-rose-200 hover:border-rose-500 dark:bg-rose-500/10 dark:text-rose-400 dark:border dark:border-rose-500/20 dark:hover:bg-rose-500/20 dark:hover:border-rose-500/40";
-                label = "Full";
+                color = "bg-rose-100 text-rose-950 border-2 border-rose-400 hover:bg-rose-200 hover:border-rose-500 dark:bg-rose-500/15 dark:text-rose-400 dark:border dark:border-rose-500/30 dark:hover:bg-rose-500/25 dark:hover:border-rose-500/50";
+                label = "Full Day";
               } else if (s.status === "half_day") {
-                color = "bg-amber-100 text-amber-950 border-2 border-amber-400 hover:bg-amber-200 hover:border-amber-500 dark:bg-amber-500/10 dark:text-amber-400 dark:border dark:border-amber-500/20 dark:hover:bg-amber-500/20 dark:hover:border-amber-500/40";
-                label = "1x Shift";
+                color = "bg-orange-100 text-orange-950 border-2 border-orange-400 hover:bg-orange-200 hover:border-orange-500 dark:bg-orange-500/15 dark:text-orange-400 dark:border dark:border-orange-500/30 dark:hover:bg-orange-500/25 dark:hover:border-orange-500/50";
+                label = "Partial";
               } else if (s.status === "double_shift") {
                 color = "bg-purple-100 text-purple-950 border-2 border-purple-400 hover:bg-purple-200 hover:border-purple-500 dark:bg-purple-500/15 dark:text-purple-300 dark:border dark:border-purple-500/40 dark:hover:bg-purple-500/25 dark:hover:border-purple-500/60";
-                label = "2x Shift";
+                label = "Full (Multi)";
               } else if (s.status === "due") {
                 color = "bg-blue-100 text-blue-950 border-2 border-blue-400 hover:bg-blue-200 hover:border-blue-500 dark:bg-blue-500/15 dark:text-blue-400 dark:border dark:border-blue-500/40 dark:hover:bg-blue-500/25 dark:hover:border-blue-500/60";
                 label = "Due";

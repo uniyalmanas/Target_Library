@@ -160,9 +160,11 @@ export type ComputedSeatStatus =
 
 /**
  * Evaluates seat status strictly according to the platform's color rules:
- * - RED: 1 person bought the seat for a month/time period (full_day).
- * - YELLOW: 1 or more shifts occupied, yet you can still accommodate another person.
- * - PURPLE: multiple students occupied with different shifts and is full. No one else can fit.
+ * - RED: FULL DAY (1 person allocating the shift for all day and for a fixed duration of time).
+ * - GREEN: Free seat (0 occupants, available for any shift).
+ * - ORANGE: Partially filled (1+ shifts occupied, yet another shift can still be accommodated).
+ * - PURPLE: Completely occupied by multiple shifts and more shifts cannot be added into it.
+ * - BLUE: Due fees / overdue.
  */
 export function computeSeatStatus(
   activeReceipts: any[],
@@ -225,18 +227,18 @@ export function computeSeatStatus(
   }
 
   if (canAccommodateAnother) {
-    // 1 or more shifts taken, but another person can still be accommodated -> YELLOW
+    // 1 or more shifts taken, but another person/shift can still be accommodated -> ORANGE
     return {
-      status: "half_day", // YELLOW
+      status: "half_day", // ORANGE (partially filled)
       availableShifts,
       isFullDay: false,
       isFull: false,
       canAccommodateAnother: true,
     };
   } else {
-    // Multiple or full coverage: no other student can be accommodated -> PURPLE
+    // Multiple shifts occupied and is completely full: no other student can be accommodated -> PURPLE
     return {
-      status: "double_shift", // PURPLE
+      status: "double_shift", // PURPLE (multi-shift full)
       availableShifts: [],
       isFullDay: false,
       isFull: true,
