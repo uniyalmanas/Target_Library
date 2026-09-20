@@ -96,6 +96,8 @@ export default function LibraryOwnerSettingsPage({
   const [newShiftSheetPrice, setNewShiftSheetPrice] = useState<number>(900);
   const [addingShift, setAddingShift] = useState(false);
   const [addShiftError, setAddShiftError] = useState<string | null>(null);
+  const [savingShiftId, setSavingShiftId] = useState<string | null>(null);
+  const [savedShiftId, setSavedShiftId] = useState<string | null>(null);
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<"branding" | "seats_shifts" | "matrix_layout" | "upi_soundbox" | "passwords" | "general" | "poster" | "domains" | "backup" | "billing">("branding");
@@ -385,6 +387,17 @@ export default function LibraryOwnerSettingsPage({
     } finally {
       setSaving(false);
     }
+  };
+
+  // Save a single edited shift immediately to the database
+  const handleSaveSingleShift = async (targetShiftId: string) => {
+    setSavingShiftId(targetShiftId);
+    const ok = await persistShifts(shifts);
+    if (ok) {
+      setSavedShiftId(targetShiftId);
+      setTimeout(() => setSavedShiftId(null), 3500);
+    }
+    setSavingShiftId(null);
   };
 
   // Remove Shift with Active Enrollment Safety Guard & Auto-Persistence
@@ -1385,99 +1398,185 @@ export default function LibraryOwnerSettingsPage({
 
               {/* Shift Rows */}
               <div className="space-y-3">
-                {shifts.map((shift, idx) => (
-                  <div
-                    key={shift.id || idx}
-                    className="p-4 rounded-2xl bg-background border border-panel-border space-y-3"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
-                        <input
-                          type="text"
-                          value={shift.name}
-                          onChange={(e) => handleShiftChange(idx, "name", e.target.value)}
-                          className="font-bold text-sm bg-transparent border-b border-dashed border-panel-border focus:outline-none focus:border-rose-500 px-1 py-0.5"
-                        />
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
-                          (shiftEnrollmentCounts[shift.id] || 0) > 0
-                            ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30"
-                            : "bg-neutral-500/10 text-text-muted border-panel-border"
-                        }`}>
-                          👥 {shiftEnrollmentCounts[shift.id] || 0} enrolled
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {(shiftEnrollmentCounts[shift.id] || 0) > 0 && (
+                {shifts.map((shift, idx) => {
+                  const origShift = (settings.shifts_config || []).find((s) => s.id === shift.id);
+                  const isModified = !origShift ||
+                    origShift.name !== shift.name ||
+                    origShift.start_time !== shift.start_time ||
+                    origShift.end_time !== shift.end_time ||
+                    Number(origShift.base_price) !== Number(shift.base_price) ||
+                    Number(origShift.sheet_price) !== Number(shift.sheet_price);
+
+                  return (
+                    <div
+                      key={shift.id || idx}
+                      className={`p-4 rounded-2xl bg-background border space-y-3 transition ${
+                        isModified ? "border-amber-500/50 shadow-sm" : "border-panel-border"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
+                          <input
+                            type="text"
+                            value={shift.name}
+                            onChange={(e) => handleShiftChange(idx, "name", e.target.value)}
+                            className="font-bold text-sm bg-transparent border-b border-dashed border-panel-border focus:outline-none focus:border-rose-500 px-1 py-0.5"
+                          />
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                            (shiftEnrollmentCounts[shift.id] || 0) > 0
+                              ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30"
+                              : "bg-neutral-500/10 text-text-muted border-panel-border"
+                          }`}>
+                            👥 {shiftEnrollmentCounts[shift.id] || 0} enrolled
+                          </span>
+                          {isModified && (
+                            <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full animate-pulse">
+                              ● Unsaved Edits
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {savedShiftId === shift.id ? (
+                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                              ✅ Saved!
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleSaveSingleShift(shift.id)}
+                              disabled={savingShiftId === shift.id || saving}
+                              className={`text-xs px-3 py-1 rounded-lg border font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                                isModified
+                                  ? "bg-rose-600 hover:bg-rose-500 text-white border-rose-600 shadow-sm"
+                                  : "bg-neutral-500/10 hover:bg-neutral-500/20 text-text-main border-panel-border"
+                              }`}
+                              title="Save changes to this shift"
+                            >
+                              {savingShiftId === shift.id ? (
+                                <>
+                                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                  <span>Saving...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>💾</span>
+                                  <span>{isModified ? "Save Shift" : "Save"}</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                          {(shiftEnrollmentCounts[shift.id] || 0) > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setShiftToBroadcast(shift)}
+                              className="text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-xs px-2.5 py-1 rounded-lg border border-emerald-500/30 transition flex items-center gap-1 cursor-pointer font-semibold"
+                              title="Send WhatsApp update notice to students in this shift"
+                            >
+                              📢 WhatsApp Notice
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => setShiftToBroadcast(shift)}
-                            className="text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-xs px-2.5 py-1 rounded-lg border border-emerald-500/30 transition flex items-center gap-1 cursor-pointer font-semibold"
-                            title="Send WhatsApp update notice to students in this shift"
+                            onClick={() => handleRemoveShift(shift.id)}
+                            className="text-text-muted hover:text-rose-600 text-xs px-2 py-1 rounded transition cursor-pointer"
+                            title="Remove Shift"
                           >
-                            📢 WhatsApp Notice
+                            ✕ Remove
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveShift(shift.id)}
-                          className="text-text-muted hover:text-rose-600 text-xs px-2 py-1 rounded transition cursor-pointer"
-                          title="Remove Shift"
-                        >
-                          ✕ Remove
-                        </button>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                      <div>
-                        <label className="text-[10px] font-bold text-text-muted uppercase block mb-1">
-                          Start Time
-                        </label>
-                        <input
-                          type="time"
-                          value={shift.start_time}
-                          onChange={(e) => handleShiftChange(idx, "start_time", e.target.value)}
-                          className="w-full bg-card-bg border border-panel-border rounded-xl px-2.5 py-1.5 text-xs font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-text-muted uppercase block mb-1">
-                          End Time
-                        </label>
-                        <input
-                          type="time"
-                          value={shift.end_time}
-                          onChange={(e) => handleShiftChange(idx, "end_time", e.target.value)}
-                          className="w-full bg-card-bg border border-panel-border rounded-xl px-2.5 py-1.5 text-xs font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-text-muted uppercase block mb-1">
-                          Base Fee (₹)
-                        </label>
-                        <input
-                          type="number"
-                          value={shift.base_price}
-                          onChange={(e) => handleShiftChange(idx, "base_price", Number(e.target.value))}
-                          className="w-full bg-card-bg border border-panel-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-text-muted uppercase block mb-1">
-                          With Sheet Fee (₹)
-                        </label>
-                        <input
-                          type="number"
-                          value={shift.sheet_price}
-                          onChange={(e) => handleShiftChange(idx, "sheet_price", Number(e.target.value))}
-                          className="w-full bg-card-bg border border-panel-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-amber-600 dark:text-amber-400"
-                        />
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <label className="text-[10px] font-bold text-text-muted uppercase block mb-1">
+                            Start Time
+                          </label>
+                          <input
+                            type="time"
+                            value={shift.start_time}
+                            onChange={(e) => handleShiftChange(idx, "start_time", e.target.value)}
+                            className="w-full bg-card-bg border border-panel-border rounded-xl px-2.5 py-1.5 text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-text-muted uppercase block mb-1">
+                            End Time
+                          </label>
+                          <input
+                            type="time"
+                            value={shift.end_time}
+                            onChange={(e) => handleShiftChange(idx, "end_time", e.target.value)}
+                            className="w-full bg-card-bg border border-panel-border rounded-xl px-2.5 py-1.5 text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-text-muted uppercase block mb-1">
+                            Base Fee (₹)
+                          </label>
+                          <input
+                            type="number"
+                            value={shift.base_price}
+                            onChange={(e) => handleShiftChange(idx, "base_price", Number(e.target.value))}
+                            className="w-full bg-card-bg border border-panel-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-text-muted uppercase block mb-1">
+                            With Sheet Fee (₹)
+                          </label>
+                          <input
+                            type="number"
+                            value={shift.sheet_price}
+                            onChange={(e) => handleShiftChange(idx, "sheet_price", Number(e.target.value))}
+                            className="w-full bg-card-bg border border-panel-border rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-amber-600 dark:text-amber-400"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+
+              {/* Notice if any shifts have unsaved edits */}
+              {(() => {
+                const hasUnsaved = shifts.some((shift) => {
+                  const orig = (settings.shifts_config || []).find((s) => s.id === shift.id);
+                  return !orig ||
+                    orig.name !== shift.name ||
+                    orig.start_time !== shift.start_time ||
+                    orig.end_time !== shift.end_time ||
+                    Number(orig.base_price) !== Number(shift.base_price) ||
+                    Number(orig.sheet_price) !== Number(shift.sheet_price);
+                });
+                if (!hasUnsaved) return null;
+
+                return (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+                    <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-300">
+                      <span>⚠️</span> You have unsaved edits in your shift hours or monthly prices.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => persistShifts(shifts)}
+                      disabled={saving}
+                      className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5 self-start sm:self-auto shrink-0"
+                    >
+                      {saving ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Saving All Shifts...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>💾</span>
+                          <span>Save All Shift Edits</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* Add Shift Modal Form */}
               {showAddShift && (
