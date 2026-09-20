@@ -135,9 +135,17 @@ function ReceiptDetails() {
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}`;
 
-  const phone = data.members?.phone;
+  const isFloating = data?.shift_type === "floating" || data?.seats?.seat_number === 9999;
+  const seatDisplay = isFloating
+    ? "Floating / Flexible (Daily Seating on Vacant Desks)"
+    : `Seat #${data?.seats?.seat_number || data?.seat_id}`;
+  const effectiveShiftLabel = isFloating
+    ? "Floating Pass (Daily Vacancy Access)"
+    : shiftLabel;
+
+  const phone = data?.members?.phone;
   const manualWhatsappUrl = phone
-    ? `https://wa.me/${phone.replace(/\D/g, "").length === 10 ? "91" + phone.replace(/\D/g, "") : phone.replace(/\D/g, "")}?text=${encodeURIComponent(`${libName}\nReceipt No: ${data.receipt_no}\nName: ${data.members?.name}\nSeat No: ${data.seats?.seat_number}\nType: ${shiftLabel}\nAmount Paid: Rs ${data.amount_paid}\nValid till: ${data.end_date}\nDigital Pass & Invoice: ${shareUrl}`)}`
+    ? `https://wa.me/${phone.replace(/\D/g, "").length === 10 ? "91" + phone.replace(/\D/g, "") : phone.replace(/\D/g, "")}?text=${encodeURIComponent(`${libName}\nReceipt No: ${data?.receipt_no}\nName: ${data?.members?.name}\nSeat: ${seatDisplay}\nType: ${effectiveShiftLabel}\nAmount Paid: Rs ${data?.amount_paid}\nValid till: ${data?.end_date}\nDigital Pass & Invoice: ${shareUrl}`)}`
     : null;
 
   const today = new Date().toISOString().split("T")[0];
@@ -274,8 +282,12 @@ function ReceiptDetails() {
                   <h3 className="text-[10px] font-extrabold text-neutral-200 mt-0.5">STUDENT PASS</h3>
                 </div>
               </div>
-              <span className="text-[9px] px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 font-semibold uppercase tracking-wider">
-                Seat {data.seats?.seat_number}
+              <span className={`text-[9px] px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider ${
+                isFloating
+                  ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-400"
+                  : "bg-rose-500/10 border border-rose-500/20 text-rose-400"
+              }`}>
+                {isFloating ? "🌐 Floating Pass" : `Seat ${data.seats?.seat_number}`}
               </span>
             </div>
 
@@ -369,8 +381,19 @@ function ReceiptDetails() {
               <tbody>
                 <tr className="border-b border-panel-border text-foreground">
                   <td className="p-3 font-medium">
-                    Study Space Rental &mdash; Seat {data.seats?.seat_number}
-                    <p className="text-[10px] text-text-muted mt-0.5">{shiftLabel}</p>
+                    {isFloating ? (
+                      <>
+                        Library Space Access &mdash; Floating / Flexible
+                        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-0.5 font-medium">
+                          Daily seat allotted upon arrival based on vacancy / absent students
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        Study Space Rental &mdash; Seat {data.seats?.seat_number}
+                        <p className="text-[10px] text-text-muted mt-0.5">{shiftLabel}</p>
+                      </>
+                    )}
                   </td>
                   <td className="p-3 text-right font-mono text-text-details">{data.start_date} to {data.end_date}</td>
                   <td className="p-3 text-right font-mono font-semibold">₹{data.amount_paid}</td>

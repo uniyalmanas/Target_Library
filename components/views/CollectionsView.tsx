@@ -642,17 +642,21 @@ export function CollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
               </thead>
               <tbody className="divide-y divide-panel-border">
                 {filteredPayments.map((p) => {
-                  const shiftLabel = getShiftDisplayLabel(
-                    p.shift_type,
-                    p.subscription_type,
-                    shiftsConfig.length > 0 ? shiftsConfig : DEFAULT_SHIFTS
-                  );
+                  const isFloating = p.shift_type === "floating" || p.seat_number === 9999 || p.seat_number === 0;
+                  const shiftLabel = isFloating
+                    ? "Floating Pass (Daily Seating)"
+                    : getShiftDisplayLabel(
+                        p.shift_type,
+                        p.subscription_type,
+                        shiftsConfig.length > 0 ? shiftsConfig : DEFAULT_SHIFTS
+                      );
 
                   const modeText = p.payment_mode === "online" ? "Online (UPI)" : "Cash";
                   const libDisplayName = libraryName || (slug !== "target-library" ? slug.replace(/-/g, " ").toUpperCase() : "The Target Library");
                   const origin = typeof window !== "undefined" ? window.location.origin : "";
+                  const seatTextForWa = isFloating ? "Floating Pass (Daily Vacancy Access)" : `Seat #${p.seat_number}`;
                   const whatsappMessage = encodeURIComponent(
-                    `Hello ${p.student_name.trim()}! Your fee payment of ₹${p.amount_paid} (${modeText}) for Seat #${p.seat_number} at ${libDisplayName} has been recorded.\n\nView Pass & Receipt: ${origin}/receipts/${p.receipt_no}`
+                    `Hello ${p.student_name.trim()}! Your fee payment of ₹${p.amount_paid} (${modeText}) for ${seatTextForWa} at ${libDisplayName} has been recorded.\n\nView Pass & Receipt: ${origin}/receipts/${p.receipt_no}`
                   );
 
                   return (
@@ -689,9 +693,15 @@ export function CollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
 
                       {/* Seat Number */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="font-bold text-xs bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 px-2.5 py-1 rounded-lg">
-                          Seat {p.seat_number}
-                        </span>
+                        {isFloating ? (
+                          <span className="font-bold text-xs bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 px-2.5 py-1 rounded-lg inline-flex items-center gap-1">
+                            <span>🌐</span> Floating
+                          </span>
+                        ) : (
+                          <span className="font-bold text-xs bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 px-2.5 py-1 rounded-lg">
+                            Seat {p.seat_number}
+                          </span>
+                        )}
                       </td>
 
                       {/* Shift & Sheet */}

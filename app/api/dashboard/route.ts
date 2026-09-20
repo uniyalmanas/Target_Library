@@ -87,7 +87,10 @@ export async function GET(req: Request) {
 
     // 1. Active receipts
     const activeReceipts = safeReceipts.filter((r) => r.end_date >= todayStr && (r as any).is_vacated !== true);
-    const occupiedSeatIds = new Set(activeReceipts.map((r) => r.seat_id));
+    // Floating receipts are flexible admissions without a physical desk reservation
+    const activeDeskReceipts = activeReceipts.filter((r) => r.shift_type !== "floating");
+    const floatingCount = activeReceipts.filter((r) => r.shift_type === "floating").length;
+    const occupiedSeatIds = new Set(activeDeskReceipts.map((r) => r.seat_id));
     const occupied = occupiedSeatIds.size;
     const free = Math.max(0, (totalSeats ?? 0) - occupied);
 
@@ -234,6 +237,7 @@ export async function GET(req: Request) {
       totalSeats: totalSeats ?? 0,
       occupied,
       free,
+      floatingCount,
       expiringSoon,
       dueFeesCount,
       monthRevenue,

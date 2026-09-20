@@ -11,14 +11,21 @@ export async function GET(req: Request) {
   const studentId = searchParams.get("student_id");
   const seatId = searchParams.get("seat_id");
   const slug = searchParams.get("slug");
+  const shiftType = searchParams.get("shift_type");
+  const activeOnly = searchParams.get("active_only");
 
   let query = supabase
     .from("receipts")
-    .select("*")
+    .select("*, members(name, phone, aadhar_no), seats(seat_number)")
     .order("start_date", { ascending: false });
 
   if (studentId) query = query.eq("student_id", studentId);
   if (seatId) query = query.eq("seat_id", seatId);
+  if (shiftType) query = query.eq("shift_type", shiftType);
+  if (activeOnly === "true") {
+    const today = new Date().toISOString().split("T")[0];
+    query = query.gte("end_date", today);
+  }
   if (slug) {
     try {
       const lib = await getLibraryBySlug(slug);
@@ -64,7 +71,12 @@ export async function POST(req: Request) {
     start_date,
     end_date: customEndDate,
     duration_days,
+    is_floating,
   } = body;
+
+  const isFloating = Boolean(
+    is_floating || shift_type === "floating" || seat_number === "floating"
+  );
 
   let libraryId = DEFAULT_LIBRARY_ID;
   if (slug) {
@@ -76,7 +88,10 @@ export async function POST(req: Request) {
     }
   }
 
-  if ((!seat_id && !seat_number) || !subscription_type || !amount_paid || !start_date) {
+  const effectiveSubType = isFloating ? (subscription_type || "half_day") : subscription_type;
+  const effectiveShiftType = isFloating ? "floating" : shift_type;
+
+  if ((!isFloating && !seat_id && !seat_number) || !effectiveSubType || !amount_paid || !start_date) {
     return NextResponse.json(
       { error: "Missing required fields" },
       { status: 400 }
@@ -85,9 +100,20 @@ export async function POST(req: Request) {
 
   // Resolve target seat for this specific library tenant
   let resolvedSeatId = seat_id;
-  const targetSeatNum = seat_number ? Number(seat_number) : null;
+  const targetSeatNum = (!isFloating && seat_number) ? Number(seat_number) : null;
 
-  if (targetSeatNum) {
+  if (isFloating) {
+    // Floating students don't hold a fixed desk.
+    // We attach them to any valid seat record for the tenant to satisfy DB Foreign Key constraint
+    const { data: anySeat } = await supabase
+      .from("seats")
+      .select("seat_id")
+      .eq("library_id", libraryId)
+      .limit(1)
+      .maybeSingle();
+
+    resolvedSeatId = anySeat?.seat_id || 1;
+  } else if (targetSeatNum) {
     const { data: existingSeat } = await supabase
       .from("seats")
       .select("seat_id")
@@ -133,7 +159,7 @@ export async function POST(req: Request) {
     }
   }
 
-  if (subscription_type === "half_day" && !shift_type) {
+  if (!isFloating && effectiveSubType === "half_day" && !effectiveShiftType) {
     return NextResponse.json(
       { error: "shift_type is required for half_day subscriptions" },
       { status: 400 }
@@ -188,25 +214,29 @@ export async function POST(req: Request) {
   }
 
   let conflictingReceipt: any = null;
-  const conflict = (activeOnSeat ?? []).some((r) => {
-    // Check if the date ranges actually overlap
-    const isDateOverlap = r.start_date <= resolvedEndDate && r.end_date >= start_date;
-    if (!isDateOverlap) return false;
+  const conflict =
+    !isFloating &&
+    (activeOnSeat ?? [])
+      .filter((r) => r.shift_type !== "floating")
+      .some((r) => {
+        // Check if the date ranges actually overlap
+        const isDateOverlap = r.start_date <= resolvedEndDate && r.end_date >= start_date;
+        if (!isDateOverlap) return false;
 
-    // If either is full day, it unconditionally conflicts
-    if (r.subscription_type === "full_day" || subscription_type === "full_day") {
-      conflictingReceipt = r;
-      return true;
-    }
+        // If either is full day, it unconditionally conflicts
+        if (r.subscription_type === "full_day" || effectiveSubType === "full_day") {
+          conflictingReceipt = r;
+          return true;
+        }
 
-    // Dynamic shift interval collision check
-    if (doShiftsClash(r.shift_type, shift_type, shiftsConfig)) {
-      conflictingReceipt = r;
-      return true;
-    }
+        // Dynamic shift interval collision check
+        if (doShiftsClash(r.shift_type, effectiveShiftType, shiftsConfig)) {
+          conflictingReceipt = r;
+          return true;
+        }
 
-    return false;
-  });
+        return false;
+      });
 
   if (conflict) {
     const conflictShiftName = getShiftDisplayLabel(
@@ -347,8 +377,8 @@ export async function POST(req: Request) {
   const receiptInsertData: Record<string, any> = {
     student_id: resolvedStudentId,
     seat_id: resolvedSeatId,
-    subscription_type,
-    shift_type: subscription_type === "half_day" ? shift_type : null,
+    subscription_type: effectiveSubType,
+    shift_type: effectiveSubType === "half_day" ? effectiveShiftType : null,
     has_sheet: !!has_sheet,
     amount_paid,
     payment_mode: payment_mode === "online" ? "online" : "cash",

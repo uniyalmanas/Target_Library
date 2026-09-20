@@ -91,6 +91,8 @@ export function doShiftsClash(
   shiftsConfig: ShiftConfig[] = DEFAULT_SHIFTS
 ): boolean {
   if (!shiftAId || !shiftBId) return false;
+  // Floating / flexible students never clash with any shift as they are assigned on the fly
+  if (shiftAId === "floating" || shiftBId === "floating") return false;
   if (shiftAId === "full_day" || shiftBId === "full_day") return true;
 
   // Identical shift ID always clashes
@@ -347,6 +349,10 @@ export function getShiftDisplayLabel(
   subType?: string | null,
   shiftsConfig: ShiftConfig[] = DEFAULT_SHIFTS
 ): string {
+  if (shiftId === "floating") {
+    return "Floating / Flexible (Daily Seating)";
+  }
+
   if (subType === "full_day") {
     const full = shiftsConfig.find((s) => s.id === "full_day");
     if (full) {

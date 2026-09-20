@@ -107,11 +107,18 @@ export async function POST(req: Request) {
       }
     }
 
-    const shiftLabel = getShiftDisplayLabel(
-      receipt.shift_type,
-      receipt.subscription_type,
-      shiftsConfig
-    );
+    const isFloating = receipt.shift_type === "floating" || seat?.seat_number === 9999;
+    const shiftLabel = isFloating
+      ? "Floating Pass (Daily Vacancy Access)"
+      : getShiftDisplayLabel(
+          receipt.shift_type,
+          receipt.subscription_type,
+          shiftsConfig
+        );
+
+    const seatDisplay = isFloating
+      ? "Floating / Flexible (Allotted daily from absent seats)"
+      : (seat?.seat_number || "—");
 
     const paymentLabel = receipt.payment_mode === "online" ? "Online (UPI)" : "Cash";
 
@@ -130,7 +137,7 @@ export async function POST(req: Request) {
       messageText = generateDueFeeWhatsAppMessage({
         studentName: member.name,
         studentPhone: member.phone,
-        seatNumber: seat.seat_number,
+        seatNumber: seatDisplay,
         shiftName: shiftLabel,
         daysOverdue,
         expiryDate: receipt.end_date,
@@ -145,9 +152,9 @@ export async function POST(req: Request) {
       messageText = `${libraryName}
 Receipt No: ${receipt.receipt_no}
 Name: ${member.name}
-Seat No: ${seat.seat_number}
+Seat No: ${seatDisplay}
 Type: ${shiftLabel}
-Sheet Addon: ${receipt.has_sheet ? "Yes" : "No"}
+Sheet Addon: ${receipt.has_sheet && !isFloating ? "Yes" : "No"}
 Amount Paid: Rs ${receipt.amount_paid} (${paymentLabel})
 Start Date: ${receipt.start_date}
 Valid till: ${receipt.end_date}

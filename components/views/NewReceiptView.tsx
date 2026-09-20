@@ -36,7 +36,8 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
   const presetHasSheet = params.get("has_sheet") === "true";
   const presetAmount = params.get("amount") ? Number(params.get("amount")) : null;
   const presetStartDate = params.get("start_date") || "";
-
+  const presetMode = params.get("mode") === "floating" ? "floating" : "fixed";
+  const [allocationMode, setAllocationMode] = useState<"fixed" | "floating">(presetMode);
   const [existingStudentId, setExistingStudentId] = useState(presetStudentId);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -127,13 +128,17 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
       setIsInitialMount(false);
       return;
     }
+    if (allocationMode === "floating") {
+      // Allow library owner to enter custom fee for floating admissions without auto-override
+      return;
+    }
     const monthlyRate = getMonthlyBaseRate();
     if (tenureMode === "custom_days") {
       setAmount(Math.round((monthlyRate / 30) * durationDays));
     } else {
       setAmount(monthlyRate);
     }
-  }, [subscriptionType, shiftType, hasSheet, tenureMode, durationDays, shiftsConfig]);
+  }, [subscriptionType, shiftType, hasSheet, tenureMode, durationDays, shiftsConfig, allocationMode]);
 
   // Fetch member preview when existing student ID is typed/passed
   useEffect(() => {
@@ -212,11 +217,16 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
     setWhatsappStatus("idle");
     setWhatsappLink(null);
 
-    const seat_id = await lookupSeatId(seatNumber);
-    if (!seat_id) {
-      setResult({ ok: false, message: `Seat #${seatNumber} does not exist in this library.` });
-      setSubmitting(false);
-      return;
+    const isFloating = allocationMode === "floating";
+
+    let seat_id = null;
+    if (!isFloating) {
+      seat_id = await lookupSeatId(seatNumber);
+      if (!seat_id) {
+        setResult({ ok: false, message: `Seat #${seatNumber} does not exist in this library.` });
+        setSubmitting(false);
+        return;
+      }
     }
 
     const trimmedName = (name || memberPreview?.name || "").trim();
@@ -227,20 +237,24 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
     }
 
     const payload: any = {
-      subscription_type: subscriptionType,
-      shift_type: subscriptionType === "half_day" ? shiftType : null,
-      has_sheet: hasSheet,
+      is_floating: isFloating,
+      subscription_type: isFloating ? "half_day" : subscriptionType,
+      shift_type: isFloating ? "floating" : (subscriptionType === "half_day" ? shiftType : null),
+      has_sheet: isFloating ? false : hasSheet,
       amount_paid: Number(amount),
       payment_mode: paymentMode,
       start_date: startDate,
       end_date: endDate,
-      seat_id,
-      seat_number: Number(seatNumber),
       slug,
       name: trimmedName,
       phone: (phone || memberPreview?.phone || "").trim() || null,
       aadhar_no: (aadharNo || memberPreview?.aadhar_no || "").trim() || null,
     };
+
+    if (!isFloating && seat_id) {
+      payload.seat_id = seat_id;
+      payload.seat_number = Number(seatNumber);
+    }
 
     if (existingStudentId && existingStudentId.trim()) {
       payload.student_id = Number(existingStudentId.trim());
@@ -273,12 +287,18 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
     }
 
     const actualEndDate = endDate || computeEndDate(startDate, 30);
-    const shiftLabel = getShiftDisplayLabel(shiftType, subscriptionType, shiftsConfig);
+    const shiftLabel = isFloating
+      ? "Floating Pass (Daily Vacancy Access)"
+      : getShiftDisplayLabel(shiftType, subscriptionType, shiftsConfig);
+
+    const seatDisplayMsg = isFloating
+      ? "Floating / Daily Vacancy Access (No Fixed Desk)"
+      : `seat ${seatNumber}`;
 
     setCreatedReceiptNo(data.receipt.receipt_no);
     setResult({
       ok: true,
-      message: `Receipt #${data.receipt.receipt_no} created for member #${data.student_id}, seat ${seatNumber} for ${durationDays} days (valid until ${actualEndDate}).`,
+      message: `Receipt #${data.receipt.receipt_no} created for member #${data.student_id} (${seatDisplayMsg}) for ${durationDays} days (valid until ${actualEndDate}).`,
     });
 
     const activeName = trimmedName;
@@ -304,7 +324,8 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
           console.error("Auto WhatsApp failed:", waData.error);
           const digitalPassUrl = `${window.location.origin}/receipts/${data.receipt.receipt_no}`;
           const paymentModeLabel = paymentMode === "online" ? "Online (UPI)" : "Cash";
-          const text = `${library?.name || "Library Workspace"}\nReceipt No: ${data.receipt.receipt_no}\nName: ${activeName}\nSeat No: ${seatNumber}\nType: ${shiftLabel}\nSheet: ${hasSheet ? "Yes" : "No"}\nAmount: Rs ${amount}\nPayment Mode: ${paymentModeLabel}\nDate: ${startDate}\nValid till: ${actualEndDate}\nDigital Pass & Invoice: ${digitalPassUrl}`;
+          const seatNoText = isFloating ? "Floating / Flexible (Daily Seating on Vacant Desks)" : seatNumber;
+          const text = `${library?.name || "Library Workspace"}\nReceipt No: ${data.receipt.receipt_no}\nName: ${activeName}\nSeat No: ${seatNoText}\nType: ${shiftLabel}\nSheet: ${hasSheet && !isFloating ? "Yes" : "No"}\nAmount: Rs ${amount}\nPayment Mode: ${paymentModeLabel}\nDate: ${startDate}\nValid till: ${actualEndDate}\nDigital Pass & Invoice: ${digitalPassUrl}`;
           const digits = activePhone.replace(/\D/g, "");
           const withCountryCode = digits.length === 10 ? `91${digits}` : digits;
           setWhatsappLink(`https://wa.me/${withCountryCode}?text=${encodeURIComponent(text)}`);
@@ -314,7 +335,8 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
         console.error("Auto WhatsApp error:", err);
         const digitalPassUrl = `${window.location.origin}/receipts/${data.receipt.receipt_no}`;
         const paymentModeLabel = paymentMode === "online" ? "Online (UPI)" : "Cash";
-        const text = `${library?.name || "Library Workspace"}\nReceipt No: ${data.receipt.receipt_no}\nName: ${activeName}\nSeat No: ${seatNumber}\nType: ${shiftLabel}\nSheet: ${hasSheet ? "Yes" : "No"}\nAmount: Rs ${amount}\nPayment Mode: ${paymentModeLabel}\nDate: ${startDate}\nValid till: ${actualEndDate}\nDigital Pass & Invoice: ${digitalPassUrl}`;
+        const seatNoText = isFloating ? "Floating / Flexible (Daily Seating on Vacant Desks)" : seatNumber;
+        const text = `${library?.name || "Library Workspace"}\nReceipt No: ${data.receipt.receipt_no}\nName: ${activeName}\nSeat No: ${seatNoText}\nType: ${shiftLabel}\nSheet: ${hasSheet && !isFloating ? "Yes" : "No"}\nAmount: Rs ${amount}\nPayment Mode: ${paymentModeLabel}\nDate: ${startDate}\nValid till: ${actualEndDate}\nDigital Pass & Invoice: ${digitalPassUrl}`;
         const digits = activePhone.replace(/\D/g, "");
         const withCountryCode = digits.length === 10 ? `91${digits}` : digits;
         setWhatsappLink(`https://wa.me/${withCountryCode}?text=${encodeURIComponent(text)}`);
@@ -448,68 +470,119 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-text-muted mb-1.5">Assigned Seat Number *</label>
-            <input
-              required
-              type="number"
-              placeholder="e.g. 42"
-              value={seatNumber}
-              onChange={(e) => setSeatNumber(e.target.value)}
-              className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder-text-muted transition-all duration-200 outline-none font-mono"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-text-muted mb-1.5">Subscription Plan</label>
-              <select
-                value={subscriptionType}
-                onChange={(e) => setSubscriptionType(e.target.value as any)}
-                className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 outline-none"
-              >
-                <option value="full_day">
-                  {(() => {
-                    const full = shiftsConfig.find((s) => s.id === "full_day");
-                    return full ? getShiftNameWithTiming(full) : "Full Day (6:00 AM - 12:00 AM)";
-                  })()}
-                </option>
-                <option value="half_day">Half Day / Shifted</option>
-              </select>
-            </div>
-
-            {subscriptionType === "half_day" && (
-              <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1.5">Shift Window</label>
-                <select
-                  value={shiftType}
-                  onChange={(e) => setShiftType(e.target.value)}
-                  className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 outline-none"
-                >
-                  {shiftsConfig
-                    .filter((s) => s.id !== "full_day")
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {getShiftNameWithTiming(s)} — ₹{s.base_price}/mo
-                      </option>
-                    ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3 p-3 bg-neutral-500/5 border border-panel-border/80 rounded-xl">
-            <input
-              type="checkbox"
-              id="sheet"
-              checked={hasSheet}
-              onChange={(e) => setHasSheet(e.target.checked)}
-              className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-panel-border bg-input-bg cursor-pointer"
-            />
-            <label htmlFor="sheet" className="text-xs text-text-main cursor-pointer select-none">
-              Include Personal Desk Sheet / Book Rest &amp; Pad (+₹300/mo)
+          {/* Allocation Mode: Fixed Desk vs Floating / Daily Vacancy */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-foreground uppercase tracking-wider">
+              Admission Seating Allocation
             </label>
+            <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-500/10 rounded-2xl border border-panel-border text-xs">
+              <button
+                type="button"
+                onClick={() => setAllocationMode("fixed")}
+                className={`py-2.5 px-3 rounded-xl font-extrabold transition flex items-center justify-center gap-2 cursor-pointer ${
+                  allocationMode === "fixed"
+                    ? "bg-card-bg text-rose-600 dark:text-rose-400 shadow-sm border border-panel-border"
+                    : "text-text-muted hover:text-text-main"
+                }`}
+              >
+                <span>🪑</span> Fixed Physical Desk
+              </button>
+              <button
+                type="button"
+                onClick={() => setAllocationMode("floating")}
+                className={`py-2.5 px-3 rounded-xl font-extrabold transition flex items-center justify-center gap-2 cursor-pointer ${
+                  allocationMode === "floating"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                    : "text-text-muted hover:text-text-main"
+                }`}
+              >
+                <span>🌐</span> Floating / Daily Vacancy
+              </button>
+            </div>
           </div>
+
+          {allocationMode === "fixed" ? (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">Assigned Seat Number *</label>
+                <input
+                  required
+                  type="number"
+                  placeholder="e.g. 42"
+                  value={seatNumber}
+                  onChange={(e) => setSeatNumber(e.target.value)}
+                  className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder-text-muted transition-all duration-200 outline-none font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">Subscription Plan</label>
+                  <select
+                    value={subscriptionType}
+                    onChange={(e) => setSubscriptionType(e.target.value as any)}
+                    className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 outline-none"
+                  >
+                    <option value="full_day">
+                      {(() => {
+                        const full = shiftsConfig.find((s) => s.id === "full_day");
+                        return full ? getShiftNameWithTiming(full) : "Full Day (6:00 AM - 12:00 AM)";
+                      })()}
+                    </option>
+                    <option value="half_day">Half Day / Shifted</option>
+                  </select>
+                </div>
+
+                {subscriptionType === "half_day" && (
+                  <div>
+                    <label className="block text-xs font-semibold text-text-muted mb-1.5">Shift Window</label>
+                    <select
+                      value={shiftType}
+                      onChange={(e) => setShiftType(e.target.value)}
+                      className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 outline-none"
+                    >
+                      {shiftsConfig
+                        .filter((s) => s.id !== "full_day")
+                        .map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {getShiftNameWithTiming(s)} — ₹{s.base_price}/mo
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 p-3 bg-neutral-500/5 border border-panel-border/80 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="sheet"
+                  checked={hasSheet}
+                  onChange={(e) => setHasSheet(e.target.checked)}
+                  className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-panel-border bg-input-bg cursor-pointer"
+                />
+                <label htmlFor="sheet" className="text-xs text-text-main cursor-pointer select-none">
+                  Include Personal Desk Sheet / Book Rest &amp; Pad (+₹300/mo)
+                </label>
+              </div>
+            </>
+          ) : (
+            <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 space-y-2 text-xs">
+              <div className="flex items-center gap-2 font-black text-indigo-700 dark:text-indigo-400">
+                <span>🌐</span> Floating Admission (Daily Vacancy Access)
+              </div>
+              <p className="text-text-muted leading-relaxed">
+                This student does not occupy any fixed desk on the seat matrix. When they arrive, the librarian can seat them on any vacant or temporarily absent seat for that session.
+              </p>
+              <div className="flex items-center gap-2 pt-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 flex-wrap">
+                <span>✓ Permanent Student ID generated</span>
+                <span>•</span>
+                <span>✓ Zero Desk Collision</span>
+                <span>•</span>
+                <span>✓ 100% Fees Credited to Accounts</span>
+              </div>
+            </div>
+          )}
 
           {/* Flexible Tenure & Start Date Configuration */}
           <div className="border border-panel-border/80 bg-background/50 p-4 rounded-xl space-y-4">

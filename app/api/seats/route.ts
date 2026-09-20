@@ -54,8 +54,11 @@ export async function GET(req: Request) {
         seat_number: i + 1,
         library_id: libraryId,
       }));
-    } else if (totalSeatsLimit && seats.length > totalSeatsLimit) {
-      seats = seats.slice(0, totalSeatsLimit);
+    } else {
+      seats = seats.filter((s) => s.seat_number !== 9999);
+      if (totalSeatsLimit && seats.length > totalSeatsLimit) {
+        seats = seats.slice(0, totalSeatsLimit);
+      }
     }
 
     // Indian Standard Time (IST) today
@@ -121,8 +124,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: receiptsError.message }, { status: 500 });
     }
 
-    // Filter out officially vacated receipts
-    const activeAndDue = (relevantReceipts ?? []).filter((r) => r.is_vacated !== true);
+    // Filter out officially vacated receipts and floating (non-desk) admissions
+    const activeAndDue = (relevantReceipts ?? []).filter(
+      (r) => r.is_vacated !== true && r.shift_type !== "floating"
+    );
 
     // Map seat_id -> array of relevant receipts
     const receiptsBySeat = new Map<number, any[]>();

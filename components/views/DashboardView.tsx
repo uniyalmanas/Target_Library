@@ -12,6 +12,7 @@ interface Stats {
   totalSeats: number;
   occupied: number;
   free: number;
+  floatingCount?: number;
   expiringSoon: number;
   dueFeesCount?: number;
   monthRevenue: number;
@@ -236,6 +237,13 @@ export function DashboardInner({ tenantSlug }: { tenantSlug?: string }) {
       color: "text-emerald-600 dark:text-emerald-400",
       bgGlow: "from-emerald-500/10 to-transparent",
       borderColor: "border-emerald-500/20",
+    },
+    {
+      label: "Floating (Non-Desk)",
+      value: stats.floatingCount ?? 0,
+      color: "text-indigo-600 dark:text-indigo-400",
+      bgGlow: "from-indigo-500/10 to-transparent",
+      borderColor: "border-indigo-500/20",
     },
     {
       label: "Expiring in 7 Days",
