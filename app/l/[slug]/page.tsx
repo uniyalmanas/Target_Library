@@ -1089,73 +1089,7 @@ export default function TenantDeskPage({
                 🔵 Overdue
               </span>
 
-              {/* Quick Seating UI Theme Picker */}
-              <div className="flex items-center bg-background border border-panel-border rounded-xl p-0.5 text-xs ml-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSeatUiStyle("classic");
-                    localStorage.setItem(`libraryos_seat_ui_style_${slug}`, "classic");
-                    localStorage.setItem("libraryos_seat_ui_style", "classic");
-                  }}
-                  className={`px-2 py-0.5 rounded-lg font-bold transition text-[10px] cursor-pointer ${
-                    seatUiStyle === "classic"
-                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold"
-                      : "text-text-muted hover:text-text-main"
-                  }`}
-                  title="Classic Cinema Grid"
-                >
-                  🪑 Classic
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSeatUiStyle("cubicles");
-                    localStorage.setItem(`libraryos_seat_ui_style_${slug}`, "cubicles");
-                    localStorage.setItem("libraryos_seat_ui_style", "cubicles");
-                  }}
-                  className={`px-2 py-0.5 rounded-lg font-bold transition text-[10px] cursor-pointer ${
-                    seatUiStyle === "cubicles"
-                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold"
-                      : "text-text-muted hover:text-text-main"
-                  }`}
-                  title="Modern Study Pods & Cubicles"
-                >
-                  🏢 Pods
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSeatUiStyle("minimal");
-                    localStorage.setItem(`libraryos_seat_ui_style_${slug}`, "minimal");
-                    localStorage.setItem("libraryos_seat_ui_style", "minimal");
-                  }}
-                  className={`px-2 py-0.5 rounded-lg font-bold transition text-[10px] cursor-pointer ${
-                    seatUiStyle === "minimal"
-                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold"
-                      : "text-text-muted hover:text-text-main"
-                  }`}
-                  title="Executive Architectural Minimalist"
-                >
-                  📐 Minimal
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSeatUiStyle("capsules");
-                    localStorage.setItem(`libraryos_seat_ui_style_${slug}`, "capsules");
-                    localStorage.setItem("libraryos_seat_ui_style", "capsules");
-                  }}
-                  className={`px-2 py-0.5 rounded-lg font-bold transition text-[10px] cursor-pointer ${
-                    seatUiStyle === "capsules"
-                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold"
-                      : "text-text-muted hover:text-text-main"
-                  }`}
-                  title="Aero Rounded Capsules"
-                >
-                  💊 Capsules
-                </button>
-              </div>
+              
               <button
                 onClick={toggleFullscreen}
                 className="ml-auto px-2.5 py-1 rounded-lg border border-panel-border bg-background hover:bg-neutral-500/10 text-text-muted hover:text-text-main text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
