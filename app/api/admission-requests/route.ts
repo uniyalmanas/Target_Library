@@ -1,4 +1,4 @@
-import { getTodayIST, computeEndDate } from "@/lib/dates";
+import { getTodayIST, computeEndDate, computeCalendarMonthEnd } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, getLibrarySettings, DEFAULT_LIBRARY_ID, DEFAULT_SHIFTS, isDemoSlug } from "@/lib/tenant";
@@ -193,7 +193,7 @@ export async function PUT(req: Request) {
       const sDate = start_date || todayStr;
       const eDate =
         end_date ||
-        computeEndDate(sDate, 30);
+        computeCalendarMonthEnd(sDate, 1);
 
       let shiftsConfig = DEFAULT_SHIFTS;
       try {

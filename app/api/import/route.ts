@@ -1,4 +1,4 @@
-import { computeEndDate } from "@/lib/dates";
+import { computeEndDate, computeCalendarMonthEnd } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, DEFAULT_LIBRARY_ID } from "@/lib/tenant";
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
         has_sheet: !!row.has_sheet,
         amount_paid: row.amount_paid,
         start_date: row.start_date,
-        end_date: computeEndDate(row.start_date, 30),
+        end_date: computeCalendarMonthEnd(row.start_date, 1),
         library_id: libraryId,
       });
 
