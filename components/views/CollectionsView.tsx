@@ -1,5 +1,7 @@
 "use client";
 
+import { computeEndDate, getTodayIST } from "@/lib/dates";
+
 import { Suspense, useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -45,15 +47,7 @@ interface DailySummary {
   shift_3_count: number;
 }
 
-function getTodayIST(): string {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  return formatter.format(new Date());
-}
+// getTodayIST imported from @/lib/dates
 
 export function CollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
   const searchParams = useSearchParams();
@@ -203,15 +197,11 @@ export function CollectionsContent({ tenantSlug }: { tenantSlug?: string }) {
 
   // Date Navigation Helpers
   const handlePrevDay = () => {
-    const current = new Date(`${selectedDate}T00:00:00`);
-    current.setDate(current.getDate() - 1);
-    setSelectedDate(current.toISOString().split("T")[0]);
+    setSelectedDate((prev) => computeEndDate(prev, -1));
   };
 
   const handleNextDay = () => {
-    const current = new Date(`${selectedDate}T00:00:00`);
-    current.setDate(current.getDate() + 1);
-    setSelectedDate(current.toISOString().split("T")[0]);
+    setSelectedDate((prev) => computeEndDate(prev, 1));
   };
 
   const handleResetToday = () => {

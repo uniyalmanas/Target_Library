@@ -1,5 +1,7 @@
 "use client";
 
+import { getTodayIST } from "@/lib/dates";
+
 import { Suspense, useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -151,7 +153,7 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
   };
 
   const getRenewUrl = (c: DueCandidate) => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayIST();
     const params = new URLSearchParams({
       student_id: c.student_id.toString(),
       seat_number: c.seat_number.toString(),
@@ -266,7 +268,7 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
       c.receipt_no,
     ]);
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayIST();
     const cleanSlug = slug || "library";
     downloadCsv({
       filename: `${cleanSlug}_Overdue_Fees_Report_${today}.csv`,

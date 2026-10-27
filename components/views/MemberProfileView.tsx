@@ -1,5 +1,7 @@
 "use client";
 
+import { computeEndDate, getTodayIST } from "@/lib/dates";
+
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -40,7 +42,7 @@ export function MemberProfileContent({
     ? sortShiftsChronologically(settings.shifts_config)
     : DEFAULT_SHIFTS;
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayIST();
   const activeReceipt = receipts.find((r) => r.end_date >= today);
 
   const shiftLabel = (shift: string | null, subType?: string | null) =>
@@ -64,10 +66,7 @@ export function MemberProfileContent({
     const isExpired = mostRecent.end_date < today;
     let nextStart = today;
     if (!isExpired) {
-      const parts = mostRecent.end_date.split("-");
-      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-      d.setDate(d.getDate() + 1);
-      nextStart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      nextStart = computeEndDate(mostRecent.end_date, 1);
     }
 
     const searchObj = new URLSearchParams({

@@ -6,22 +6,7 @@ import Link from "next/link";
 import { ShiftConfig } from "@/lib/types";
 import { DEFAULT_SHIFTS } from "@/lib/tenant";
 import { getShiftDisplayLabel, sortShiftsChronologically, getShiftNameWithTiming } from "@/lib/shifts";
-
-function computeEndDate(startStr: string, days: number): string {
-  if (!startStr) return "";
-  const d = new Date(`${startStr}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
-}
-
-function computeDaysBetween(startStr: string, endStr: string): number {
-  if (!startStr || !endStr) return 30;
-  const s = new Date(`${startStr}T00:00:00`);
-  const e = new Date(`${endStr}T00:00:00`);
-  const diffTime = e.getTime() - s.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return Math.max(1, diffDays);
-}
+import { computeEndDate, computeDaysBetween, getTodayIST } from "@/lib/dates";
 
 export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
   const params = useSearchParams();
@@ -84,12 +69,12 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
       .catch(() => {});
   }, [slug, presetShiftType]);
   const [startDate, setStartDate] = useState(
-    presetStartDate || new Date().toISOString().split("T")[0]
+    presetStartDate || getTodayIST()
   );
   const [tenureMode, setTenureMode] = useState<"1_month" | "custom_days">("1_month");
   const [durationDays, setDurationDays] = useState<number>(30);
   const [endDate, setEndDate] = useState<string>(() => {
-    const s = presetStartDate || new Date().toISOString().split("T")[0];
+    const s = presetStartDate || getTodayIST();
     return computeEndDate(s, 30);
   });
   const [paymentMode, setPaymentMode] = useState<"cash" | "online">("cash");

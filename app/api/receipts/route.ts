@@ -1,3 +1,4 @@
+import { computeEndDate, getTodayIST } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, getLibrarySettings, DEFAULT_LIBRARY_ID, DEFAULT_SHIFTS } from "@/lib/tenant";
@@ -23,7 +24,7 @@ export async function GET(req: Request) {
   if (seatId) query = query.eq("seat_id", seatId);
   if (shiftType) query = query.eq("shift_type", shiftType);
   if (activeOnly === "true") {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayIST();
     query = query.gte("end_date", today);
   }
   if (slug) {
@@ -167,19 +168,13 @@ export async function POST(req: Request) {
   }
 
   // Calculate resolved end_date based on customEndDate, duration_days, or default 30 days
-  const start = new Date(start_date);
   let resolvedEndDate: string;
-
   if (customEndDate && /^\d{4}-\d{2}-\d{2}$/.test(customEndDate)) {
     resolvedEndDate = customEndDate;
   } else if (duration_days && Number(duration_days) > 0) {
-    const end = new Date(start);
-    end.setDate(end.getDate() + Number(duration_days));
-    resolvedEndDate = end.toISOString().split("T")[0];
+    resolvedEndDate = computeEndDate(start_date, Number(duration_days));
   } else {
-    const end = new Date(start);
-    end.setDate(end.getDate() + 30);
-    resolvedEndDate = end.toISOString().split("T")[0];
+    resolvedEndDate = computeEndDate(start_date, 30);
   }
 
   if (resolvedEndDate < start_date) {
@@ -190,7 +185,7 @@ export async function POST(req: Request) {
   }
 
   // Guard: is this seat already occupied by an active receipt for an overlapping slot in this library?
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayIST();
   const { data: activeOnSeat, error: activeError } = await supabase
     .from("receipts")
     .select("receipt_no, subscription_type, shift_type, start_date, end_date, members(name)")
@@ -536,7 +531,7 @@ export async function PUT(req: Request) {
     }
 
     // Check conflict on target seat (excluding this receipt) strictly within this library
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayIST();
     let conflictQuery = supabase
       .from("receipts")
       .select("receipt_no, subscription_type, shift_type, start_date, end_date, members(name)")

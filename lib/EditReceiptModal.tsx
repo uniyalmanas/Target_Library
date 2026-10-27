@@ -1,3 +1,5 @@
+"use client";
+import { computeEndDate, computeDaysBetween, getTodayIST } from "@/lib/dates";
 import { useState, useEffect } from "react";
 import { getStoredSession, setStoredSession, isSuperAdminAuthenticated } from "@/lib/auth";
 import { ShiftConfig } from "@/lib/types";
@@ -32,21 +34,7 @@ interface EditReceiptModalProps {
 
 const OWNER_PASSWORD = process.env.NEXT_PUBLIC_OWNER_PASSWORD || "TargetOwner2026";
 
-function computeEndDate(startStr: string, days: number): string {
-  if (!startStr) return "";
-  const d = new Date(`${startStr}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
-}
-
-function computeDaysBetween(startStr: string, endStr: string): number {
-  if (!startStr || !endStr) return 30;
-  const s = new Date(`${startStr}T00:00:00`);
-  const e = new Date(`${endStr}T00:00:00`);
-  const diffTime = e.getTime() - s.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return Math.max(1, diffDays);
-}
+// Using centralized timezone-safe date helpers from @/lib/dates
 
 export default function EditReceiptModal({
   receipt,

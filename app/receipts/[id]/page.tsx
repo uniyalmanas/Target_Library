@@ -1,4 +1,5 @@
 "use client";
+import { getTodayIST } from "@/lib/dates";
 
 import { useEffect, useState, Suspense } from "react";
 import { useParams } from "next/navigation";
@@ -148,7 +149,7 @@ function ReceiptDetails() {
     ? `https://wa.me/${phone.replace(/\D/g, "").length === 10 ? "91" + phone.replace(/\D/g, "") : phone.replace(/\D/g, "")}?text=${encodeURIComponent(`${libName}\nReceipt No: ${data?.receipt_no}\nName: ${data?.members?.name}\nSeat: ${seatDisplay}\nType: ${effectiveShiftLabel}\nAmount Paid: Rs ${data?.amount_paid}\nValid till: ${data?.end_date}\nDigital Pass & Invoice: ${shareUrl}`)}`
     : null;
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayIST();
   const isOverdue = data.end_date ? data.end_date < today : false;
   const daysOverdue = isOverdue
     ? Math.max(1, Math.ceil((new Date(`${today}T00:00:00`).getTime() - new Date(`${data.end_date}T00:00:00`).getTime()) / (1000 * 60 * 60 * 24)))
