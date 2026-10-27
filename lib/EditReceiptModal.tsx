@@ -1,5 +1,5 @@
 "use client";
-import { computeEndDate, computeDaysBetween, getTodayIST } from "@/lib/dates";
+import { computeEndDate, computeDaysBetween, getTodayIST, computeCustomDaysEnd } from "@/lib/dates";
 import { useState, useEffect } from "react";
 import { getStoredSession, setStoredSession, isSuperAdminAuthenticated } from "@/lib/auth";
 import { ShiftConfig } from "@/lib/types";
@@ -559,7 +559,7 @@ export default function EditReceiptModal({
                   onChange={(e) => {
                     const newS = e.target.value;
                     setStartDate(newS);
-                    if (newS) setEndDate(computeEndDate(newS, daysCount));
+                    if (newS) setEndDate(computeCustomDaysEnd(newS, daysCount));
                   }}
                   className="w-full px-3 py-2 bg-background border border-panel-border rounded-xl text-xs font-mono text-text-main focus:outline-none focus:ring-2 focus:ring-rose-500"
                   required

@@ -1,4 +1,4 @@
-import { computeEndDate, getTodayIST } from "@/lib/dates";
+import { computeEndDate, getTodayIST, computeCalendarMonthEnd, computeCustomDaysEnd } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, getLibrarySettings, DEFAULT_LIBRARY_ID, DEFAULT_SHIFTS } from "@/lib/tenant";
@@ -172,9 +172,9 @@ export async function POST(req: Request) {
   if (customEndDate && /^\d{4}-\d{2}-\d{2}$/.test(customEndDate)) {
     resolvedEndDate = customEndDate;
   } else if (duration_days && Number(duration_days) > 0) {
-    resolvedEndDate = computeEndDate(start_date, Number(duration_days));
+    resolvedEndDate = computeCustomDaysEnd(start_date, Number(duration_days));
   } else {
-    resolvedEndDate = computeEndDate(start_date, 30);
+    resolvedEndDate = computeCalendarMonthEnd(start_date, 1);
   }
 
   if (resolvedEndDate < start_date) {

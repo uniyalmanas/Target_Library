@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ShiftConfig } from "@/lib/types";
 import { DEFAULT_SHIFTS } from "@/lib/tenant";
 import { getShiftDisplayLabel, sortShiftsChronologically, getShiftNameWithTiming } from "@/lib/shifts";
-import { computeEndDate, computeDaysBetween, getTodayIST } from "@/lib/dates";
+import { computeEndDate, computeDaysBetween, getTodayIST, computeCalendarMonthEnd, computeCustomDaysEnd } from "@/lib/dates";
 
 export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
   const params = useSearchParams();
@@ -72,10 +72,14 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
     presetStartDate || getTodayIST()
   );
   const [tenureMode, setTenureMode] = useState<"1_month" | "custom_days">("1_month");
-  const [durationDays, setDurationDays] = useState<number>(30);
+  const [durationDays, setDurationDays] = useState<number>(() => {
+    const s = presetStartDate || getTodayIST();
+    const end = computeCalendarMonthEnd(s, 1);
+    return computeDaysBetween(s, end);
+  });
   const [endDate, setEndDate] = useState<string>(() => {
     const s = presetStartDate || getTodayIST();
-    return computeEndDate(s, 30);
+    return computeCalendarMonthEnd(s, 1);
   });
   const [paymentMode, setPaymentMode] = useState<"cash" | "online">("cash");
   
@@ -271,7 +275,7 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
       // ignore
     }
 
-    const actualEndDate = endDate || computeEndDate(startDate, 30);
+    const actualEndDate = endDate || computeCalendarMonthEnd(startDate, 1);
     const shiftLabel = isFloating
       ? "Floating Pass (Daily Vacancy Access)"
       : getShiftDisplayLabel(shiftType, subscriptionType, shiftsConfig);
@@ -580,8 +584,9 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
                   type="button"
                   onClick={() => {
                     setTenureMode("1_month");
-                    setDurationDays(30);
-                    setEndDate(computeEndDate(startDate, 30));
+                    const end = computeCalendarMonthEnd(startDate, 1);
+                    setEndDate(end);
+                    setDurationDays(computeDaysBetween(startDate, end));
                   }}
                   className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${
                     tenureMode === "1_month"
@@ -589,7 +594,7 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
                       : "text-text-muted hover:text-text-main"
                   }`}
                 >
-                  Standard 1 Month (30d)
+                  Standard 1 Month ({computeDaysBetween(startDate, computeCalendarMonthEnd(startDate, 1))}d)
                 </button>
                 <button
                   type="button"
@@ -615,8 +620,18 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
                   type="date"
                   value={startDate}
                   onChange={(e) => {
-                    setStartDate(e.target.value);
-                    setEndDate(computeEndDate(e.target.value, durationDays));
+                    const newS = e.target.value;
+                    setStartDate(newS);
+                    if (newS) {
+                      if (tenureMode === "1_month") {
+                        const newEnd = computeCalendarMonthEnd(newS, 1);
+                        setEndDate(newEnd);
+                        setDurationDays(computeDaysBetween(newS, newEnd));
+                      } else {
+                        const newEnd = computeCustomDaysEnd(newS, durationDays);
+                        setEndDate(newEnd);
+                      }
+                    }
                   }}
                   className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 outline-none font-mono"
                 />
@@ -630,11 +645,15 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
                   required
                   type="date"
                   value={endDate}
+                  min={startDate}
                   onChange={(e) => {
-                    setEndDate(e.target.value);
-                    const calculatedDays = computeDaysBetween(startDate, e.target.value);
-                    setDurationDays(calculatedDays);
-                    setTenureMode("custom_days");
+                    const newE = e.target.value;
+                    setEndDate(newE);
+                    if (newE) {
+                      const calculatedDays = computeDaysBetween(startDate, newE);
+                      setDurationDays(calculatedDays);
+                      setTenureMode("custom_days");
+                    }
                   }}
                   className="w-full bg-input-bg border border-input-border focus:border-rose-500/80 focus:ring-1 focus:ring-rose-500/30 rounded-lg px-3.5 py-2.5 text-sm text-foreground transition-all duration-200 outline-none font-mono"
                 />
@@ -656,7 +675,7 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
                       type="button"
                       onClick={() => {
                         setDurationDays(d);
-                        setEndDate(computeEndDate(startDate, d));
+                        setEndDate(computeCustomDaysEnd(startDate, d));
                       }}
                       className={`text-xs px-2.5 py-1 rounded-lg border transition cursor-pointer font-medium ${
                         durationDays === d
@@ -677,6 +696,11 @@ export function NewReceiptForm({ tenantSlug }: { tenantSlug?: string }) {
                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                 <span>
                   Seat Occupied: <strong className="text-text-main">{durationDays} Days</strong> ({startDate} &rarr; {endDate})
+                  {tenureMode === "1_month" && (
+                    <span className="ml-2 text-[10px] bg-rose-500/10 text-rose-600 dark:text-rose-400 font-semibold px-1.5 py-0.5 rounded border border-rose-500/20">
+                      1 Calendar Month
+                    </span>
+                  )}
                 </span>
               </div>
               <span className="text-[11px] text-text-muted">

@@ -59,7 +59,9 @@ export function computeEndDate(startStr: string, days: number): string {
 }
 
 /**
- * Computes calendar day difference between two YYYY-MM-DD strings.
+ * Computes inclusive calendar day count between startStr and endStr.
+ * E.g., 2026-10-27 to 2026-10-27 => 1 day.
+ * E.g., 2026-10-27 to 2026-11-26 => 31 days (all of Oct 27..31 + Nov 1..26).
  */
 export function computeDaysBetween(startStr: string, endStr: string): number {
   const startParts = parseDateParts(startStr);
@@ -69,13 +71,25 @@ export function computeDaysBetween(startStr: string, endStr: string): number {
   const s = new Date(startParts.year, startParts.month - 1, startParts.day);
   const e = new Date(endParts.year, endParts.month - 1, endParts.day);
   const diffTime = e.getTime() - s.getTime();
-  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
   return Math.max(1, diffDays);
 }
 
 /**
- * Computes 1 calendar month validity (e.g. 26-Oct -> 25-Nov, 01-Oct -> 31-Oct).
- * Next renewal starts on the same day next month (or clamped if target month is shorter).
+ * Computes end date for a given number of inclusive days.
+ * E.g., for 1 day starting on 27-Oct => ends on 27-Oct.
+ * E.g., for 7 days starting on 27-Oct => ends on 02-Nov (27, 28, 29, 30, 31, 1, 2 = 7 days).
+ * E.g., for 30 days starting on 27-Oct => ends on 25-Nov.
+ */
+export function computeCustomDaysEnd(startStr: string, days: number): string {
+  if (!startStr) return "";
+  const count = Math.max(1, Number(days) || 1);
+  return addDaysToDate(startStr, count - 1);
+}
+
+/**
+ * Computes 1 calendar month validity (e.g. 27-Oct -> 26-Nov, 01-Oct -> 31-Oct, 01-Feb -> 28-Feb).
+ * Next renewal starts on the exact same day next month (or clamped if target month is shorter).
  */
 export function computeCalendarMonthEnd(startStr: string, months: number = 1): string {
   const parts = parseDateParts(startStr);
