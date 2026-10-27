@@ -1,3 +1,4 @@
+import { getTodayIST, computeEndDate } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, getLibrarySettings, DEFAULT_SHIFTS } from "@/lib/tenant";
@@ -38,16 +39,10 @@ export async function GET(req: Request) {
     }
 
     // Timezone-safe date calculations
-    const today = new Date();
-    const todayYear = today.getFullYear();
-    const todayMonth = String(today.getMonth() + 1).padStart(2, "0");
-    const todayStr = `${todayYear}-${todayMonth}-${String(today.getDate()).padStart(2, "0")}`;
-
-    const in7 = new Date(today);
-    in7.setDate(in7.getDate() + 7);
-    const in7Year = in7.getFullYear();
-    const in7Month = String(in7.getMonth() + 1).padStart(2, "0");
-    const in7Str = `${in7Year}-${in7Month}-${String(in7.getDate()).padStart(2, "0")}`;
+    const todayStr = getTodayIST();
+    const [todayYear, todayMonthNum] = todayStr.split("-").map(Number);
+    const todayMonth = String(todayMonthNum).padStart(2, "0");
+    const in7Str = computeEndDate(todayStr, 7);
 
     // Get total seat capacity
     let totalSeats = configuredTotalSeats;
@@ -81,9 +76,7 @@ export async function GET(req: Request) {
     const safeReceipts = receipts ?? [];
 
     // Cutoff for overdue candidate tracking (45 days)
-    const cutoffDateObj = new Date();
-    cutoffDateObj.setDate(cutoffDateObj.getDate() - 45);
-    const cutoffDateStr = cutoffDateObj.toISOString().split("T")[0];
+    const cutoffDateStr = computeEndDate(todayStr, -45);
 
     // 1. Active receipts
     const activeReceipts = safeReceipts.filter((r) => r.end_date >= todayStr && (r as any).is_vacated !== true);
@@ -126,8 +119,7 @@ export async function GET(req: Request) {
 
     // Pre-populate trend months keys
     for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
+      const d = new Date(todayYear, todayMonthNum - 1 - i, 1);
       const key = `${months[d.getMonth()]} ${d.getFullYear()}`;
       revenueTrendMap.set(key, 0);
     }

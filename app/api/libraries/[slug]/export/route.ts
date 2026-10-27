@@ -1,3 +1,4 @@
+import { getTodayIST } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
@@ -85,7 +86,7 @@ export async function GET(
       // Expenses table optional
     }
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getTodayIST();
 
     // CSV format single sheet export
     if (format === "csv") {

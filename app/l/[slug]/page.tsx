@@ -1,4 +1,5 @@
 "use client";
+import { getTodayIST } from "@/lib/dates";
 
 import { useEffect, useState, use, useRef, useCallback } from "react";
 import Link from "next/link";
@@ -664,7 +665,7 @@ export default function TenantDeskPage({
   };
 
   const getRenewUrl = (r: ReceiptData) => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayIST();
     const params = new URLSearchParams({
       student_id: r.student_id.toString(),
       seat_number: selected?.seat_number.toString() || "",
@@ -1248,7 +1249,7 @@ export default function TenantDeskPage({
                   {/* Occupants: Side-by-Side 2 columns when dual seat */}
                   <div className={`grid ${selected.receipts.length > 1 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"} gap-3`}>
                     {selected.receipts.map((r, idx) => {
-                      const today = new Date().toISOString().split("T")[0];
+                      const today = getTodayIST();
                       const diffTime = new Date(r.end_date).getTime() - new Date(today).getTime();
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                       const isOverdue = r.is_overdue || diffDays < 0;

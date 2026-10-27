@@ -1,3 +1,4 @@
+import { getTodayIST, computeEndDate } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, DEFAULT_LIBRARY_ID, isDemoSlug } from "@/lib/tenant";
@@ -22,13 +23,11 @@ export async function GET(req: Request) {
       }
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayIST();
     const todayTime = new Date(`${today}T00:00:00`).getTime();
 
     // 45-day cutoff window to ignore legacy archived receipts
-    const cutoffDateObj = new Date();
-    cutoffDateObj.setDate(cutoffDateObj.getDate() - 45);
-    const cutoffDate = cutoffDateObj.toISOString().split("T")[0];
+    const cutoffDate = computeEndDate(today, -45);
 
     // Fetch active receipts (to exclude renewed students or re-allocated seats)
     let activeQuery = supabase

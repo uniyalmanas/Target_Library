@@ -1,3 +1,4 @@
+import { getTodayIST } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, DEFAULT_LIBRARY_ID, isDemoSlug } from "@/lib/tenant";
@@ -174,7 +175,7 @@ export async function POST(req: Request) {
           category,
           amount: numAmount,
           payment_mode,
-          expense_date: expense_date || new Date().toISOString().split("T")[0],
+          expense_date: expense_date || getTodayIST(),
           notes: notes || "",
           created_at: new Date().toISOString(),
         },
@@ -191,7 +192,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const date = expense_date || new Date().toISOString().split("T")[0];
+    const date = expense_date || getTodayIST();
 
     const newExpense = await addPersistentExpense(slug, libraryId, {
       library_id: libraryId,
@@ -251,7 +252,7 @@ export async function PUT(req: Request) {
           category,
           amount: numAmount,
           payment_mode,
-          expense_date: expense_date || new Date().toISOString().split("T")[0],
+          expense_date: expense_date || getTodayIST(),
           notes: notes || "",
         },
       });
@@ -272,7 +273,7 @@ export async function PUT(req: Request) {
       category,
       amount: numAmount,
       payment_mode,
-      expense_date: expense_date || new Date().toISOString().split("T")[0],
+      expense_date: expense_date || getTodayIST(),
       notes: notes ? notes.trim() : null,
     });
 

@@ -1,4 +1,5 @@
 "use client";
+import { getTodayIST } from "@/lib/dates";
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -35,7 +36,7 @@ function downloadTemplate() {
     TEMPLATE_HEADERS,
     [
       "", "Manas Uniyal", "9876543210", 154, "full_day", "", "TRUE", 900,
-      new Date().toISOString().split("T")[0],
+      getTodayIST(),
     ],
   ]);
   const wb = XLSX.utils.book_new();
@@ -182,7 +183,7 @@ function ImportContent() {
             }
           }
 
-          let start_date = new Date().toISOString().split("T")[0];
+          let start_date = getTodayIST();
           if (joiningDateRaw) {
             const parsedDate = parseLedgerDate(joiningDateRaw);
             if (parsedDate) start_date = parsedDate;
@@ -224,7 +225,7 @@ function ImportContent() {
           shift_type: r.shift_type || undefined,
           has_sheet: String(r.has_sheet).toUpperCase() === "TRUE",
           amount_paid: Number(r.amount_paid),
-          start_date: r.start_date ? excelDateToISO(r.start_date) : new Date().toISOString().split("T")[0],
+          start_date: r.start_date ? excelDateToISO(r.start_date) : getTodayIST(),
           _error: error,
         };
       });

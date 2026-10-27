@@ -1,4 +1,5 @@
 "use client";
+import { getTodayIST } from "@/lib/dates";
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
@@ -66,7 +67,7 @@ export function MembersContent({ tenantSlug }: { tenantSlug?: string }) {
       return;
     }
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getTodayIST();
     const headers = [
       "Member ID",
       "Student Name",
@@ -121,7 +122,7 @@ export function MembersContent({ tenantSlug }: { tenantSlug?: string }) {
       ];
     });
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayIST();
     const cleanSlug = slug || "library";
     downloadCsv({
       filename: `${cleanSlug}_Members_Directory_${today}.csv`,
@@ -194,7 +195,7 @@ export function MembersContent({ tenantSlug }: { tenantSlug?: string }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {results.map((m) => {
-          const todayStr = new Date().toISOString().split("T")[0];
+          const todayStr = getTodayIST();
           const activeReceipt = m.receipts?.find(
             (r: any) => r.start_date <= todayStr && r.end_date >= todayStr
           );

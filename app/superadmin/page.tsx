@@ -1,4 +1,5 @@
 "use client";
+import { getTodayIST } from "@/lib/dates";
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
@@ -822,7 +823,7 @@ export default function SuperAdminPage() {
       ];
     });
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayIST();
     downloadCsv({
       filename: `LibraryOS_Tenants_Directory_${today}.csv`,
       headers,

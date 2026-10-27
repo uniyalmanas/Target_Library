@@ -1,3 +1,4 @@
+import { computeEndDate } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, getLibrarySettings, isDemoSlug, DEFAULT_SHIFTS } from "@/lib/tenant";
@@ -71,14 +72,7 @@ export async function GET(req: Request) {
     }).format(now);
 
     // Overdue grace window: consider non-vacated receipts up to 45 days past due
-    const cutoffObj = new Date(now);
-    cutoffObj.setDate(cutoffObj.getDate() - 45);
-    const cutoffDate = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Kolkata",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(cutoffObj);
+    const cutoffDate = computeEndDate(today, -45);
 
     // Query non-vacated active and overdue receipts strictly for this library
     let relevantReceipts: any[] | null = null;

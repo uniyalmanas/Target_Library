@@ -1,4 +1,5 @@
 "use client";
+import { getTodayIST } from "@/lib/dates";
 
 import { Suspense, useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
@@ -72,7 +73,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
   const [modalCategory, setModalCategory] = useState<string>("electricity");
   const [modalAmount, setModalAmount] = useState<string>("");
   const [modalMode, setModalMode] = useState<"cash" | "online" | "upi">("cash");
-  const [modalDate, setModalDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [modalDate, setModalDate] = useState<string>(getTodayIST());
   const [modalNotes, setModalNotes] = useState("");
   const [editingExpense, setEditingExpense] = useState<ExpenseItem | null>(null);
   const [savingExpense, setSavingExpense] = useState(false);
@@ -201,7 +202,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
     setModalCategory("electricity");
     setModalAmount("");
     setModalMode("cash");
-    setModalDate(new Date().toISOString().split("T")[0]);
+    setModalDate(getTodayIST());
     setModalNotes("");
     setIsModalOpen(true);
   };
@@ -343,7 +344,7 @@ export function ExpensesContent({ tenantSlug }: { tenantSlug?: string }) {
       `Total Count: ${filteredExpenses.length}`,
       "",
       total,
-      `Exported on ${new Date().toISOString().split("T")[0]}`,
+      `Exported on ${getTodayIST()}`,
     ]);
 
     if (summary) {

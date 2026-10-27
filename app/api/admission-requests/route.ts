@@ -1,3 +1,4 @@
+import { getTodayIST, computeEndDate } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, getLibrarySettings, DEFAULT_LIBRARY_ID, DEFAULT_SHIFTS, isDemoSlug } from "@/lib/tenant";
@@ -177,7 +178,7 @@ export async function PUT(req: Request) {
             name: request.student_name,
             phone: request.student_phone,
             aadhar_no: request.aadhar_no,
-            date_of_joining: new Date().toISOString().split("T")[0],
+            date_of_joining: getTodayIST(),
             library_id: request.library_id,
           })
           .select("student_id")
@@ -188,11 +189,11 @@ export async function PUT(req: Request) {
       }
 
       // 2. Validate seat availability & shift conflict
-      const todayStr = new Date().toISOString().split("T")[0];
+      const todayStr = getTodayIST();
       const sDate = start_date || todayStr;
       const eDate =
         end_date ||
-        new Date(new Date(sDate).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        computeEndDate(sDate, 30);
 
       let shiftsConfig = DEFAULT_SHIFTS;
       try {

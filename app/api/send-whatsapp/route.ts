@@ -1,3 +1,4 @@
+import { getTodayIST } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { generateDueFeeWhatsAppMessage } from "@/lib/upi";
@@ -129,7 +130,7 @@ export async function POST(req: Request) {
     let messageText = "";
 
     if (type === "due_reminder") {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getTodayIST();
       const todayTime = new Date(`${today}T00:00:00`).getTime();
       const endTime = new Date(`${receipt.end_date}T00:00:00`).getTime();
       const daysOverdue = Math.max(0, Math.ceil((todayTime - endTime) / (1000 * 60 * 60 * 24)));

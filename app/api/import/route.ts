@@ -1,3 +1,4 @@
+import { computeEndDate } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getLibraryBySlug, DEFAULT_LIBRARY_ID } from "@/lib/tenant";
@@ -93,10 +94,6 @@ export async function POST(req: Request) {
         student_id = newMember.student_id;
       }
 
-      const start = new Date(row.start_date);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 30);
-
       const { error: receiptErr } = await supabase.from("receipts").insert({
         student_id,
         seat_id,
@@ -105,7 +102,7 @@ export async function POST(req: Request) {
         has_sheet: !!row.has_sheet,
         amount_paid: row.amount_paid,
         start_date: row.start_date,
-        end_date: end.toISOString().split("T")[0],
+        end_date: computeEndDate(row.start_date, 30),
         library_id: libraryId,
       });
 
