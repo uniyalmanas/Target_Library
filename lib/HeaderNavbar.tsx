@@ -194,29 +194,28 @@ function HeaderNavbarContent() {
               name={libInfo.name}
               size="md"
             />
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+            <div className="flex flex-col min-w-0 justify-center">
               <Link
                 href={`/l/${activeSlug}`}
-                className="text-sm sm:text-base md:text-lg font-black tracking-tight text-text-main hover:opacity-90 transition-opacity truncate max-w-[160px] sm:max-w-none"
+                className="text-sm sm:text-base font-black tracking-tight text-text-main hover:opacity-90 transition-opacity truncate leading-tight"
               >
                 {libInfo.name}
               </Link>
-              {isDemoSlug(activeSlug) ? (
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 whitespace-nowrap flex items-center gap-1">
-                  <span>✨</span> Demo Lounge
-                </span>
-              ) : libInfo.isTrial ? (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 whitespace-nowrap flex items-center gap-1">
-                  <span>⏳</span> 7-Day Trial ({libInfo.trialDaysLeft}d)
-                </span>
-              ) : (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 whitespace-nowrap">
-                  {isOwner ? "👑 Owner Desk" : "💻 Front Desk"}
-                </span>
-              )}
-              <span className="text-[10px] font-mono text-text-muted font-bold px-2 py-0.5 rounded-full bg-neutral-500/10 whitespace-nowrap hidden sm:inline">
-                {libInfo.totalSeats} Seats
-              </span>
+              <div className="flex items-center gap-1 mt-0.5">
+                {isDemoSlug(activeSlug) ? (
+                  <span className="text-[9px] font-bold px-2 py-0.2 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 whitespace-nowrap flex items-center gap-1 leading-normal">
+                    <span>✨</span> Demo Lounge
+                  </span>
+                ) : libInfo.isTrial ? (
+                  <span className="text-[9px] font-bold px-2 py-0.2 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 whitespace-nowrap flex items-center gap-1 leading-normal">
+                    <span>⏳</span> 7-Day Trial ({libInfo.trialDaysLeft}d)
+                  </span>
+                ) : (
+                  <span className="text-[9px] font-bold px-2 py-0.2 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 whitespace-nowrap leading-normal">
+                    {isOwner ? "👑 Owner Desk" : "💻 Front Desk"}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -250,7 +249,7 @@ function HeaderNavbarContent() {
           <nav className="flex items-center bg-card-bg border border-panel-border rounded-xl p-0.5 sm:p-1 gap-0.5 sm:gap-1 shadow-xs overflow-x-auto min-w-0 max-w-full scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <Link
               href={`/l/${activeSlug}`}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                 isDeskActive
                   ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
                   : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
@@ -261,7 +260,7 @@ function HeaderNavbarContent() {
 
             <Link
               href={`/l/${activeSlug}/members`}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                 isMembersActive
                   ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
                   : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
@@ -272,7 +271,7 @@ function HeaderNavbarContent() {
 
             <Link
               href={`/l/${activeSlug}/collections`}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                 isCollectionsActive
                   ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
                   : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
@@ -283,7 +282,7 @@ function HeaderNavbarContent() {
 
             <Link
               href={`/l/${activeSlug}/due-fees`}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                 isDueFeesActive
                   ? "bg-blue-500/20 text-blue-600 dark:text-blue-400 font-extrabold shadow-2xs"
                   : "text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
@@ -297,7 +296,7 @@ function HeaderNavbarContent() {
               <>
                 <Link
                   href={`/l/${activeSlug}/expenses`}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                     isExpensesActive
                       ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
                       : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
@@ -318,7 +317,7 @@ function HeaderNavbarContent() {
 
                 <Link
                   href={`/l/${activeSlug}/print`}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                     isPrintActive
                       ? "bg-rose-500/20 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
                       : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
@@ -330,7 +329,7 @@ function HeaderNavbarContent() {
 
                 <Link
                   href={`/l/${activeSlug}/dashboard`}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                     isDashboardActive
                       ? "bg-purple-500/20 text-purple-600 dark:text-purple-400 font-extrabold shadow-2xs"
                       : "text-purple-600 dark:text-purple-400 hover:bg-purple-500/10"
@@ -341,7 +340,7 @@ function HeaderNavbarContent() {
 
                 <Link
                   href={`/l/${activeSlug}/settings`}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
                     isSettingsActive
                       ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold shadow-2xs"
                       : "text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
