@@ -34,24 +34,21 @@ export default function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <div className="w-[100px] h-8 rounded-lg bg-neutral-200 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 animate-pulse" />
+      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-200 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 animate-pulse shrink-0" />
     );
   }
 
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 px-3 rounded-lg bg-neutral-200 dark:bg-neutral-900 hover:bg-neutral-300 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-800 transition-all cursor-pointer flex items-center justify-center font-semibold text-xs gap-1.5 shadow-xs"
-      aria-label="Toggle theme"
+      className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-200/80 dark:bg-neutral-900/80 hover:bg-neutral-300 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-800 transition-all cursor-pointer flex items-center justify-center shadow-xs shrink-0 active:scale-95"
+      aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
     >
       {theme === "dark" ? (
-        <>
-          <span className="text-amber-500">☀️</span> Light Mode
-        </>
+        <span className="text-amber-400 text-base leading-none select-none">☀️</span>
       ) : (
-        <>
-          <span className="text-indigo-400">🌙</span> Dark Mode
-        </>
+        <span className="text-indigo-400 text-base leading-none select-none">🌙</span>
       )}
     </button>
   );

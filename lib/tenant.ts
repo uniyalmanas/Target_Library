@@ -77,6 +77,7 @@ export const DEMO_SETTINGS: LibrarySettings = {
   price_protection_enabled: true,
   require_aadhar: false,
   allow_student_self_registration: true,
+  seat_ui_style: "classic",
   updated_at: new Date().toISOString(),
 };
 

@@ -155,6 +155,7 @@ export default function TenantDeskPage({
   const [tileSize, setTileSize] = useState<number>(44);
   const [computedCols, setComputedCols] = useState<number>(20);
   const [isWideLayout, setIsWideLayout] = useState<boolean>(true);
+  const [seatUiStyle, setSeatUiStyle] = useState<"classic" | "cubicles" | "minimal" | "capsules">("classic");
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const matrixContainerRef = useRef<HTMLDivElement>(null);
 
@@ -605,6 +606,12 @@ export default function TenantDeskPage({
       if (savedPreset) setSizePreset(savedPreset);
       if (savedTileSize) setTileSize(Number(savedTileSize));
       if (savedWide !== null) setIsWideLayout(savedWide === "true");
+      const savedUiStyle = (localStorage.getItem(`libraryos_seat_ui_style_${slug}`) || localStorage.getItem("libraryos_seat_ui_style")) as any;
+      if (savedUiStyle && ["classic", "cubicles", "minimal", "capsules"].includes(savedUiStyle)) {
+        setSeatUiStyle(savedUiStyle);
+      } else if (settings?.seat_ui_style) {
+        setSeatUiStyle(settings.seat_ui_style as any);
+      }
     } catch {
       // ignore
     }
@@ -1081,6 +1088,74 @@ export default function TenantDeskPage({
               <span className="px-2 py-0.5 rounded-lg bg-blue-100 text-blue-950 border border-blue-400 dark:bg-blue-500/15 dark:text-blue-400 dark:border-blue-500/20">
                 🔵 Overdue
               </span>
+
+              {/* Quick Seating UI Theme Picker */}
+              <div className="flex items-center bg-background border border-panel-border rounded-xl p-0.5 text-xs ml-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSeatUiStyle("classic");
+                    localStorage.setItem(`libraryos_seat_ui_style_${slug}`, "classic");
+                    localStorage.setItem("libraryos_seat_ui_style", "classic");
+                  }}
+                  className={`px-2 py-0.5 rounded-lg font-bold transition text-[10px] cursor-pointer ${
+                    seatUiStyle === "classic"
+                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold"
+                      : "text-text-muted hover:text-text-main"
+                  }`}
+                  title="Classic Cinema Grid"
+                >
+                  🪑 Classic
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSeatUiStyle("cubicles");
+                    localStorage.setItem(`libraryos_seat_ui_style_${slug}`, "cubicles");
+                    localStorage.setItem("libraryos_seat_ui_style", "cubicles");
+                  }}
+                  className={`px-2 py-0.5 rounded-lg font-bold transition text-[10px] cursor-pointer ${
+                    seatUiStyle === "cubicles"
+                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold"
+                      : "text-text-muted hover:text-text-main"
+                  }`}
+                  title="Modern Study Pods & Cubicles"
+                >
+                  🏢 Pods
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSeatUiStyle("minimal");
+                    localStorage.setItem(`libraryos_seat_ui_style_${slug}`, "minimal");
+                    localStorage.setItem("libraryos_seat_ui_style", "minimal");
+                  }}
+                  className={`px-2 py-0.5 rounded-lg font-bold transition text-[10px] cursor-pointer ${
+                    seatUiStyle === "minimal"
+                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold"
+                      : "text-text-muted hover:text-text-main"
+                  }`}
+                  title="Executive Architectural Minimalist"
+                >
+                  📐 Minimal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSeatUiStyle("capsules");
+                    localStorage.setItem(`libraryos_seat_ui_style_${slug}`, "capsules");
+                    localStorage.setItem("libraryos_seat_ui_style", "capsules");
+                  }}
+                  className={`px-2 py-0.5 rounded-lg font-bold transition text-[10px] cursor-pointer ${
+                    seatUiStyle === "capsules"
+                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold"
+                      : "text-text-muted hover:text-text-main"
+                  }`}
+                  title="Aero Rounded Capsules"
+                >
+                  💊 Capsules
+                </button>
+              </div>
               <button
                 onClick={toggleFullscreen}
                 className="ml-auto px-2.5 py-1 rounded-lg border border-panel-border bg-background hover:bg-neutral-500/10 text-text-muted hover:text-text-main text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
@@ -1135,25 +1210,46 @@ export default function TenantDeskPage({
                         ? `2x Shift • ${seat.receipts?.map((r) => r.member?.name).filter(Boolean).join(" & ") || "2 Students"}`
                         : `${seat.status?.replace("_", " ") || "Occupied"} • ${seat.receipts?.[0]?.member?.name || "Student"}`
                     }`}
-                    className={`rounded-lg sm:rounded-xl flex flex-col items-center justify-center p-0.5 font-bold cursor-pointer transition-all duration-150 relative group ${seatColor(
+                    className={`${
+                      seatUiStyle === "cubicles"
+                        ? "rounded-t-xs rounded-b-xl border-t-[3.5px] border-t-current/60 shadow-xs"
+                        : seatUiStyle === "minimal"
+                        ? "rounded-sm border-[1.5px] shadow-none"
+                        : seatUiStyle === "capsules"
+                        ? "rounded-full shadow-inner ring-1 ring-white/10"
+                        : "rounded-lg sm:rounded-xl shadow-xs"
+                    } flex flex-col items-center justify-center p-0.5 font-bold cursor-pointer transition-all duration-150 relative group ${seatColor(
                       seat
                     )}`}
                   >
+                    {/* Modern Pods: Workstation top partition ridge */}
+                    {seatUiStyle === "cubicles" && !isTiny && (
+                      <span className="w-3.5 sm:w-5 h-0.5 rounded-full bg-current opacity-30 mt-0.5 mb-auto" />
+                    )}
+
+                    {/* Minimalist: Corner accent indicator dot */}
+                    {seatUiStyle === "minimal" && !isTiny && (isSeatDoubleShift(seat) || seat.is_overdue) && (
+                      <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-current opacity-90" />
+                    )}
+
                     <span
-                      className={`font-mono leading-none ${
+                      className={`leading-none ${
+                        seatUiStyle === "minimal" ? "font-sans font-black tracking-tight" : "font-mono font-black"
+                      } ${
                         isTiny
-                          ? "text-[9px] font-extrabold"
+                          ? "text-[9px]"
                           : isSmall
-                          ? "text-[11px] font-extrabold"
+                          ? "text-[11px]"
                           : isMedium
-                          ? "text-xs font-black"
-                          : "text-sm font-black"
+                          ? "text-xs"
+                          : "text-sm"
                       }`}
                     >
                       {seat.seat_number}
                     </span>
 
-                    {!isTiny && isSeatDoubleShift(seat) && (
+                    {/* Status badges */}
+                    {!isTiny && isSeatDoubleShift(seat) && seatUiStyle !== "minimal" && (
                       <span
                         className={`font-black uppercase tracking-tighter leading-none mt-0.5 ${
                           isSmall ? "text-[6px]" : "text-[8px]"
@@ -1162,7 +1258,7 @@ export default function TenantDeskPage({
                         2x
                       </span>
                     )}
-                    {!isTiny && seat.is_overdue && (
+                    {!isTiny && seat.is_overdue && seatUiStyle !== "minimal" && (
                       <span
                         className={`font-black uppercase tracking-tighter leading-none mt-0.5 text-rose-600 dark:text-rose-400 ${
                           isSmall ? "text-[6px]" : "text-[8px]"

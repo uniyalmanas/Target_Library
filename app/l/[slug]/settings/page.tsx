@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useCallback } from "react";
 import Link from "next/link";
-import { Library, LibrarySettings, ShiftConfig } from "@/lib/types";
+import { Library, LibrarySettings, ShiftConfig, SeatUiStyle } from "@/lib/types";
 import { FALLBACK_TARGET_LIBRARY, FALLBACK_SETTINGS, DEMO_LIBRARY, DEMO_SETTINGS, isDemoSlug, getEffectiveLogo, getLibraryAccessStatus } from "@/lib/tenant";
 import LibraryLogo from "@/lib/LibraryLogo";
 import TenantAccessBarrier from "@/lib/TenantAccessBarrier";
@@ -110,6 +110,7 @@ export default function LibraryOwnerSettingsPage({
   const [matrixTileSize, setMatrixTileSize] = useState<number>(44);
   const [matrixIsWide, setMatrixIsWide] = useState<boolean>(true);
   const [matrixSaveSuccess, setMatrixSaveSuccess] = useState(false);
+  const [seatUiStyle, setSeatUiStyle] = useState<SeatUiStyle>("classic");
 
   // Owner Access Control & Security Gate
   const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState(false);
@@ -240,6 +241,10 @@ export default function LibraryOwnerSettingsPage({
       if (savedPreset) setMatrixPreset(savedPreset as any);
       if (savedTileSize) setMatrixTileSize(Number(savedTileSize));
       if (savedWide !== null) setMatrixIsWide(savedWide === "true");
+      const savedUiStyle = (localStorage.getItem(`libraryos_seat_ui_style_${slug}`) || localStorage.getItem("libraryos_seat_ui_style")) as SeatUiStyle;
+      if (savedUiStyle && ["classic", "cubicles", "minimal", "capsules"].includes(savedUiStyle)) {
+        setSeatUiStyle(savedUiStyle);
+      }
     } catch {
       // ignore
     }
@@ -248,12 +253,16 @@ export default function LibraryOwnerSettingsPage({
   const handleSaveMatrixDisplay = (
     preset = matrixPreset,
     tileSize = matrixTileSize,
-    isWide = matrixIsWide
+    isWide = matrixIsWide,
+    uiStyle = seatUiStyle
   ) => {
     try {
       localStorage.setItem("library_seat_matrix_preset", preset);
       localStorage.setItem("library_seat_matrix_tile_size", tileSize.toString());
       localStorage.setItem("library_seat_matrix_is_wide", isWide.toString());
+      localStorage.setItem(`libraryos_seat_ui_style_${slug}`, uiStyle);
+      localStorage.setItem("libraryos_seat_ui_style", uiStyle);
+      setSeatUiStyle(uiStyle);
       setMatrixSaveSuccess(true);
       setTimeout(() => setMatrixSaveSuccess(false), 3500);
     } catch {
@@ -1964,6 +1973,157 @@ export default function LibraryOwnerSettingsPage({
                 </div>
               </div>
 
+              {/* Seating Arrangement Architectural UI Theme */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-black text-text-main uppercase tracking-wider">
+                      🪑 Seating Arrangement UI Style & Theme
+                    </label>
+                    <p className="text-[11px] text-text-muted mt-0.5">
+                      Choose your preferred desk visual presentation. Colors remain strictly preserved as they represent seat occupancy and fees.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                    Active: {seatUiStyle}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Style 1: Classic */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSeatUiStyle("classic");
+                      handleSaveMatrixDisplay(matrixPreset, matrixTileSize, matrixIsWide, "classic");
+                    }}
+                    className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                      seatUiStyle === "classic"
+                        ? "bg-rose-500/10 border-rose-500 ring-2 ring-rose-500/20 shadow-sm"
+                        : "bg-background border-panel-border hover:border-neutral-400"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm font-black flex items-center gap-1.5">
+                        <span>🪑</span> Classic Cinema Grid
+                      </span>
+                      {seatUiStyle === "classic" && (
+                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-text-muted leading-relaxed mb-3">
+                      Clean rounded tiles with centered monospace numbers. Familiar, balanced, and compact.
+                    </p>
+                    {/* Micro Demo */}
+                    <div className="grid grid-cols-4 gap-1 p-1.5 rounded-xl bg-card-bg border border-panel-border">
+                      <div className="h-7 rounded-lg bg-emerald-100 text-emerald-950 border border-emerald-400 dark:bg-emerald-500/20 dark:text-emerald-400 text-[10px] font-black flex items-center justify-center">1</div>
+                      <div className="h-7 rounded-lg bg-rose-100 text-rose-950 border border-rose-400 dark:bg-rose-500/20 dark:text-rose-400 text-[10px] font-black flex items-center justify-center">2</div>
+                      <div className="h-7 rounded-lg bg-orange-100 text-orange-950 border border-orange-400 dark:bg-orange-500/20 dark:text-orange-400 text-[10px] font-black flex items-center justify-center">3</div>
+                      <div className="h-7 rounded-lg bg-blue-100 text-blue-950 border border-blue-400 dark:bg-blue-500/20 dark:text-blue-400 text-[10px] font-black flex items-center justify-center">4</div>
+                    </div>
+                  </button>
+
+                  {/* Style 2: Cubicles */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSeatUiStyle("cubicles");
+                      handleSaveMatrixDisplay(matrixPreset, matrixTileSize, matrixIsWide, "cubicles");
+                    }}
+                    className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                      seatUiStyle === "cubicles"
+                        ? "bg-rose-500/10 border-rose-500 ring-2 ring-rose-500/20 shadow-sm"
+                        : "bg-background border-panel-border hover:border-neutral-400"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm font-black flex items-center gap-1.5">
+                        <span>🏢</span> Modern Study Pods
+                      </span>
+                      {seatUiStyle === "cubicles" && (
+                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-text-muted leading-relaxed mb-3">
+                      Evokes actual library cubicles with partitioned top desk ridges and workstation styling.
+                    </p>
+                    {/* Micro Demo */}
+                    <div className="grid grid-cols-4 gap-1 p-1.5 rounded-xl bg-card-bg border border-panel-border">
+                      <div className="h-7 rounded-t-xs rounded-b-lg border-t-[3px] border-t-emerald-600 bg-emerald-100 text-emerald-950 border border-emerald-400 dark:bg-emerald-500/20 dark:text-emerald-400 text-[10px] font-black flex items-center justify-center">1</div>
+                      <div className="h-7 rounded-t-xs rounded-b-lg border-t-[3px] border-t-rose-600 bg-rose-100 text-rose-950 border border-rose-400 dark:bg-rose-500/20 dark:text-rose-400 text-[10px] font-black flex items-center justify-center">2</div>
+                      <div className="h-7 rounded-t-xs rounded-b-lg border-t-[3px] border-t-orange-600 bg-orange-100 text-orange-950 border border-orange-400 dark:bg-orange-500/20 dark:text-orange-400 text-[10px] font-black flex items-center justify-center">3</div>
+                      <div className="h-7 rounded-t-xs rounded-b-lg border-t-[3px] border-t-blue-600 bg-blue-100 text-blue-950 border border-blue-400 dark:bg-blue-500/20 dark:text-blue-400 text-[10px] font-black flex items-center justify-center">4</div>
+                    </div>
+                  </button>
+
+                  {/* Style 3: Minimal */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSeatUiStyle("minimal");
+                      handleSaveMatrixDisplay(matrixPreset, matrixTileSize, matrixIsWide, "minimal");
+                    }}
+                    className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                      seatUiStyle === "minimal"
+                        ? "bg-rose-500/10 border-rose-500 ring-2 ring-rose-500/20 shadow-sm"
+                        : "bg-background border-panel-border hover:border-neutral-400"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm font-black flex items-center gap-1.5">
+                        <span>📐</span> Executive Minimalist
+                      </span>
+                      {seatUiStyle === "minimal" && (
+                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-text-muted leading-relaxed mb-3">
+                      Architectural blueprint drafting style with sharp technical lines and corner indicator pips.
+                    </p>
+                    {/* Micro Demo */}
+                    <div className="grid grid-cols-4 gap-1 p-1.5 rounded-xl bg-card-bg border border-panel-border">
+                      <div className="h-7 rounded-sm border-[1.5px] border-emerald-400 bg-emerald-100 text-emerald-950 dark:bg-emerald-500/20 dark:text-emerald-400 text-[10px] font-black flex items-center justify-center relative"><span className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-emerald-500"></span>1</div>
+                      <div className="h-7 rounded-sm border-[1.5px] border-rose-400 bg-rose-100 text-rose-950 dark:bg-rose-500/20 dark:text-rose-400 text-[10px] font-black flex items-center justify-center relative"><span className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-rose-500"></span>2</div>
+                      <div className="h-7 rounded-sm border-[1.5px] border-orange-400 bg-orange-100 text-orange-950 dark:bg-orange-500/20 dark:text-orange-400 text-[10px] font-black flex items-center justify-center relative"><span className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-orange-500"></span>3</div>
+                      <div className="h-7 rounded-sm border-[1.5px] border-blue-400 bg-blue-100 text-blue-950 dark:bg-blue-500/20 dark:text-blue-400 text-[10px] font-black flex items-center justify-center relative"><span className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-blue-500"></span>4</div>
+                    </div>
+                  </button>
+
+                  {/* Style 4: Capsules */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSeatUiStyle("capsules");
+                      handleSaveMatrixDisplay(matrixPreset, matrixTileSize, matrixIsWide, "capsules");
+                    }}
+                    className={`p-4 rounded-2xl border text-left transition relative cursor-pointer ${
+                      seatUiStyle === "capsules"
+                        ? "bg-rose-500/10 border-rose-500 ring-2 ring-rose-500/20 shadow-sm"
+                        : "bg-background border-panel-border hover:border-neutral-400"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm font-black flex items-center gap-1.5">
+                        <span>💊</span> Aero Capsules
+                      </span>
+                      {seatUiStyle === "capsules" && (
+                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-text-muted leading-relaxed mb-3">
+                      Soft curved pill capsules with smooth organic edges and tactile modern feel.
+                    </p>
+                    {/* Micro Demo */}
+                    <div className="grid grid-cols-4 gap-1 p-1.5 rounded-xl bg-card-bg border border-panel-border">
+                      <div className="h-7 rounded-full bg-emerald-100 text-emerald-950 border border-emerald-400 dark:bg-emerald-500/20 dark:text-emerald-400 text-[10px] font-black flex items-center justify-center">1</div>
+                      <div className="h-7 rounded-full bg-rose-100 text-rose-950 border border-rose-400 dark:bg-rose-500/20 dark:text-rose-400 text-[10px] font-black flex items-center justify-center">2</div>
+                      <div className="h-7 rounded-full bg-orange-100 text-orange-950 border border-orange-400 dark:bg-orange-500/20 dark:text-orange-400 text-[10px] font-black flex items-center justify-center">3</div>
+                      <div className="h-7 rounded-full bg-blue-100 text-blue-950 border border-blue-400 dark:bg-blue-500/20 dark:text-blue-400 text-[10px] font-black flex items-center justify-center">4</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Sizing Presets Selection Grid */}
               <div className="space-y-3 pt-2">
                 <label className="block text-xs font-black text-text-main uppercase tracking-wider">
@@ -2266,7 +2426,7 @@ export default function LibraryOwnerSettingsPage({
                         style={{
                           height: matrixPreset === "fit" ? "38px" : `${matrixTileSize}px`,
                         }}
-                        className={`rounded-lg flex flex-col items-center justify-center p-0.5 font-bold transition-all shadow-xs ${colorClass}`}
+                        className={`flex flex-col items-center justify-center p-0.5 font-bold transition-all ${seatUiStyle === "cubicles" ? "rounded-t-xs rounded-b-xl border-t-[3.5px] border-t-current/50 shadow-xs" : seatUiStyle === "minimal" ? "rounded-sm border-[1.5px]" : seatUiStyle === "capsules" ? "rounded-full shadow-inner" : "rounded-lg shadow-xs"} ${colorClass}`}
                       >
                         <span
                           className={`font-mono leading-none ${

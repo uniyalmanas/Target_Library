@@ -247,10 +247,10 @@ function HeaderNavbarContent() {
         {/* Row 2 on mobile, Right column on desktop: Navigation Pill & Desktop Utilities */}
         <div className="flex items-center gap-2 w-full md:w-auto">
           {/* Main Navigation Pill - Smooth touch horizontal swipe on mobile */}
-          <nav className="flex items-center bg-card-bg border border-panel-border rounded-xl p-0.5 shadow-xs overflow-x-auto w-full md:w-auto scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <nav className="flex items-center bg-card-bg border border-panel-border rounded-2xl p-1 sm:p-1.5 gap-1 md:gap-1.5 shadow-xs overflow-x-auto w-full md:w-auto scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <Link
               href={`/l/${activeSlug}`}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+              className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 isDeskActive
                   ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
                   : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
@@ -261,7 +261,7 @@ function HeaderNavbarContent() {
 
             <Link
               href={`/l/${activeSlug}/members`}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+              className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 isMembersActive
                   ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
                   : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
@@ -272,7 +272,7 @@ function HeaderNavbarContent() {
 
             <Link
               href={`/l/${activeSlug}/collections`}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+              className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 isCollectionsActive
                   ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
                   : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
@@ -283,7 +283,7 @@ function HeaderNavbarContent() {
 
             <Link
               href={`/l/${activeSlug}/due-fees`}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+              className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 isDueFeesActive
                   ? "bg-blue-500/20 text-blue-600 dark:text-blue-400 font-extrabold shadow-2xs"
                   : "text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
@@ -297,7 +297,7 @@ function HeaderNavbarContent() {
               <>
                 <Link
                   href={`/l/${activeSlug}/expenses`}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+                  className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                     isExpensesActive
                       ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
                       : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
@@ -310,7 +310,7 @@ function HeaderNavbarContent() {
                 <Link
                   href={`/l/${activeSlug}/join`}
                   target="_blank"
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-1 whitespace-nowrap shrink-0"
+                  className="px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition flex items-center gap-1.5 whitespace-nowrap shrink-0"
                   title="Open Student Entrance QR Code in new tab"
                 >
                   <span>📱</span> Door QR
@@ -318,7 +318,7 @@ function HeaderNavbarContent() {
 
                 <Link
                   href={`/l/${activeSlug}/print`}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+                  className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                     isPrintActive
                       ? "bg-rose-500/20 text-rose-600 dark:text-rose-400 font-extrabold shadow-2xs"
                       : "text-text-muted hover:text-text-main hover:bg-neutral-500/10"
@@ -330,7 +330,7 @@ function HeaderNavbarContent() {
 
                 <Link
                   href={`/l/${activeSlug}/dashboard`}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+                  className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                     isDashboardActive
                       ? "bg-purple-500/20 text-purple-600 dark:text-purple-400 font-extrabold shadow-2xs"
                       : "text-purple-600 dark:text-purple-400 hover:bg-purple-500/10"
@@ -341,7 +341,7 @@ function HeaderNavbarContent() {
 
                 <Link
                   href={`/l/${activeSlug}/settings`}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0 ${
+                  className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                     isSettingsActive
                       ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold shadow-2xs"
                       : "text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"

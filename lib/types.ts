@@ -93,7 +93,10 @@ export interface Library {
   updated_at: string;
 }
 
+export type SeatUiStyle = "classic" | "cubicles" | "minimal" | "capsules";
+
 export interface LibrarySettings {
+  seat_ui_style?: SeatUiStyle;
   library_id: string;
   total_seats: number;
   shifts_config: ShiftConfig[];
