@@ -86,3 +86,17 @@ Librarians can now choose between 4 distinct visual seating layouts to fit their
    - `npm run build` executed and passed with code `0` (zero TypeScript errors, zero lint warnings).
 3. **Git Version Control**:
    - Pushed commit `18179f2` to `main` branch on GitHub repository `uniyalmanas/Target_Library`.
+
+
+---
+
+## 4. Revisions & Polish (Commit `f20f95d`)
+
+1. **Seating UI Style Restricted to Settings**:
+   - Removed the quick switcher pill from the main front desk/dashboard toolbar (`app/l/[slug]/page.tsx`) to keep the primary operational desk completely clean and clutter-free.
+   - Seating UI styles (`classic`, `cubicles`, `minimal`, `capsules`) are configured and saved exclusively inside `/l/[slug]/settings` under **🖥️ Real-Time Seat Matrix Layout & Screen Fit**.
+
+2. **Calibrated Header Navigation & Overflow Protection**:
+   - Fine-tuned the navigation tab dimensions (`px-2.5 py-1.5 text-xs font-bold gap-1`) to eliminate excessive horizontal width.
+   - Added `min-w-0 max-w-full` on the `<nav>` pill and `shrink-0` on `+ Walk-in Admission` and `🚪 Switch` action buttons.
+   - Responsive label on walk-in (`+ Walk-in` on laptops, `+ Walk-in Admission` on wide desktop screens) ensuring buttons are 100% visible and never pushed off-screen.
