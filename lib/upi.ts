@@ -57,11 +57,11 @@ export function generateUpiQrCodeUrl(
 
 export interface DueFeeWhatsAppMessageParams {
   studentName: string;
-  studentPhone: string;
-  seatNumber: number;
-  shiftName: string;
-  daysOverdue: number;
-  expiryDate: string;
+  studentPhone?: string | null;
+  seatNumber: number | string;
+  shiftName?: string;
+  daysOverdue?: number;
+  expiryDate?: string;
   amountDue: number;
   libraryName: string;
   upiId: string;
@@ -70,8 +70,8 @@ export interface DueFeeWhatsAppMessageParams {
 }
 
 /**
- * Generates a high-converting, professional WhatsApp reminder message
- * with embedded dynamic UPI intent link and payment breakdown.
+ * Generates a clean, simple, and polite WhatsApp fee renewal reminder
+ * with clear payment details and a direct QR code / online payment link.
  */
 export function generateDueFeeWhatsAppMessage({
   studentName,
@@ -85,42 +85,39 @@ export function generateDueFeeWhatsAppMessage({
   upiName,
   digitalPassUrl,
 }: DueFeeWhatsAppMessageParams): string {
-  const upiIntent = generateUpiIntentUrl({
-    upiId: upiId || "targetlibrary@upi",
-    payeeName: upiName || libraryName,
-    amount: amountDue,
-    note: `Fee Seat #${seatNumber} - ${libraryName}`,
-  });
+  const cleanUpiId = (upiId || "targetlibrary@upi").trim();
+  const cleanLibName = (libraryName || "The Target Library").trim();
+  const cleanAmount = Number(amountDue) > 0 ? Number(amountDue) : 0;
 
-  const overdueUrgency =
-    daysOverdue > 7
-      ? `🚨 *CRITICAL ALERT:* Seat #${seatNumber} is *${daysOverdue} days overdue* and pending reallocation to the waiting queue.`
-      : daysOverdue >= 4
-      ? `⚠️ *URGENT:* Seat #${seatNumber} is *${daysOverdue} days overdue*.`
-      : `ℹ️ *Friendly Notice:* Seat #${seatNumber} expired ${daysOverdue} day${daysOverdue === 1 ? "" : "s"} ago (${expiryDate}).`;
+  // Direct QR Code fallback if no pass URL is provided
+  const qrFallbackUrl = generateUpiQrCodeUrl(
+    {
+      upiId: cleanUpiId,
+      payeeName: upiName || cleanLibName,
+      amount: cleanAmount,
+      note: `Fee Seat #${seatNumber} - ${cleanLibName}`,
+    },
+    300
+  );
 
-  return `📚 *${libraryName} — Fee Renewal Notice*
+  const payUrl = digitalPassUrl || qrFallbackUrl;
+  const seatDisplay =
+    typeof seatNumber === "string" && seatNumber.toLowerCase().includes("seat")
+      ? seatNumber
+      : `Seat #${seatNumber}`;
+  const shiftText = shiftName ? ` (${shiftName})` : "";
 
-Dear *${studentName}*,
+  return `Dear *${studentName}*,
 
-${overdueUrgency}
+Your library fee of *₹${cleanAmount}* for *${seatDisplay}*${shiftText} is due for renewal.
 
-━━━━━━━━━━━━━━━━━━━━━
-🪑 *Seat Reserved:* Seat #${seatNumber}
-⏰ *Shift Timing:* ${shiftName}
-📅 *Expired On:* ${expiryDate}
-💰 *Renewal Amount Due:* *₹${amountDue}*
-━━━━━━━━━━━━━━━━━━━━━
+📲 *Pay via UPI:*
+• UPI ID: \`${cleanUpiId}\`
+• Scan QR & Pay Online:
+${payUrl}
 
-⚡ *PAY IN 1-CLICK VIA UPI (PhonePe / GPay / Paytm):*
-${upiIntent}
+Please complete the payment to keep your seat reserved. If already paid, kindly ignore this message.
 
-_UPI ID:_ \`${upiId || "targetlibrary@upi"}\`
-_Account Name:_ ${upiName || libraryName}
-${digitalPassUrl ? `\n🎟️ *View / Download Your Digital Pass:*\n${digitalPassUrl}` : ""}
-
-_Please complete payment today to keep your seat reserved. If you have already paid or vacated, please notify the front desk._
-
-Warm regards,  
-*${libraryName} Front Desk*`;
+Thank you,
+*${cleanLibName}*`;
 }

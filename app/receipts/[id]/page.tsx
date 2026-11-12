@@ -26,7 +26,7 @@ function ReceiptDetails() {
     upi_name?: string | null;
   } | null>(null);
   const [shiftsConfig, setShiftsConfig] = useState<ShiftConfig[]>(DEFAULT_SHIFTS);
-  const [showUpiQr, setShowUpiQr] = useState(false);
+  const [copiedUpi, setCopiedUpi] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -209,53 +209,76 @@ function ReceiptDetails() {
         </div>
       </div>
 
-      {/* Overdue Renewal Alert Banner with Dynamic UPI Intent */}
+      {/* Overdue Renewal Alert Banner with Dynamic UPI Intent & QR */}
       {isOverdue && (
-        <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 no-print animate-in fade-in">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-600 dark:text-rose-400">
-              <span>⚠️</span> Subscription Overdue ({daysOverdue} day{daysOverdue === 1 ? "" : "s"})
-            </div>
-            <h3 className="text-sm font-bold text-foreground">
-              Seat #{data.seats?.seat_number} expired on {data.end_date}
-            </h3>
-            <p className="text-xs text-text-muted">
-              Pay renewal fee of <span className="font-extrabold text-foreground">₹{data.amount_paid}</span> via UPI to keep your seat reserved at {libName}.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <a
-              href={upiIntentUrl}
-              className="flex-1 sm:flex-none text-center px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs shadow-md shadow-blue-600/20 transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <span>⚡</span> 1-Click Pay (₹{data.amount_paid})
-            </a>
-            <button
-              onClick={() => setShowUpiQr((prev) => !prev)}
-              className="px-3.5 py-2.5 rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-main font-bold text-xs shadow-sm transition cursor-pointer"
-              title="Show / Hide UPI QR"
-            >
-              📷 QR
-            </button>
-          </div>
-        </div>
-      )}
+        <div className="bg-panel-bg border border-panel-border rounded-3xl p-5 sm:p-6 shadow-xl no-print animate-in fade-in space-y-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            {/* Left: Renewal Details & 1-Click Pay */}
+            <div className="space-y-3 text-left w-full md:flex-1">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                <span>⚠️</span> Subscription Renewal Due ({daysOverdue} day{daysOverdue === 1 ? "" : "s"} overdue)
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-foreground tracking-tight">
+                  Seat #{data.seats?.seat_number} &bull; {data.members?.name}
+                </h3>
+                <p className="text-sm text-text-muted mt-0.5">
+                  Validity ended on <span className="font-semibold text-foreground">{data.end_date}</span> ({effectiveShiftLabel})
+                </p>
+              </div>
 
-      {/* Dynamic UPI QR Display Modal/Drawer */}
-      {isOverdue && showUpiQr && (
-        <div className="bg-panel-bg border border-panel-border rounded-2xl p-5 text-center max-w-sm mx-auto space-y-3 no-print animate-in zoom-in-95">
-          <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
-            Scan with PhonePe / GPay / Paytm
-          </h4>
-          <div className="p-3 bg-white rounded-xl inline-block border border-neutral-200 shadow-inner">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={upiQrCodeUrl} alt="UPI QR" width={180} height={180} className="mx-auto rounded" />
-            <p className="text-xs font-mono font-bold text-neutral-800 mt-1">Pre-filled: ₹{data.amount_paid}</p>
-            <p className="text-[10px] font-mono text-neutral-500">{upiId}</p>
+              <div className="p-3.5 rounded-2xl bg-neutral-500/5 border border-panel-border space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-text-muted font-medium">Renewal Amount Due:</span>
+                  <span className="font-black text-lg text-emerald-600 dark:text-emerald-400">₹{data.amount_paid}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-text-muted font-medium">UPI ID:</span>
+                  <div className="flex items-center gap-2">
+                    <code className="font-mono font-bold text-text-main bg-panel-bg px-2 py-0.5 rounded border border-panel-border">{upiId}</code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(upiId);
+                        setCopiedUpi(true);
+                        setTimeout(() => setCopiedUpi(false), 2000);
+                      }}
+                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      {copiedUpi ? "✓ Copied" : "Copy"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <a
+                  href={upiIntentUrl}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm shadow-md shadow-emerald-600/20 transition active:scale-95 cursor-pointer"
+                >
+                  <span>⚡</span> Pay ₹{data.amount_paid} via UPI App (PhonePe / GPay / Paytm)
+                </a>
+              </div>
+            </div>
+
+            {/* Right: Dynamic Scannable QR Code */}
+            <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-neutral-200 shadow-md shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={upiQrCodeUrl}
+                alt="Scan to Pay via UPI"
+                width={190}
+                height={190}
+                className="rounded-lg"
+              />
+              <div className="text-[11px] font-mono font-black text-neutral-900 mt-2 text-center">
+                Scan with any UPI App (<span className="text-emerald-600 font-extrabold">₹{data.amount_paid}</span>)
+              </div>
+              <div className="text-[10px] text-neutral-500 font-medium text-center">
+                PhonePe &bull; GPay &bull; Paytm &bull; BHIM
+              </div>
+            </div>
           </div>
-          <p className="text-[11px] text-text-muted">
-            Instant renewal for Seat #{data.seats?.seat_number} &middot; {upiName}
-          </p>
         </div>
       )}
 

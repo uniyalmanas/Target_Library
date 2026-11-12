@@ -35,6 +35,9 @@ export default function DynamicUpiModal({
   shiftLabel,
 }: DynamicUpiModalProps) {
   const [copied, setCopied] = useState(false);
+  const [copiedQr, setCopiedQr] = useState(false);
+  const [copyingQr, setCopyingQr] = useState(false);
+  const [copiedMsg, setCopiedMsg] = useState(false);
 
   // Close on Escape key
   useEffect(() => {
@@ -71,7 +74,7 @@ export default function DynamicUpiModal({
       amount,
       note: `Fee Seat #${candidate.seat_number} - ${library.name}`,
     },
-    260
+    300
   );
 
   // 3. Generate pre-composed WhatsApp message with direct payment details
@@ -93,7 +96,72 @@ export default function DynamicUpiModal({
     ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(whatsappMessage)}`
     : "";
 
-  const handleCopy = () => {
+  const handleDownloadQr = () => {
+    const a = document.createElement("a");
+    a.href = upiQrCodeUrl;
+    a.download = `Seat_${candidate.seat_number}_${candidate.student_name.replace(/\s+/g, "_")}_QR.png`;
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleCopyQrImage = async () => {
+    try {
+      setCopyingQr(true);
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to load QR image"));
+        img.src = upiQrCodeUrl;
+      });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth || 300;
+      canvas.height = img.naturalHeight || 300;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Could not get canvas context");
+      ctx.drawImage(img, 0, 0);
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/png")
+      );
+      if (!blob) throw new Error("Could not create image blob");
+
+      if (navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ "image/png": blob }),
+        ]);
+        setCopiedQr(true);
+        setTimeout(() => setCopiedQr(false), 3000);
+      } else {
+        handleDownloadQr();
+      }
+    } catch (err) {
+      console.warn("Clipboard write failed, downloading QR instead:", err);
+      handleDownloadQr();
+    } finally {
+      setCopyingQr(false);
+    }
+  };
+
+  const handleCopyAndOpenWhatsApp = async () => {
+    await handleCopyQrImage();
+    if (whatsappUrl) {
+      window.open(whatsappUrl, "_blank");
+    }
+  };
+
+  const handleCopyMessage = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(whatsappMessage);
+      setCopiedMsg(true);
+      setTimeout(() => setCopiedMsg(false), 2500);
+    }
+  };
+
+  const handleCopyUpiLink = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       navigator.clipboard.writeText(upiIntentUrl);
       setCopied(true);
@@ -114,7 +182,7 @@ export default function DynamicUpiModal({
         <div className="p-4 sm:p-5 border-b border-panel-border bg-card-bg shrink-0 flex items-center justify-between gap-3">
           <div className="space-y-0.5 text-left min-w-0">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">
-              <span>⚡</span> Dynamic UPI Intent & QR
+              <span>⚡</span> Dynamic UPI QR &amp; WhatsApp
             </div>
             <h2 className="text-lg font-black text-text-main tracking-tight pt-1 truncate">
               Seat #{candidate.seat_number} &bull; {candidate.student_name}
@@ -150,6 +218,33 @@ export default function DynamicUpiModal({
             <div className="text-[9px] text-neutral-500 font-mono">
               {upiId}
             </div>
+
+            {/* QR Quick Action Buttons */}
+            <div className="flex items-center justify-center gap-2 mt-3 pt-2.5 border-t border-neutral-200">
+              <button
+                type="button"
+                onClick={handleCopyQrImage}
+                disabled={copyingQr}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer ${
+                  copiedQr
+                    ? "bg-emerald-600 text-white"
+                    : "bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border border-neutral-300"
+                }`}
+                title="Copies QR image to clipboard for easy Ctrl+V pasting into WhatsApp"
+              >
+                <span>{copiedQr ? "✓" : "📋"}</span>
+                {copiedQr ? "QR Image Copied!" : copyingQr ? "Copying..." : "Copy QR Image"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadQr}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border border-neutral-300 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                title="Download QR code image to your device"
+              >
+                <span>⬇️</span> Save QR
+              </button>
+            </div>
           </div>
 
           {/* Amount & UPI Details */}
@@ -168,18 +263,43 @@ export default function DynamicUpiModal({
             </div>
           </div>
 
-          {/* Actions Grid */}
-          <div className="space-y-2.5 pt-1">
-            {/* 1-Click WhatsApp with Dynamic Intent */}
-            {cleanPhone ? (
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+          {/* Message Preview Box */}
+          <div className="p-3.5 rounded-2xl bg-neutral-500/5 border border-panel-border text-left space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">
+                WhatsApp Message Preview:
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyMessage}
+                className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer flex items-center gap-1"
               >
-                <span>💬</span> Send WhatsApp with 1-Click UPI Link
-              </a>
+                <span>{copiedMsg ? "✓" : "📋"}</span>
+                {copiedMsg ? "Copied" : "Copy Text"}
+              </button>
+            </div>
+            <div className="text-[11px] font-sans text-text-main bg-card-bg p-2.5 rounded-xl border border-panel-border whitespace-pre-wrap leading-relaxed select-all">
+              {whatsappMessage}
+            </div>
+          </div>
+
+          {/* Actions Grid */}
+          <div className="space-y-2 pt-1">
+            {/* Primary Action: Copy QR & Open WhatsApp */}
+            {cleanPhone ? (
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={handleCopyAndOpenWhatsApp}
+                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                  title="Copies QR image to clipboard and opens WhatsApp chat"
+                >
+                  <span>💬</span> Copy QR &amp; Open WhatsApp
+                </button>
+                <p className="text-[10px] text-text-muted">
+                  Tip: When WhatsApp opens, press <kbd className="px-1 py-0.5 rounded bg-neutral-500/10 font-mono text-[9px] font-bold">Ctrl+V</kbd> to paste the QR code photo into the chat!
+                </p>
+              </div>
             ) : (
               <div className="text-xs text-text-muted italic py-1">
                 No phone number registered for this candidate.
@@ -187,7 +307,7 @@ export default function DynamicUpiModal({
             )}
 
             {/* Direct Mobile UPI Intent Button */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 pt-1">
               <a
                 href={upiIntentUrl}
                 className="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
@@ -197,7 +317,8 @@ export default function DynamicUpiModal({
               </a>
 
               <button
-                onClick={handleCopy}
+                type="button"
+                onClick={handleCopyUpiLink}
                 className="py-2.5 px-3 rounded-xl bg-card-bg border border-panel-border hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-main font-bold text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
               >
                 <span>{copied ? "✓" : "📋"}</span>
