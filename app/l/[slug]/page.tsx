@@ -1122,11 +1122,10 @@ export default function TenantDeskPage({
               }}
               className="w-full transition-all duration-200"
             >
-              {seats.filter(matchesFilter).map((seat, idx) => {
+              {seats.filter(matchesFilter).map((seat) => {
                 const isTiny = tileSize < 34;
                 const isSmall = tileSize >= 34 && tileSize < 46;
                 const isMedium = tileSize >= 46 && tileSize < 62;
-                const animDelay = `${Math.min(220, idx * 4)}ms`;
 
                 return (
                   <button
@@ -1135,7 +1134,6 @@ export default function TenantDeskPage({
                     style={{
                       height: sizePreset === "fit" ? `${Math.max(26, tileSize)}px` : undefined,
                       minHeight: sizePreset !== "fit" ? `${tileSize}px` : undefined,
-                      animationDelay: animDelay,
                     }}
                     title={`Seat #${seat.seat_number} • ${
                       !seat.occupied
@@ -1146,7 +1144,7 @@ export default function TenantDeskPage({
                         ? `2x Shift • ${seat.receipts?.map((r) => r.member?.name).filter(Boolean).join(" & ") || "2 Students"}`
                         : `${seat.status?.replace("_", " ") || "Occupied"} • ${seat.receipts?.[0]?.member?.name || "Student"}`
                     }`}
-                    className={`animate-seat-pop ${
+                    className={`${
                       seatUiStyle === "cubicles"
                         ? "rounded-t-xs rounded-b-xl border-t-[3.5px] border-t-current/60 shadow-xs"
                         : seatUiStyle === "minimal"
