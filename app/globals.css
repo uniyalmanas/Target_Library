@@ -85,3 +85,33 @@ body {
   scrollbar-width: thin;
   scrollbar-color: rgba(150, 150, 150, 0.25) transparent;
 }
+
+/* Fast Apple / Linear style micro-staggered seat entrance animation */
+@keyframes seatPopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(4px);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.02) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-seat-pop {
+  animation: seatPopIn 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-seat-pop {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    will-change: auto !important;
+  }
+}
