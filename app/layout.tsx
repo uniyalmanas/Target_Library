@@ -96,7 +96,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-background text-foreground font-sans relative overflow-x-hidden transition-colors duration-200">
+      <body className="min-h-full flex flex-col bg-background text-foreground font-sans relative overflow-x-hidden">
         {/* Glow effect in background */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1850px] h-[500px] bg-radial from-rose-500/[calc(var(--glow-opacity)*0.7)] via-transparent to-transparent pointer-events-none z-0" />
         

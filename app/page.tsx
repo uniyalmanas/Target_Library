@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { triggerPWAInstall } from "@/lib/PWAInstallPrompt";
 
@@ -44,6 +44,12 @@ export default function SaaSMarketingLandingPage() {
   const [selectedSeat, setSelectedSeat] = useState<DemoSeat | null>(null);
   const [pricingMode, setPricingMode] = useState<"flat" | "per_seat">("flat");
   const [customSeatCount, setCustomSeatCount] = useState<number>(100);
+  const [isAppStarting, setIsAppStarting] = useState<boolean>(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setIsAppStarting(false), 700);
+    return () => clearTimeout(t);
+  }, []);
 
   const toggleSeatStatus = (seat: DemoSeat) => {
     setSelectedSeat(seat);
@@ -207,7 +213,7 @@ export default function SaaSMarketingLandingPage() {
 
           {/* 24-Seat Simulator Grid */}
           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2.5">
-            {demoSeats.map((s) => {
+            {demoSeats.map((s, idx) => {
               let color = "bg-emerald-100 text-emerald-950 border-2 border-emerald-400 hover:bg-emerald-200 hover:border-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border dark:border-emerald-500/20 dark:hover:bg-emerald-500/20 dark:hover:border-emerald-500/40";
               let label = "Free";
               if (s.status === "full_day") {
@@ -228,7 +234,8 @@ export default function SaaSMarketingLandingPage() {
                 <button
                   key={s.id}
                   onClick={() => toggleSeatStatus(s)}
-                  className={`aspect-square rounded-2xl flex flex-col items-center justify-center p-2 text-xs font-bold transition-all hover:scale-105 cursor-pointer shadow-xs ${color}`}
+                  style={{ animationDelay: isAppStarting ? `${idx * 15}ms` : undefined }}
+                  className={`${isAppStarting ? "animate-seat-start" : ""} aspect-square rounded-2xl flex flex-col items-center justify-center p-2 text-xs font-bold transition-all hover:scale-105 cursor-pointer shadow-xs ${color}`}
                 >
                   <span className="font-mono text-sm font-black">#{s.id}</span>
                   <span className="text-[9px] font-extrabold uppercase mt-0.5 opacity-90">{label}</span>

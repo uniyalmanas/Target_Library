@@ -65,9 +65,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "";
   const router = useRouter();
 
-  // Initialize state synchronously based on current storage & path to prevent race conditions
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => checkClientAuth(pathname));
-  const [checking, setChecking] = useState<boolean>(() => !checkClientAuth(pathname));
+  // Initialize state synchronously based on current storage & path to prevent flashes
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return checkClientAuth(pathname);
+  });
+  const [checking, setChecking] = useState<boolean>(false);
 
   const verifyAndRedirect = useCallback(() => {
     if (isPathPublic(pathname)) {
@@ -122,15 +125,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       window.removeEventListener("storage", handleAuthEvent);
     };
   }, [pathname]);
-
-  // Loading state while checking session validity
-  if (checking && !isPathPublic(pathname)) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh] text-xs text-text-muted">
-        Verifying librarian credentials session...
-      </div>
-    );
-  }
 
   if (!isAuthenticated && !isPathPublic(pathname)) {
     return null;

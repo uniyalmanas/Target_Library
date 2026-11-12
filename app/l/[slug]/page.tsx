@@ -159,6 +159,15 @@ export default function TenantDeskPage({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const matrixContainerRef = useRef<HTMLDivElement>(null);
 
+  // Graceful entrance animation for seats when the app starts (runs once, zero flashing)
+  const [isAppStarting, setIsAppStarting] = useState<boolean>(true);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsAppStarting(false);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Incoming Admission Requests (Method B Entrance QR)
   const [admissionRequests, setAdmissionRequests] = useState<AdmissionRequest[]>([]);
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
@@ -1100,9 +1109,36 @@ export default function TenantDeskPage({
             </div>
           </div>
 
-          {loading ? (
-            <div className="py-20 flex items-center justify-center">
-              <div className="w-8 h-8 border-3 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+          {loading && seats.length === 0 ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  sizePreset === "fit"
+                    ? `repeat(${computedCols}, minmax(0, 1fr))`
+                    : sizePreset === "custom"
+                    ? `repeat(auto-fill, minmax(${tileSize}px, 1fr))`
+                    : sizePreset === "compact"
+                    ? `repeat(auto-fill, minmax(36px, 1fr))`
+                    : sizePreset === "standard"
+                    ? `repeat(auto-fill, minmax(54px, 1fr))`
+                    : `repeat(auto-fill, minmax(72px, 1fr))`,
+                gap: tileSize < 36 ? "4px" : "6px",
+              }}
+              className="w-full"
+            >
+              {Array.from({ length: settings.total_seats || 60 }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    height: sizePreset === "fit" ? `${Math.max(26, tileSize)}px` : undefined,
+                    minHeight: sizePreset !== "fit" ? `${tileSize}px` : undefined,
+                  }}
+                  className="rounded-lg sm:rounded-xl border border-panel-border/30 bg-neutral-500/5 flex flex-col items-center justify-center p-0.5 text-text-muted/30 font-mono text-[10px]"
+                >
+                  #{i + 1}
+                </div>
+              ))}
             </div>
           ) : (
             <div
@@ -1120,12 +1156,13 @@ export default function TenantDeskPage({
                     : `repeat(auto-fill, minmax(72px, 1fr))`,
                 gap: tileSize < 36 ? "4px" : "6px",
               }}
-              className="w-full transition-all duration-200"
+              className="w-full"
             >
-              {seats.filter(matchesFilter).map((seat) => {
+              {seats.filter(matchesFilter).map((seat, idx) => {
                 const isTiny = tileSize < 34;
                 const isSmall = tileSize >= 34 && tileSize < 46;
                 const isMedium = tileSize >= 46 && tileSize < 62;
+                const animDelay = isAppStarting ? `${Math.min(180, idx * 3)}ms` : undefined;
 
                 return (
                   <button
@@ -1134,6 +1171,7 @@ export default function TenantDeskPage({
                     style={{
                       height: sizePreset === "fit" ? `${Math.max(26, tileSize)}px` : undefined,
                       minHeight: sizePreset !== "fit" ? `${tileSize}px` : undefined,
+                      animationDelay: animDelay,
                     }}
                     title={`Seat #${seat.seat_number} • ${
                       !seat.occupied
@@ -1144,7 +1182,7 @@ export default function TenantDeskPage({
                         ? `2x Shift • ${seat.receipts?.map((r) => r.member?.name).filter(Boolean).join(" & ") || "2 Students"}`
                         : `${seat.status?.replace("_", " ") || "Occupied"} • ${seat.receipts?.[0]?.member?.name || "Student"}`
                     }`}
-                    className={`${
+                    className={`${isAppStarting ? "animate-seat-start" : ""} ${
                       seatUiStyle === "cubicles"
                         ? "rounded-t-xs rounded-b-xl border-t-[3.5px] border-t-current/60 shadow-xs"
                         : seatUiStyle === "minimal"

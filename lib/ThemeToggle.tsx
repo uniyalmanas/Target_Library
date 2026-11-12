@@ -34,7 +34,7 @@ export default function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-200 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 animate-pulse shrink-0" />
+      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-200/50 dark:bg-neutral-900/50 border border-neutral-300 dark:border-neutral-800 shrink-0" />
     );
   }
 
