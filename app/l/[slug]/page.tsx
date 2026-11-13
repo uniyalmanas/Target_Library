@@ -1646,6 +1646,7 @@ export default function TenantDeskPage({
           onClose={() => setEditingReceipt(null)}
           onSuccess={() => {
             setEditingReceipt(null);
+            setSelected(null);
             fetchSeats();
           }}
           shiftsConfig={settings.shifts_config || DEFAULT_SHIFTS}

@@ -74,7 +74,7 @@ export async function GET(req: Request) {
     // Overdue grace window: consider non-vacated receipts up to 45 days past due
     const cutoffDate = computeEndDate(today, -45);
 
-    // Query non-vacated active and overdue receipts strictly for this library
+    // Query active and overdue receipts strictly for this library
     let relevantReceipts: any[] | null = null;
     let receiptsError: any = null;
 
@@ -118,10 +118,46 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: receiptsError.message }, { status: 500 });
     }
 
-    // Filter out officially vacated receipts and floating (non-desk) admissions
-    const activeAndDue = (relevantReceipts ?? []).filter(
-      (r) => r.is_vacated !== true && r.shift_type !== "floating"
-    );
+    // Sort all relevant receipts by end_date desc, created_at desc
+    const sortedReceipts = [...(relevantReceipts ?? [])].sort((a: any, b: any) => {
+      const endCmp = (b.end_date || "").localeCompare(a.end_date || "");
+      if (endCmp !== 0) return endCmp;
+      return (b.created_at || "").localeCompare(a.created_at || "");
+    });
+
+    // Pass 1: Identify students whose latest receipt on a seat is vacated
+    const seenStudentSeat = new Set<string>();
+    const vacatedStudentSeat = new Set<string>();
+
+    for (const r of sortedReceipts) {
+      if (r.shift_type === "floating") continue;
+      const key = `${r.student_id}-${r.seat_id}`;
+      if (!seenStudentSeat.has(key)) {
+        seenStudentSeat.add(key);
+        if (r.is_vacated === true) {
+          vacatedStudentSeat.add(key);
+        }
+      }
+    }
+
+    // Pass 2: Filter active and due receipts: exclude vacated students and superseded older receipts
+    const studentSeatClaimed = new Set<string>();
+    const activeAndDue: any[] = [];
+
+    for (const r of sortedReceipts) {
+      if (r.shift_type === "floating") continue;
+      if (r.is_vacated === true) continue;
+      const studentSeatKey = `${r.student_id}-${r.seat_id}`;
+      // If student was vacated on this seat in their latest receipt, skip all historical receipts
+      if (vacatedStudentSeat.has(studentSeatKey)) continue;
+
+      // Also ensure each student only has their latest receipt attached per shift on a seat
+      const shiftKey = `${r.student_id}-${r.seat_id}-${r.shift_type || "default"}`;
+      if (studentSeatClaimed.has(shiftKey)) continue;
+      studentSeatClaimed.add(shiftKey);
+
+      activeAndDue.push(r);
+    }
 
     // Map seat_id -> array of relevant receipts
     const receiptsBySeat = new Map<number, any[]>();

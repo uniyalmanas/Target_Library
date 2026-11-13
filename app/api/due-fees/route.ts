@@ -85,13 +85,37 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: overdueRes.error.message }, { status: 500 });
     }
 
-    const rawOverdue = (overdueRes.data ?? []).filter((r: any) => r.is_vacated !== true);
+    // Sort all overdue candidate receipts strictly with newest end_date and newest created_at first
+    const allOverdueCandidates = [...(overdueRes.data ?? [])].sort((a: any, b: any) => {
+      const endCmp = (b.end_date || "").localeCompare(a.end_date || "");
+      if (endCmp !== 0) return endCmp;
+      return (b.created_at || "").localeCompare(a.created_at || "");
+    });
 
-    // Filter out receipts that have already been renewed or replaced by an active receipt
+    // Filter out receipts that have already been renewed or replaced by an active receipt,
+    // and ensure that if a student's latest receipt was vacated, historical receipts never resurrect as "due".
     const filteredOverdue: any[] = [];
     const seenStudentAndSeat = new Set<string>();
 
-    for (const r of rawOverdue) {
+    for (const r of allOverdueCandidates) {
+      const specificKey = `${r.student_id}-${r.seat_id}-${r.shift_type || "default"}`;
+      const generalKey = `${r.student_id}-${r.seat_id}`;
+
+      // If we already saw a newer receipt for this student on this seat, this receipt is an older/superseded renewal.
+      if (seenStudentAndSeat.has(specificKey) || seenStudentAndSeat.has(generalKey)) {
+        continue;
+      }
+
+      // Mark this student & seat as seen so NO older historical receipts can ever be processed
+      seenStudentAndSeat.add(specificKey);
+      seenStudentAndSeat.add(generalKey);
+
+      // If the latest receipt for this student & seat is officially vacated, the student has left!
+      // They are not due for renewal, so skip them completely.
+      if (r.is_vacated === true) {
+        continue;
+      }
+
       // If student has an active receipt anywhere, they have renewed!
       const studentHasActive = validActive.some((a) => a.student_id === r.student_id);
       if (studentHasActive) continue;
@@ -104,11 +128,6 @@ export async function GET(req: Request) {
         return false;
       });
       if (seatHasConflict) continue;
-
-      // Deduplicate to keep latest expired receipt per student+seat
-      const key = `${r.student_id}-${r.seat_id}-${r.shift_type || "default"}`;
-      if (seenStudentAndSeat.has(key)) continue;
-      seenStudentAndSeat.add(key);
 
       const endDateTime = new Date(`${r.end_date}T00:00:00`).getTime();
       const daysOverdue = Math.max(1, Math.ceil((todayTime - endDateTime) / (1000 * 60 * 60 * 24)));

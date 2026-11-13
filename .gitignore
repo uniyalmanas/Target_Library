@@ -34,3 +34,7 @@ next-env.d.ts
 
 # sensitive credentials docs
 security_credentials.md
+
+# scratch
+scratch/
+

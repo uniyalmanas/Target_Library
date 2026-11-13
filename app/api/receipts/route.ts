@@ -428,6 +428,14 @@ export async function PATCH(req: Request) {
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().split("T")[0];
 
+  // 1. Fetch details of target receipt to identify student & seat for cascading vacate
+  const { data: targetReceipt } = await supabase
+    .from("receipts")
+    .select("receipt_no, student_id, seat_id, library_id, start_date, end_date")
+    .eq("receipt_no", receipt_no)
+    .maybeSingle();
+
+  // 2. Mark target receipt as vacated
   let { data, error } = await supabase
     .from("receipts")
     .update({ is_vacated: true, end_date: yesterdayStr })
@@ -448,6 +456,22 @@ export async function PATCH(req: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // 3. Cascade Vacate: Also mark all other prior/active receipts for this student on this seat as vacated!
+  // This permanently cures the bug where older renewal receipts resurrected as "38 days overdue".
+  if (targetReceipt?.student_id && targetReceipt?.seat_id) {
+    try {
+      await supabase
+        .from("receipts")
+        .update({ is_vacated: true, end_date: yesterdayStr })
+        .eq("student_id", targetReceipt.student_id)
+        .eq("seat_id", targetReceipt.seat_id)
+        .neq("receipt_no", receipt_no)
+        .eq("is_vacated", false);
+    } catch (cascadeErr) {
+      console.warn("Cascade vacate warning:", cascadeErr);
+    }
   }
 
   return NextResponse.json({ ok: true, receipt: data });
@@ -653,6 +677,60 @@ export async function PUT(req: Request) {
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    // Seat Switch Automation:
+    // If the student was moved to a new seat (oldSeatId !== targetSeatId),
+    // automatically free the previous seat so it immediately turns GREEN without requiring manual vacating:
+    const oldSeatId = existingReceipt.seat_id;
+    const isSeatChanged = oldSeatId && targetSeatId && Number(oldSeatId) !== Number(targetSeatId);
+
+    if (isSeatChanged) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+      try {
+        // Query seat_number of the previous seat to safely support legacy records
+        const { data: oldSeatData } = await supabase
+          .from("seats")
+          .select("seat_id, seat_number")
+          .eq("seat_id", oldSeatId)
+          .maybeSingle();
+        const oldSeatNum = oldSeatData?.seat_number || oldSeatId;
+
+        // 1. Vacate any other receipts belonging to this student on the old seat
+        await supabase
+          .from("receipts")
+          .update({ is_vacated: true, end_date: yesterdayStr })
+          .eq("student_id", existingReceipt.student_id)
+          .or(`seat_id.eq.${oldSeatId},seat_id.eq.${oldSeatNum}`)
+          .neq("receipt_no", receipt_no)
+          .eq("is_vacated", false);
+
+        // 2. Check if any OTHER student currently has an active subscription on the old seat
+        const todayStr = getTodayIST();
+        const { data: activeOthers } = await supabase
+          .from("receipts")
+          .select("receipt_no")
+          .or(`seat_id.eq.${oldSeatId},seat_id.eq.${oldSeatNum}`)
+          .gte("end_date", todayStr)
+          .eq("is_vacated", false)
+          .limit(1);
+
+        // If no other student is actively occupying the old seat,
+        // clear any expired/overdue receipts on that seat so it immediately turns 100% GREEN (free)
+        if (!activeOthers || activeOthers.length === 0) {
+          await supabase
+            .from("receipts")
+            .update({ is_vacated: true, end_date: yesterdayStr })
+            .or(`seat_id.eq.${oldSeatId},seat_id.eq.${oldSeatNum}`)
+            .lt("end_date", todayStr)
+            .eq("is_vacated", false);
+        }
+      } catch (switchErr) {
+        console.warn("Seat switch auto-vacate warning:", switchErr);
+      }
     }
 
     return NextResponse.json({ ok: true, receipt: updatedReceipt });

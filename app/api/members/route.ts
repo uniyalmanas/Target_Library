@@ -86,7 +86,18 @@ export async function GET(req: Request) {
       .order("end_date", { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data || []);
+
+    // Deduplicate by student_id so students vacated twice only appear once (with their latest vacated receipt)
+    const seenStudents = new Set<number>();
+    const deduplicatedLeft: any[] = [];
+    for (const item of data || []) {
+      if (!seenStudents.has(item.student_id)) {
+        seenStudents.add(item.student_id);
+        deduplicatedLeft.push(item);
+      }
+    }
+
+    return NextResponse.json(deduplicatedLeft);
   }
 
   // Search feature: by name, phone, or student_id
