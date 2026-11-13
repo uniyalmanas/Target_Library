@@ -1,10 +1,10 @@
 # 📊 Project Progress Report & Master Conversation Context
 
-**Last Synchronized:** October 27, 2026  
+**Last Synchronized:** November 13, 2026  
 **Project:** LibraryOS / The Target Library Management System (Dehradun)  
 **Production Site:** [https://library-ms-three.vercel.app](https://library-ms-three.vercel.app)  
 **GitHub Codebase:** [https://github.com/uniyalmanas/Target_Library](https://github.com/uniyalmanas/Target_Library)  
-**Branch:** `main` | **Latest Verified Commit:** `9d3823b`  
+**Branch:** `main` | **Latest Verified Commit:** `084de28`  
 
 ---
 
@@ -44,6 +44,8 @@
 | `18179f2` | Selectable seating arrangement UIs, icon-only theme toggle, and vacated members retention | Deployed Live |
 | `f20f95d` | Restrict seating UI styles to settings and calibrate navbar tabs to prevent walkin/switch overflow | Deployed Live |
 | `9d3823b` | Stack brand and owner badge vertically in header, remove seats count, and expand nav space to left | Deployed Live |
+| `7fd696e` | Cascade vacate all student receipts and auto-vacate old seat on switch to green | Deployed Live |
+| `084de28` | Add VacateConfirmModal for final warning before vacating seats across all views | Deployed Live |
 
 ---
 
@@ -67,6 +69,17 @@
 * Vertically stacked `The Target Library` and `👑 Owner Desk` inside a single column container, removing `297 Seats`.
 * Reclaimed ~180px of horizontal clearance on the left, allowing the navigation tab pill (`🪑 Desk`, `👥 Members`, `💰 Daily Fees`, `🔵 Due Fees`, `📉 Expenses`, `📱 Door QR`, `🖨️ Posters`, `📊 Dashboard`, `👑 Settings`) to expand naturally.
 * Protected `+ Walk-in Admission` and `🚪 Switch` buttons with `shrink-0` and flexbox `min-w-0` to ensure they are permanently visible on all monitor sizes.
+
+### 👤 Step 21 — Cascade Vacate Engine & Seat Switch Auto-Green Resolution
+* **Root Cause 1 (Due Fees Zombie Receipts):** When students renewed month-to-month, newly inserted receipts left previous months' receipts active (`is_vacated: false`). Vacating only marked the latest receipt, exposing prior expired receipts as 37+ days overdue.
+* **Fix Applied:** [`app/api/receipts/route.ts`](file:///D:/library-ms/library-ms/app/api/receipts/route.ts) now cascades vacates across all historical un-vacated receipts for that student and seat. [`app/api/due-fees/route.ts`](file:///D:/library-ms/library-ms/app/api/due-fees/route.ts) groups and deduplicates by latest receipt, completely filtering out departed students on the first vacate.
+* **Root Cause 2 (Seat Switch Ghost Receipts):** Editing a receipt to assign a new seat left historical records on the previous desk, turning it blue (overdue).
+* **Fix Applied:** Automated seat switch detection in `PUT /api/receipts`: when `seat_id` changes, the old seat is automatically vacated and reset to **green (free)**.
+
+### 👤 Step 22 — Dedicated Final Warning Vacate Confirmation Modal
+* Built [`lib/VacateConfirmModal.tsx`](file:///D:/library-ms/library-ms/lib/VacateConfirmModal.tsx) to provide a prominent, styled dialog before vacating.
+* Replaced native browser `confirm()` alerts across [`DueFeesView.tsx`](file:///D:/library-ms/library-ms/components/views/DueFeesView.tsx), [`page.tsx`](file:///D:/library-ms/library-ms/app/l/[slug]/page.tsx), and [`MemberProfileView.tsx`](file:///D:/library-ms/library-ms/components/views/MemberProfileView.tsx).
+* Clear breakdown of Student Name, Seat #, Shift, Overdue status, and bulleted consequence warnings to prevent accidental vacates.
 
 ---
 
