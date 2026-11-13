@@ -14,6 +14,7 @@ import DynamicUpiModal from "@/lib/DynamicUpiModal";
 import { generateDueFeeWhatsAppMessage } from "@/lib/upi";
 import { getAvailableShiftsForSeat, getShiftDisplayLabel, sortShiftsChronologically, getShiftNameWithTiming, formatShiftTiming } from "@/lib/shifts";
 import SubscriptionPaymentModal from "@/lib/SubscriptionPaymentModal";
+import VacateConfirmModal, { VacateCandidateInfo } from "@/lib/VacateConfirmModal";
 
 interface MemberData {
   student_id: number;
@@ -135,6 +136,7 @@ export default function TenantDeskPage({
   const [justReconnected, setJustReconnected] = useState<boolean>(false);
   const [selected, setSelected] = useState<SeatData | null>(null);
   const [vacating, setVacating] = useState<number | null>(null);
+  const [vacateModalTarget, setVacateModalTarget] = useState<{ receiptNo: number; info: VacateCandidateInfo } | null>(null);
   const [editingReceipt, setEditingReceipt] = useState<EditableReceipt | null>(null);
   const [selectedUpiCandidate, setSelectedUpiCandidate] = useState<{
     receipt_no: number;
@@ -695,11 +697,7 @@ export default function TenantDeskPage({
     return `/l/${slug}/new-receipt?${params.toString()}`;
   };
 
-  const handleVacateSeat = async (receiptNo: number, isOverdue?: boolean) => {
-    const confirmMsg = isOverdue
-      ? "This student's subscription has expired. Vacating this seat will remove their overdue hold and make the seat GREEN (available) for new students.\n\nProceed?"
-      : "Are you sure you want to officially vacate this student and free the seat?";
-    if (!confirm(confirmMsg)) return;
+  const handleVacateSeat = async (receiptNo: number) => {
     setVacating(receiptNo);
     try {
       const res = await fetch("/api/receipts", {
@@ -719,6 +717,7 @@ export default function TenantDeskPage({
       alert(`Error: ${e.message || "Failed to vacate seat"}`);
     } finally {
       setVacating(null);
+      setVacateModalTarget(null);
     }
   };
 
@@ -1440,7 +1439,24 @@ export default function TenantDeskPage({
                             {/* Vacate */}
                             <button
                               disabled={vacating === r.receipt_no}
-                              onClick={() => handleVacateSeat(r.receipt_no, isOverdue)}
+                              onClick={() =>
+                                setVacateModalTarget({
+                                  receiptNo: r.receipt_no,
+                                  info: {
+                                    studentName: r.member?.name || "Student",
+                                    seatNumber: selected.seat_number,
+                                    studentPhone: r.member?.phone,
+                                    shiftLabel: getShiftDisplayLabel(
+                                      r.shift_type,
+                                      r.subscription_type,
+                                      settings?.shifts_config && settings.shifts_config.length > 0 ? settings.shifts_config : DEFAULT_SHIFTS
+                                    ),
+                                    daysOverdue: r.days_overdue,
+                                    amountPaid: r.amount_paid,
+                                    endDate: r.end_date,
+                                  },
+                                })
+                              }
                               className={`${
                                 isOverdue
                                   ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30"
@@ -1772,6 +1788,18 @@ export default function TenantDeskPage({
           </div>
         </div>
       )}
+      {/* Vacate Final Warning Confirmation Modal */}
+      <VacateConfirmModal
+        isOpen={!!vacateModalTarget}
+        onClose={() => setVacateModalTarget(null)}
+        isVacating={vacating !== null}
+        candidate={vacateModalTarget ? vacateModalTarget.info : null}
+        onConfirm={() => {
+          if (vacateModalTarget) {
+            handleVacateSeat(vacateModalTarget.receiptNo);
+          }
+        }}
+      />
     </div>
   );
 }

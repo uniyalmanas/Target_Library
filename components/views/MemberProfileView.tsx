@@ -7,6 +7,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getShiftDisplayLabel, sortShiftsChronologically } from "@/lib/shifts";
 import { DEFAULT_SHIFTS } from "@/lib/tenant";
+import VacateConfirmModal from "@/lib/VacateConfirmModal";
 
 export function MemberProfileContent({
   tenantSlug,
@@ -22,6 +23,7 @@ export function MemberProfileContent({
 
   const [data, setData] = useState<{ member: any; receipts: any[]; library?: any; settings?: any } | null>(null);
   const [vacating, setVacating] = useState(false);
+  const [showVacateModal, setShowVacateModal] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -82,7 +84,6 @@ export function MemberProfileContent({
   };
 
   const handleVacate = async (receipt_no: number) => {
-    if (!confirm("Are you sure you want to vacate this seat/shift early? This will make the seat available immediately.")) return;
     setVacating(true);
     try {
       const res = await fetch("/api/receipts", {
@@ -103,6 +104,7 @@ export function MemberProfileContent({
       alert(`Error vacating seat: ${err.message || "Unknown error"}`);
     } finally {
       setVacating(false);
+      setShowVacateModal(false);
     }
   };
 
@@ -216,7 +218,7 @@ export function MemberProfileContent({
             </Link>
             <button
               disabled={vacating}
-              onClick={() => handleVacate(activeReceipt.receipt_no)}
+              onClick={() => setShowVacateModal(true)}
               className="bg-panel-bg hover:bg-neutral-200 dark:hover:bg-neutral-800 text-text-muted hover:text-red-500 border border-card-border text-xs px-4 py-2 rounded-lg font-semibold transition-all duration-200 cursor-pointer disabled:opacity-50"
             >
               {vacating ? "Vacating..." : "Vacate Seat"}
@@ -265,6 +267,24 @@ export function MemberProfileContent({
           )}
         </div>
       </div>
+
+      {/* Vacate Final Warning Confirmation Modal */}
+      {activeReceipt && (
+        <VacateConfirmModal
+          isOpen={showVacateModal}
+          onClose={() => setShowVacateModal(false)}
+          isVacating={vacating}
+          candidate={{
+            studentName: member?.name || "Student",
+            seatNumber: activeReceipt.seats?.seat_number,
+            studentPhone: member?.phone,
+            shiftLabel: shiftLabel(activeReceipt.shift_type, activeReceipt.subscription_type),
+            amountPaid: activeReceipt.amount_paid,
+            endDate: activeReceipt.end_date,
+          }}
+          onConfirm={() => handleVacate(activeReceipt.receipt_no)}
+        />
+      )}
     </div>
   );
 }

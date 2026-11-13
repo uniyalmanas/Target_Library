@@ -9,6 +9,7 @@ import EditReceiptModal, { EditableReceipt } from "@/lib/EditReceiptModal";
 import { downloadCsv } from "@/lib/exportCsv";
 import { generateDueFeeWhatsAppMessage } from "@/lib/upi";
 import DynamicUpiModal from "@/lib/DynamicUpiModal";
+import VacateConfirmModal from "@/lib/VacateConfirmModal";
 import { ShiftConfig } from "@/lib/types";
 import { getShiftDisplayLabel, sortShiftsChronologically, getShiftNameWithTiming } from "@/lib/shifts";
 import { DEFAULT_SHIFTS } from "@/lib/tenant";
@@ -62,6 +63,7 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [vacatingId, setVacatingId] = useState<number | null>(null);
+  const [vacateCandidate, setVacateCandidate] = useState<DueCandidate | null>(null);
   const [editingReceipt, setEditingReceipt] = useState<EditableReceipt | null>(null);
 
   // Filters
@@ -125,9 +127,6 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
   };
 
   const handleVacate = async (candidate: DueCandidate) => {
-    const confirmMsg = `Are you sure you want to officially vacate Seat ${candidate.seat_number} for ${candidate.student_name}?\n\nThe seat will immediately turn GREEN and become available for new bookings.`;
-    if (!confirm(confirmMsg)) return;
-
     setVacatingId(candidate.receipt_no);
     try {
       const res = await fetch("/api/receipts", {
@@ -149,6 +148,7 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
       alert(`Error: ${err.message || "Failed to vacate seat"}`);
     } finally {
       setVacatingId(null);
+      setVacateCandidate(null);
     }
   };
 
@@ -592,7 +592,7 @@ export function DueFeesContent({ tenantSlug }: { tenantSlug?: string }) {
                           {/* Vacate Button */}
                           <button
                             disabled={vacatingId === c.receipt_no}
-                            onClick={() => handleVacate(c)}
+                            onClick={() => setVacateCandidate(c)}
                             className="px-2.5 py-1.5 rounded-lg bg-panel-bg hover:bg-rose-500/10 text-text-muted hover:text-rose-600 dark:hover:text-rose-400 border border-panel-border text-[11px] font-semibold transition-all cursor-pointer disabled:opacity-50"
                             title="Officially vacate seat and turn it green"
                           >
